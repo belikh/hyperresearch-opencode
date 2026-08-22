@@ -237,6 +237,12 @@ class VaultConfig:
     # Raw [profile.<name>] overlay tables, round-tripped verbatim on save()
     # so that saving config never destroys user-defined profiles.
     profile_overlays: dict[str, Any] = field(default_factory=dict)
+    # Delta vs upstream (P1-7): raw [models] role→model alias table,
+    # round-tripped verbatim on save() like profile_overlays. Consumed by
+    # core/profiles.resolve_profile as the middle layer of model resolution:
+    # profile-overlay `models` > [models] > inherit session model (see
+    # core.profiles.ModelMap).
+    model_overrides: dict[str, Any] = field(default_factory=dict)
 
     # Behavior settings sections
     fetch: FetchSettings = field(default_factory=FetchSettings)
@@ -288,6 +294,7 @@ class VaultConfig:
             web_magic=web.get("magic", cls.web_magic),
             pipeline_profile=pipeline.get("profile", cls.pipeline_profile),
             profile_overlays=data.get("profile", {}),
+            model_overrides=data.get("models", {}),
             fetch=_build_section(FetchSettings, data.get("fetch", {})),
             junk=_build_section(JunkGates, data.get("junk", {})),
             assets=_build_section(AssetSettings, data.get("assets", {})),
@@ -370,6 +377,11 @@ class VaultConfig:
             f"profile = {self._toml_value(self.pipeline_profile)}",
             "",
         ]
+        # Delta vs upstream (P1-7): round-trip the [models] alias table
+        # verbatim — dropping it on save would silently lose role pins.
+        if self.model_overrides:
+            lines += ["", "[models]"]
+            lines += [f"{k} = {self._toml_value(v)}" for k, v in self.model_overrides.items()]
         lines += self._section_lines("fetch", self.fetch)
         lines += self._section_lines("junk", self.junk)
         lines += self._section_lines("assets", self.assets)

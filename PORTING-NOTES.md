@@ -968,3 +968,177 @@ strict clean (39 source files). Offline proof above.
   v0.10.0 either; comment kept verbatim for the future hardening piece.
 - `enrich_note_file` consumers (research/repair/fetch_batch/mcp) listed
   above; `auto_tag`'s inline `import math` kept verbatim (loop-local).
+
+## P1-7 — Profiles/render/levers/templates machinery + indexgen (+ [models] alias table)
+
+Ported near-verbatim from upstream v0.10.0. Sources (6 files):
+`core/{profiles,render,levers,templates}.py` and
+`indexgen/{__init__,generator}.py`. Tests:
+`tests/test_core/{test_profiles,test_render,test_levers,test_prompt_golden,
+test_dissertation_profile,test_indexgen}.py` plus fixtures under
+`tests/fixtures/golden_prompts/**` and the P1-1-scheduled restoration in
+`test_config_sections.py`.
+
+### THE delta: `[models]` alias table + EMPTY-INHERIT ModelMap defaults
+
+Planner-decided default (this is the one behavioral change of the piece):
+
+- Upstream `ModelMap` shipped Claude-facing per-role pins (sonnet ×7 fetch/
+  verify-lane roles, opus ×6 drafting/critic roles). Our port's default alias
+  map is EMPTY-INHERIT: every ModelMap field defaults to `""`, and `""` means
+  "run this agent on the session model" — opencode agents inherit the session
+  model unless explicitly pinned. All 13 upstream role keys are still
+  recognized (`extra="forbid"` set unchanged), so upstream configs parse and
+  round-trip.
+- New vault-global alias table under `[models]` in `.hyperresearch/config.toml`
+  (`role = "model-or-alias"`). Resolution per role, most specific wins:
+  profile-overlay `models = { role = ... }` > `[models]` > inherit (`""`).
+  An explicit `""` in a profile overlay genuinely inherits even over a global
+  pin (dict merge is per key). Unknown role or non-string value anywhere in
+  either layer fails loudly through the existing `ProfileError("invalid
+  profile …")` wrapper.
+- `VaultConfig` gained `model_overrides: dict[str, Any]` (raw `[models]`
+  table) — loaded in `load()`, round-tripped verbatim by `save()` like
+  `profile_overlays`, so a config write never silently drops role pins.
+  This is a small scheduled extension of `core/config.py` ("profile/config/
+  render machinery" names config in the piece scope); no other config
+  behavior touched.
+
+Consequences folded into the ported tests (each marked "Delta vs upstream
+(P1-7)" in-source):
+
+- `test_profiles.py::TestBuiltins.test_full_matches_shipped_pipeline_values`
+  pins `models.fetcher == ""` / `models.synthesizer == ""` where upstream
+  pinned sonnet/opus.
+- `TestUserOverlay.test_models_overlay_swaps_one_agent` asserts unspecified
+  roles stay `""`.
+- Upstream `test_empty_model_assignment_rejected` was REPLACED by
+  `TestModelsAliasTable.test_explicit_empty_assignment_means_inherit`: `""`
+  was an error upstream; it is now the inherit sentinel. Whitespace-only
+  values normalize to `""`.
+- New `TestModelsAliasTable` (11 tests): cross-profile pinning, overlay-beats-
+  table precedence, unknown-role/non-string/non-table rejection, whitespace
+  normalization, VaultConfig save/load round-trip, empty-section tolerance.
+
+Everything else in profiles/render/levers/templates/indexgen is verbatim
+modulo strict-mypy annotations (table below).
+
+### Golden prompts: outcome (regenerated once, frozen)
+
+Policy applied literally: "if output matches upstream byte-for-byte, say so
+instead of regenerating."
+
+- Method: upstream's own template sources (the 8 skill .md files and the 10
+  agent constants in upstream `core/hooks.py`) were rendered through THIS
+  port's `build_render_context(None)`/`render_prompt` and diffed against
+  upstream's committed goldens. hooks.py was loaded BY FILE PATH purely as a
+  string container (all its hyperresearch imports are lazy); every
+  `hyperresearch.*` import resolved to the port tree (asserted in the script).
+  First attempt of this experiment was INVALID (reference tree prepended to
+  sys.path imported upstream's engine) and was discarded before any fixture
+  was written.
+- Result: **skills 8/8 BYTE-MATCH** — copied verbatim, zero regeneration,
+  zero deltas.
+- Agents: **exactly ONE line differs per file** — the `model:` frontmatter
+  line (`model: sonnet` / `model: opus` upstream vs `model: ` here). That is
+  solely the decided `[models]` empty-inherit default above. Per policy those
+  10 lines were regenerated once so the frozen fixtures equal current output
+  exactly:
+
+  golden delta: agent `model:` frontmatter lines empty (sonnet/opus → "") —
+  [models] empty-inherit default (see §P1-7 THE delta). Files:
+  browser_fetcher L12, cite_checker L11, depth_critic L9,
+  depth_investigator L11, dialectic_critic L9, instruction_critic L12,
+  loci_analyst L11, readability_reformatter L12, researcher L9, width_critic
+  L8. Post-regeneration re-run: 18/18 BYTE-MATCH.
+
+- Raw evidence: `evidence/p1-7/golden-model-line-deltas.txt` (pre-regen diff
+  vs upstream goldens) and `evidence/p1-7/golden-render-check.txt` (18/18
+  match against the frozen fixtures).
+
+### test_prompt_golden.py staged, not activated
+
+Every test in the file renders template sources owned by `core/hooks.py` +
+the `skills/` package — a later piece per PARITY §13–14 (PORT-ADAPT;
+opencode-facing variants land there, per plan). Following the P1-1 skip-
+in-place precedent: the file is byte-faithful except (a) the hooks imports
+are guarded try/except (same pattern as conftest's `_reset_render_state`),
+(b) a module-level `pytestmark = pytest.mark.skipif(not _HOOKS_AVAILABLE)`
+stages all 72 tests, (c) two import blocks re-ordered by `ruff --fix` (I001;
+our ruff sorts what upstream's didn't), (d) the module docstring documents
+the freeze + activation path. When the hooks piece lands its module, the
+tests activate UNCHANGED against the frozen fixtures — any drift then maps
+to that piece's own golden-delta lines. conftest needed no edit.
+
+### Test porting decisions (surveyed all of upstream tests/)
+
+- `test_render.py`: byte-identical copy (diff-verified); fully resolvable.
+- `test_profiles.py`: `TestBuiltins`/`TestUserOverlay`/`TestValidation` run
+  (with the ModelMap adaptations above + the new alias-table class);
+  `TestProfileCli` kept byte-faithful but skipped (needs the typer app +
+  tmp_vault CLI wiring — PARITY §15 piece restores verbatim).
+- `test_levers.py`: `TestCompose` runs unmodified. `TestRenderCli`/`TestVerifyGate`
+  need `core/runs.py` (`init_run`/`load_manifest`/`verify_run`) and the CLI
+  app — skipped via guarded `core.runs` import; bodies byte-faithful.
+  `levers.render_shims` keeps upstream's lazy `core.runs` import with a
+  self-cleaning `# type: ignore[import-untyped]` (P1-4 pattern): until runs
+  lands it raises ImportError AFTER writing the shim files; warn_unused_
+  ignores fails the gate when runs arrives, forcing removal.
+- `test_dissertation_profile.py`: `TestDissertationProfile` runs unmodified;
+  `TestLiteratureMatrix`/`TestTargetGrouping` skipped pending `core/claims.py`
+  (+ typer app for the matrix-file test); bodies byte-faithful behind a
+  guarded claims import.
+- Upstream ships NO indexgen tests anywhere (grep-verified; only consumers
+  are `cli/{index,repair,watch}.py`, later pieces). NEW
+  `tests/test_core/test_indexgen.py` (11 offline smoke tests) pins the
+  module against OUR Vault — page set, frontmatter/footer shape, stale-page
+  cleanup, 3+-note tag/month thresholds, orphan + most-linked logic, stats
+  tables — mirroring the P1-2 precedent of covering upstream-untested
+  modules at landing.
+- `test_config_sections.py`: restored the two assertions P1-1 deferred to
+  "the profiles piece" — the `resolve_profile` tail of
+  `test_overlays_survive_save` and `test_builtin_override_survives_save`,
+  both now byte-equal to upstream.
+
+### mypy --strict annotation deltas (zero logic changes)
+
+| File | Delta |
+|------|-------|
+| core/profiles.py | `_FULL/_LIGHT/_PREMIER/_DISSERTATION: dict` → `dict[str, Any]`; `BUILTIN_PROFILES: dict[str, dict]` → `dict[str, dict[str, Any]]`; `_load_user_overlays` return + local `out` parameterized |
+| core/render.py | `_dash`/`_hyphen` params annotated `tuple[int, int]` (jinja passes profile ranges) |
+| core/levers.py | TYPE_CHECKING `Vault` import; `vault` params annotated ×4; `_decomposition_path -> Path`; `validate_levers`/`_header`/`_domain_block`/`read_levers`/`set_levers` dict params/returns → `dict[str, Any]`; `compose_shims` already typed upstream; `written` annotated `list[str]`; lazy core.runs ignore (above) |
+| core/templates.py | `get_template`/`list_templates` dir param annotated `Path \| None` (upstream bare `None` default, unannotated); `templates: list[dict]` → `list[dict[str, str]]` |
+| indexgen/generator.py | TYPE_CHECKING `Vault` + module-level stdlib `sqlite3` (Row typing, annotation-only); constructor param annotated; `build_all`/`_write_index`/builders given explicit returns; bare `dict[str, list]`/locals parameterized (`sqlite3.Row`, `dict[str, int]`, `list[str]`) |
+| core/config.py | field only: `model_overrides: dict[str, Any]` + load/save lines (THE delta above) |
+
+Ruff: pyproject's pre-seeded per-file-ignores for profiles/render/
+test_render/test_prompt_golden (en-dash RUF001/RUF002 policy) covered this
+piece exactly as staged in P0-2; no lint-config changes.
+
+Result: **404 passed, 96 skipped**, ruff clean, `mypy src` strict clean
+(45 source files). Skip ledger: 6 pre-existing (2 agent-docs vault, 3
+crawl4ai fetch_settings, 1 stealth) + 72 golden-module staging + 5
+profile-CLI + 8 levers runs/CLI + 5 claims-dependent. Passed delta
++69 over P1-5's 335.
+
+### Out-of-scope imports discovered (feed later builders)
+
+- `core/hooks.py` + `hyperresearch/skills/**` (PARITY §13–14): own the
+  golden-test activation; templates must render against the frozen fixtures.
+  Note for that piece: with stock profiles, `<< p.models.X >>` renders ""
+  (empty-inherit) — its installer decides how opencode frontmaterializes
+  unset roles (omit line vs placeholder); any deviation from the frozen
+  goldens becomes its documented golden deltas.
+- `core/runs.py`: consumes levers' `RunError/_save/load_manifest/
+  record_event` tail (signatures used: `_save(vault, tag, manifest)`;
+  `record_event(vault, tag, dict)`; `load_manifest` raising `RunError` when
+  absent) AND owns the verify gate's `levers-rendered` check + `init_run`
+  used by the deferred lever tests.
+- `cli/levers_cmd.py` + `cli/profile_cmd.py`: wire compose/render/set and
+  profile show/list/validate/use; restore the five skipped profile-CLI tests
+  verbatim.
+- `core/claims.py`: restores the skipped matrix/grouping tests (also needs
+  `cli/claims_cmd.py` for the file-writing variant).
+- `cli/{index,repair,watch}.py`: consume `IndexGenerator.build_all` /
+  single builders (lazy upstream); `VaultConfig.index_pages` lists the five
+  canonical page stems already built here.

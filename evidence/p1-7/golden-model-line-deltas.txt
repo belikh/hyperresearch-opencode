@@ -1,0 +1,38 @@
+skills/hyperresearch: BYTE-MATCH
+skills/hyperresearch-2-width-sweep: BYTE-MATCH
+skills/hyperresearch-4-loci-analysis: BYTE-MATCH
+skills/hyperresearch-5-depth-investigation: BYTE-MATCH
+skills/hyperresearch-9-evidence-digest: BYTE-MATCH
+skills/hyperresearch-10-triple-draft: BYTE-MATCH
+skills/hyperresearch-13-gap-fetch: BYTE-MATCH
+skills/hyperresearch-16-readability-audit: BYTE-MATCH
+agents/dialectic_critic_agent: DIFF 1 line(s)
+   L9 golden: 'model: opus'
+   L9 ours  : 'model: '
+agents/depth_critic_agent: DIFF 1 line(s)
+   L9 golden: 'model: opus'
+   L9 ours  : 'model: '
+agents/width_critic_agent: DIFF 1 line(s)
+   L8 golden: 'model: opus'
+   L8 ours  : 'model: '
+agents/instruction_critic_agent: DIFF 1 line(s)
+   L12 golden: 'model: opus'
+   L12 ours  : 'model: '
+agents/readability_reformatter_agent: DIFF 1 line(s)
+   L12 golden: 'model: opus'
+   L12 ours  : 'model: '
+agents/researcher_agent: DIFF 1 line(s)
+   L9 golden: 'model: sonnet'
+   L9 ours  : 'model: '
+agents/depth_investigator_agent: DIFF 1 line(s)
+   L11 golden: 'model: sonnet'
+   L11 ours  : 'model: '
+agents/loci_analyst_agent: DIFF 1 line(s)
+   L11 golden: 'model: sonnet'
+   L11 ours  : 'model: '
+agents/browser_fetcher_agent: DIFF 1 line(s)
+   L12 golden: 'model: sonnet'
+   L12 ours  : 'model: '
+agents/cite_checker_agent: DIFF 1 line(s)
+   L11 golden: 'model: sonnet'
+   L11 ours  : 'model: '

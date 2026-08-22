@@ -186,16 +186,32 @@ class TestProfileOverlayRoundtrip:
         assert "megareview" in cfg.profile_overlays
         cfg.save(p)
 
-        # The overlay must still parse as valid TOML and round-trip verbatim.
-        # Delta vs upstream: upstream also resolved the overlay via
-        # core.profiles.resolve_profile here; that module is out of scope for
-        # P1-1 — the resolution assertions return with the profiles piece
-        # (upstream lines 193-201).
+        # The overlay must still parse as valid TOML and round-trip verbatim,
+        # then RESOLVE as a valid profile. (Resolution tail restored by P1-7
+        # per P1-1's deferral note — core.profiles exists since this piece.)
         reloaded = VaultConfig.load(p)
         assert reloaded.profile_overlays == cfg.profile_overlays
 
-    # Delta vs upstream: test_builtin_override_survives_save removed — it only
-    # asserts via core.profiles.resolve_profile (out of scope for P1-1).
+        from hyperresearch.core.profiles import resolve_profile
+
+        prof = resolve_profile("megareview", p)
+        assert prof.source_min == 250
+        assert prof.source_target == (300, 450)
+        assert prof.depth_budget_brackets == ((35, 20), (0, 5))
+        assert prof.must_read["argumentative"] == (50, 70)
+        assert prof.utility_scoring is False
+        assert prof.time_estimate == "~4 hours"
+
+    # Restored by P1-7 from upstream (was deferred to the profiles piece):
+    def test_builtin_override_survives_save(self, tmp_path: Path):
+        p = tmp_path / "config.toml"
+        p.write_text("[profile.full]\nsource_min = 60\n", encoding="utf-8")
+        cfg = VaultConfig.load(p)
+        cfg.save(p)
+
+        from hyperresearch.core.profiles import resolve_profile
+
+        assert resolve_profile("full", p).source_min == 60
 
 
 # Delta vs upstream: TestGateThreading removed wholesale — every test builds a
