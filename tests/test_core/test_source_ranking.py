@@ -1,14 +1,13 @@
-"""Phase-2 source-ranking tests: schema v9, PageRank, quality composite.
+"""Phase-2 source-ranking tests: schema v9, DOI capture, PageRank, quality.
 
 Delta vs upstream: split out of upstream tests/test_core/test_source_ranking.py
-(P1-3 port). Only the classes whose imports resolve in the current tree are
-ported, byte-identical; the rest of the upstream file waits on later pieces:
+(P1-3 port; TestDoiExtraction and the FTS half of TestRankedSearch backfilled
+in P1-5 once their imports resolved). Every class present is byte-identical to
+upstream. Still deferred with its owner:
 
-  - TestDoiExtraction -> hyperresearch.core.scholar.extract_doi (P1-5)
-  - TestRankedSearch  -> hyperresearch.search.fts + cli app (search/CLI pieces)
-
-TestSchemaV9's imports all resolve today (db/migrations/note/sync landed in
-P1-1), so it travels with this file rather than waiting for P1-5.
+  - TestRankedSearch.test_search_cli_ranked_flag -> hyperresearch.cli app
+    (CLI piece); its sibling test_quality_reorders_equal_relevance needs only
+    search.fts (P1-2) and landed here in P1-5.
 """
 
 from __future__ import annotations
@@ -16,6 +15,7 @@ from __future__ import annotations
 from hyperresearch.core.config import RankingSettings
 from hyperresearch.core.graphrank import compute_centrality, pagerank
 from hyperresearch.core.quality import compute_quality_for_row, compute_quality_scores
+from hyperresearch.core.scholar import extract_doi
 
 
 class TestSchemaV9:
@@ -92,6 +92,29 @@ class TestSchemaV9:
         assert row["centrality_score"] == 0.5
 
 
+class TestDoiExtraction:
+    def test_doi_org_url(self):
+        assert extract_doi("https://doi.org/10.1038/s41586-024-0001-2") == "10.1038/s41586-024-0001-2"
+
+    def test_arxiv_abs_and_pdf(self):
+        assert extract_doi("https://arxiv.org/abs/2501.01234") == "arXiv:2501.01234"
+        assert extract_doi("https://arxiv.org/pdf/2501.01234v2") == "arXiv:2501.01234v2"
+
+    def test_citation_meta_tag(self):
+        html = '<head><meta name="citation_doi" content="10.1145/3576915.3616613"></head>'
+        assert extract_doi("https://example.com/paper", raw_html=html) == "10.1145/3576915.3616613"
+
+    def test_body_doi_marker(self):
+        body = "Published in Nature. DOI: 10.1038/nphys1170 (2024)."
+        assert extract_doi("https://example.com/x", content=body) == "10.1038/nphys1170"
+
+    def test_no_doi(self):
+        assert extract_doi("https://example.com/blog-post", content="just a blog") is None
+
+    def test_trailing_punctuation_stripped(self):
+        assert extract_doi("https://x.com", content="see DOI: 10.1000/xyz123.") == "10.1000/xyz123"
+
+
 class TestPageRank:
     def test_hub_ranks_highest(self):
         nodes = ["hub", "a", "b", "c"]
@@ -154,3 +177,24 @@ class TestQualityComposite:
             for r in conn.execute("SELECT id, quality_score FROM notes")
         }
         assert rows["concurrency"] > rows["orphan-note"]
+
+
+class TestRankedSearch:
+    def test_quality_reorders_equal_relevance(self, seeded_vault):
+        from hyperresearch.search.fts import search_fts
+
+        conn = seeded_vault.db
+        # Two notes both matching "concurrency"; give one a high and one a low quality
+        conn.execute("UPDATE notes SET quality_score = 0.95 WHERE id = 'rust-ownership'")
+        conn.execute("UPDATE notes SET quality_score = 0.05 WHERE id = 'python-async-patterns'")
+        conn.commit()
+
+        plain = search_fts(conn, "concurrency", ranking={})
+        ranked = search_fts(conn, "concurrency", ranking={}, quality_ranked=True)
+        ids_ranked = [r["id"] for r in ranked]
+        assert ids_ranked.index("rust-ownership") < ids_ranked.index("python-async-patterns")
+        # Default search unchanged: quality did not affect the plain ordering
+        assert [r["id"] for r in plain] != ids_ranked or plain != ranked
+
+    # Delta vs upstream: TestRankedSearch.test_search_cli_ranked_flag stays
+    # deferred with the CLI piece — it invokes the typer app (`hyperresearch.cli`).

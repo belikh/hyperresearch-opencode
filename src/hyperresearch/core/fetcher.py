@@ -108,7 +108,9 @@ def fetch_and_save(
     if result.metadata.get("author"):
         extra_meta["author"] = result.metadata["author"]
 
-    from hyperresearch.core.scholar import extract_doi  # type: ignore[import-untyped]  # P1-5
+    # P1-5: hyperresearch.core.scholar exists; the P1-4-era
+    # `# type: ignore[import-untyped]` was removed with its piece per plan.
+    from hyperresearch.core.scholar import extract_doi
 
     detected_doi = extract_doi(url, result.raw_html, result.content)
     if detected_doi:

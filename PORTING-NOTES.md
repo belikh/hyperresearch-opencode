@@ -831,3 +831,140 @@ naive AST call-name collection (it sees the two `re.compile()` calls);
 identical on HEAD BEFORE these changes, and its substantive assertion
 (`payload_inside_fence=True`) passes pre and post. Filed weak spots W1/W3/
 W5/W6 remain FILED, NOT fixed.
+
+## P1-5 — Open-access recovery + scholar enrichment
+
+Ported near-verbatim from upstream v0.10.0. Sources (3 files):
+`core/{oa,enrich,scholar}.py`. Tests: two new files byte-identical to
+upstream (`tests/test_core/test_oa_recovery.py` — 61 tests,
+`tests/test_core/test_scholar_enrichment.py` — 10 tests) plus the scheduled
+backfill into `tests/test_core/test_source_ranking.py` (below).
+
+### Composition with web/base.py (P1-4): verified, zero web/* changes
+
+Every touchpoint lines up with what P1-4 landed; nothing under `web/` was
+modified:
+
+- `oa._fetch_jats` constructs `WebResult(url=..., title=..., content=...)`
+  lazily inside the function — matches our base.py signature.
+- `needs_oa_recovery` reads `result.raw_content_type` / `result.content` —
+  present on our WebResult.
+- `_try_candidates` gates candidates with
+  `recovered.looks_like_junk(vault.config.junk)` (`str | None` contract) and
+  routes PDFs through `web.crawl4ai_provider._fetch_pdf(url,
+  vault.config.fetch)` — exists since P1-4 with exactly that shape.
+- No signature mismatch appeared; the "fix on our side if trivially
+  mechanical" branch was never needed.
+
+### The one cross-file delta: fetcher.py forward-reference retired
+
+P1-4 left `from hyperresearch.core.scholar import extract_doi # type:
+ignore[import-untyped]` on `fetch_and_save`'s MAIN path, explicitly "marked
+for removal with its piece". With scholar.py real, strict mode's
+warn_unused_ignores fails the mypy gate, so the ignore comment was dropped
+(the import itself is unchanged). Honesty note: `core/fetcher.py` is outside
+this piece's file ownership grant. This is recorded as the single deliberate
+exception — it is precisely the cleanup P1-4's note scheduled for P1-5,
+purely mechanical (comment removal, zero behavior change), and unavoidable
+for a green mypy gate. The two remaining forward-references
+(`core.escalation.maybe_enqueue_blocked_fetch`, `cli.fetch._save_assets`)
+keep their ignores until their pieces land.
+
+### mypy --strict annotation deltas (zero logic changes)
+
+Diff-audited line-by-line against upstream; every delta below is an added
+annotation/import or typed local, each marked "Delta vs upstream" in-source:
+
+| File | Delta |
+|------|-------|
+| core/scholar.py | `_http_get_json`/`_fetch_json`/`lookup_metadata` return `dict \| None` → `dict[str, Any] \| None`; `conn` params → `sqlite3.Connection` (module-level sqlite3 import, annotation-only); `backfill_dois`/`score_sources` take `vault: Vault` (module-level Vault import — no cycle: vault imports neither); `params: tuple` → `tuple[str, ...]` ×2; `resp.json()` / `json.loads(...)` bound to typed locals before return (strict `no-any-return`); `score_sources -> dict` → `dict[str, Any]` |
+| core/oa.py | TYPE_CHECKING block (Iterator/sqlite3/ET/ScholarSettings/Vault/WebResult — all annotation-only; runtime imports stay lazy exactly as upstream); `needs_oa_recovery(result, settings)` annotated `WebResult`/`ScholarSettings`; `conn` params typed throughout; generator returns → `Iterator[OALocation]`; bare `list[dict]`/`dict` parameterized ×4; inner `walk`s annotated; `oa_frontmatter -> dict[str, str]`; `_fetch_jats -> WebResult \| None`; `_try_candidates`/`recover_full_text`/`rescue_full_text` fully annotated with `prov: Any` (duck-typed `.fetch` provider; real provider typing arrives with the CLI piece); getaddrinfo address coerced `str(info[4][0])` (typeshed types it `str \| int`; runtime identical) |
+| core/enrich.py | `existing_tags: list[dict]` → `list[dict[str, Any]]`; `scored = []` annotated `list[tuple[str, float]]`; adds `Any` import |
+
+### No-network audit — every path offline by stubbing, then proven empirically
+
+All HTTP/DNS in the new tests is stubbed at the seams upstream designed for
+exactly this:
+
+- **JSON APIs** (Unpaywall `/v2/{doi}?email=`, Europe PMC
+  `/search?query=DOI:"..."`, OpenAlex, Semantic Scholar): tests monkeypatch
+  `scholar._http_get_json` with per-URL-substring canned responses
+  (`_stub_http` / `_stub_openalex` helpers record call URLs for assertions).
+- **DNS**: the `public_dns` fixture monkeypatches `oa.socket.getaddrinfo` to
+  hand back a public address; per-test variants return link-local
+  169.254.169.254, loopback, or raise OSError. Non-HTTP-scheme /
+  credential-embedded / bare-hostname cases reject BEFORE any resolution.
+- **JATS full text**: `oa._http_get_text` monkeypatched (canned XML or None).
+- **PDF lane**: `crawl4ai_provider._fetch_pdf` monkeypatched at module level —
+  importable without the crawl4ai extra thanks to P1-4's lazy imports, so the
+  PDF recovery paths RUN here rather than skip.
+- **Landing-page lane**: a duck-typed `FakeProvider.fetch`.
+
+Empirical proof: all 93 new/backfilled tests were run inside `unshare -rn`
+(user+network namespace), after verifying in that same namespace that
+networking is unreachable (`urllib.request.urlopen('https://api.openalex.org')`
+→ `URLError: Network is unreachable`). Result: 93 passed offline.
+
+Unpaywall/EuropePMC paths exercised offline: Unpaywall `is_oa` true/false;
+`best_oa_location` first + dedup against `oa_locations`; version ranking
+(published > accepted > submitted, unknown last); PDF-beats-better-version
+rule; landing-page fallback when no `url_for_pdf` anywhere; closed-access
+fall-through to Europe PMC; arXiv ids declined outright. Europe PMC:
+`isOpenAccess=Y/N` gating, pmcid required, `fullTextXML` URL construction,
+JATS→markdown parsing (title/abstract/nested-section headings/xref tails kept
+without eating sentences/back-matter dropped/figure captions/list items/
+unparseable+empty → None). Orchestration: never-shrink bar,
+`oa_min_full_text_chars` floor rejecting repository record pages, junk-gate
+rejection, per-candidate fall-through on None AND on raise, attempt cap,
+SSRF refusal before fetch, disabled-config no-ops, rescue path incl. its
+independent `oa_rescue_blocked` switch. Disclosure: substitution vs rescue
+banners (rescue asserts NOTHING came from source; multi-line reasons stay
+inside the blockquote via `_one_line`), version-of-record quoting warning,
+`oa_*` frontmatter shape incl. `kind="rescued"`.
+
+### Test porting decisions
+
+- `tests/test_core/test_oa_recovery.py`,
+  `tests/test_core/test_scholar_enrichment.py`: byte-identical to upstream
+  (diff-verified).
+- `tests/test_core/test_source_ranking.py` backfill: module-level
+  `from hyperresearch.core.scholar import extract_doi` added (upstream
+  position); TestDoiExtraction taken whole, verbatim, at its upstream slot
+  between TestSchemaV9 and TestPageRank; TestRankedSearch taken with only
+  `test_quality_reorders_equal_relevance` — it needs just
+  `search_fts(quality_ranked=...)`, resolvable since P1-2 (P1-2's notes named
+  it for exactly this backfill). Its sibling `test_search_cli_ranked_flag`
+  stays deferred with the CLI piece (typer app). Pre-existing classes
+  untouched (diff-verified region TestSchemaV9..TestDoiExtraction boundary).
+
+### enrich.py ships with no upstream tests
+
+Verified by grep over upstream tests/: there is NO test file exercising
+`auto_tag`/`auto_summary`/`enrich_note_file` (test_scholar_enrichment.py
+tests scholar.score_sources despite the name). Consumers are
+`cli/research.py`, `cli/repair.py`, `cli/fetch_batch.py`, `mcp/server.py` —
+all lazy imports, none wired here. Nothing to skip or defer; the test window
+opens with those pieces.
+
+Result: 335 passed, 6 skipped (unchanged skips), ruff clean, `mypy src`
+strict clean (39 source files). Offline proof above.
+
+### Out-of-scope imports discovered (feed later builders)
+
+- OA orchestration consumers are `cli/fetch.py` (rescue at :332, recover at
+  :418, banner/frontmatter emission) and `cli/fetch_batch.py` (:166/:197/:220)
+  — both lazy-import `recover_full_text`/`rescue_full_text`/
+  `recovery_notice`/`oa_frontmatter`; the fetch CLI pieces must reproduce
+  those call shapes (incl. `blocked_reason=` wording and original-chars
+  accounting).
+- `cli/sources.py` consumes `score_sources`/`backfill_dois` (lazy) — sources
+  CLI piece gets them ready-made with full offline coverage.
+- `core/scholar.extract_doi` on fetcher's main path is NOW live end-to-end
+  (fetch_and_save imports it unguarded since the ignore removal); upstream
+  ships no direct fetcher tests (grep-verified in P1-4), so no test debt
+  moved — the fetch CLI's e2e tests remain with their owner.
+- oa.py docstring references `web.safe_http.check_url` (PR #53) as a future
+  collapse target for `check_oa_url` — that module does not exist in upstream
+  v0.10.0 either; comment kept verbatim for the future hardening piece.
+- `enrich_note_file` consumers (research/repair/fetch_batch/mcp) listed
+  above; `auto_tag`'s inline `import math` kept verbatim (loop-local).
