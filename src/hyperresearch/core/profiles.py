@@ -29,7 +29,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 Range = tuple[int, int]
 
@@ -189,6 +189,33 @@ class Profile(BaseModel):
         low, high = v
         if low > high:
             raise ValueError(f"range low {low} > high {high}")
+        return v
+
+    # P1-7 remediation (D2): the dict-of-Range fields slipped through
+    # _range_ordered — an inverted entry like word_targets={short=[9000, 200]}
+    # sailed into prompts. Same rule, per entry, with the key named.
+    @field_validator(
+        "must_read", "word_targets", "char_targets_no_word_boundary", "citation_totals"
+    )
+    @classmethod
+    def _dict_ranges_ordered(cls, v: dict[str, Range]) -> dict[str, Range]:
+        for key, rng in v.items():
+            low, high = rng
+            if low > high:
+                raise ValueError(f"range '{key}' low {low} > high {high}")
+        return v
+
+    # P1-7 remediation (D3): every numeric knob is a count, budget, threshold,
+    # interval, or ratio — negative is meaningless in every one of those roles.
+    # Upstream semantics checked first: zero IS load-bearing and stays legal
+    # (chapters == (0, 0) means unchaptered; depth_budget_brackets bottom out
+    # at score threshold 0; a zero interval/cap means off/always), and no
+    # shipped upstream value anywhere is negative. Bools are ints to Python;
+    # they are exempt.
+    @field_validator("*")
+    @classmethod
+    def _knobs_non_negative(cls, v: Any, info: ValidationInfo) -> Any:
+        _reject_negative(str(info.field_name), v)
         return v
 
     @field_validator("steps")
@@ -386,6 +413,26 @@ class ProfileError(Exception):
     """Raised for unknown profiles or invalid profile definitions."""
 
 
+def _reject_negative(field: str, value: Any) -> None:
+    """Raise ValueError naming the first negative number found under `value`.
+
+    Walks scalars, tuples (ranges, bracket rows), and dicts (word_targets,
+    critic_finding_caps, ...) so the error names the offending key path, e.g.
+    ``critic_finding_caps['dialectic'] must be non-negative (got -3)``.
+    """
+    if isinstance(value, bool):  # bool is an int subclass — exempt
+        return
+    if isinstance(value, (int, float)):
+        if value < 0:
+            raise ValueError(f"{field} must be non-negative (got {value})")
+    elif isinstance(value, tuple):
+        for i, item in enumerate(value):
+            _reject_negative(f"{field}[{i}]", item)
+    elif isinstance(value, dict):
+        for k, item in value.items():
+            _reject_negative(f"{field}[{k!r}]", item)
+
+
 def _load_user_overlays(config_path: Path | None) -> dict[str, dict[str, Any]]:
     """Read `[profile.<name>]` tables from a config.toml. Missing file → {}."""
     if config_path is None or not config_path.exists():
@@ -464,7 +511,19 @@ def resolve_profile(name: str, config_path: Path | None = None) -> Profile:
         merged["extends"] = overlays[name].get("extends", "full")
     # Delta vs upstream (P1-7): [models] sits under the profile's own
     # `models` overlay — per-role, most specific wins.
-    merged["models"] = {**_load_model_aliases(config_path), **overlay.get("models", {})}
+    #
+    # P1-7 remediation (D1): a non-table overlay value (models = "haiku")
+    # reached the dict-unpack below and raised a bare TypeError OUTSIDE the
+    # ProfileError wrapper around the model validation. Validate the shape
+    # here so it fails with the module's error contract instead. (Upstream
+    # wraps this same case.)
+    profile_models = overlay.get("models", {})
+    if not isinstance(profile_models, dict):
+        raise ProfileError(
+            f"profile '{name}': models overlay must be a table of "
+            f"role = model assignments, got {type(profile_models).__name__}"
+        )
+    merged["models"] = {**_load_model_aliases(config_path), **profile_models}
 
     try:
         return Profile(**merged)

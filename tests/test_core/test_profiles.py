@@ -354,6 +354,87 @@ class TestValidation:
             resolve_profile("full", cfg)
 
 
+class TestP17Remediation:
+    """P1-7 remediation regressions (evidence/gauntlet/P1-7-verdict-r1.md).
+
+    D1 non-table `models` overlay escaped the ProfileError wrapper; D2 ordering
+    validation missed the dict-of-Range fields; D3 no non-negativity check on
+    scalar knobs. Each test here failed against pre-fix code (falsification
+    round captured in PORTING-NOTES.md §P1-7 remediation).
+    """
+
+    def _write(self, tmp_path: Path, body: str) -> Path:
+        p = tmp_path / "config.toml"
+        p.write_text(body, encoding="utf-8")
+        return p
+
+    # -- D1: non-table models overlay -------------------------------------
+
+    @pytest.mark.parametrize("bad", ['"haiku"', "5", "true", "[1, 2]"])
+    def test_non_table_models_overlay_rejected_as_profile_error(
+        self, tmp_path: Path, bad: str
+    ):
+        cfg = self._write(tmp_path, f"[profile.full]\nmodels = {bad}\n")
+        with pytest.raises(ProfileError, match=r"models.*must be a table"):
+            resolve_profile("full", cfg)
+
+    # -- D2: dict-of-Range fields must be ordered per entry ---------------
+
+    @pytest.mark.parametrize(
+        ("field", "key"),
+        [
+            ("must_read", "short"),
+            ("word_targets", "short"),
+            ("char_targets_no_word_boundary", "structured"),
+            ("citation_totals", "argumentative"),
+        ],
+    )
+    def test_inverted_dict_range_rejected(self, tmp_path: Path, field: str, key: str):
+        cfg = self._write(tmp_path, f"[profile.full]\n{field} = {{ {key} = [9000, 200] }}\n")
+        with pytest.raises(ProfileError, match=f"'{key}'.*low 9000 > high 200"):
+            resolve_profile("full", cfg)
+
+    # -- D3: scalar knobs must be non-negative ----------------------------
+
+    def test_negative_scalar_knob_rejected(self, tmp_path: Path):
+        cfg = self._write(tmp_path, "[profile.full]\nsource_min = -5\n")
+        with pytest.raises(ProfileError, match=r"source_min.*non-negative"):
+            resolve_profile("full", cfg)
+
+    def test_negative_cap_value_rejected(self, tmp_path: Path):
+        cfg = self._write(
+            tmp_path, "[profile.full]\ncritic_finding_caps = { dialectic = -3 }\n"
+        )
+        with pytest.raises(ProfileError, match="non-negative"):
+            resolve_profile("full", cfg)
+
+    def test_negative_range_element_rejected(self, tmp_path: Path):
+        cfg = self._write(tmp_path, "[profile.full]\nsource_target = [-10, 20]\n")
+        with pytest.raises(ProfileError, match="non-negative"):
+            resolve_profile("full", cfg)
+
+    def test_negative_float_knob_rejected(self, tmp_path: Path):
+        cfg = self._write(tmp_path, "[profile.full]\nwave_done_ratio = -0.5\n")
+        with pytest.raises(ProfileError, match=r"wave_done_ratio.*non-negative"):
+            resolve_profile("full", cfg)
+
+    def test_zero_stays_legal_where_designed(self, tmp_path: Path):
+        # Upstream semantics check: zero is load-bearing in three places —
+        # chapters == (0, 0) means UNCHAPTERED, depth_budget_brackets bottom
+        # out at score threshold 0, and a 0 interval/cap means "off"/"always".
+        # No knob anywhere in upstream V8 values is negative by design.
+        cfg = self._write(
+            tmp_path,
+            "[profile.full]\nvault_check_interval_s = 0\n"
+            "depth_budget_brackets = [[30, 15], [0, 3]]\n"
+            "chapters = [0, 0]\n",
+        )
+        p = resolve_profile("full", cfg)
+        assert p.vault_check_interval_s == 0
+        assert p.depth_budget_brackets == ((30, 15), (0, 3))
+        assert p.chapters == (0, 0)
+
+
 @pytest.mark.skip(reason="hpr profile CLI lands with the CLI piece (PARITY §15); restore these five tests verbatim then")
 class TestProfileCli:
     def test_profile_show_json(self, tmp_vault, monkeypatch):

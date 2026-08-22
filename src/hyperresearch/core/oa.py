@@ -48,6 +48,7 @@ table and re-running a vault is cheap and offline-friendly. Tests monkeypatch
 from __future__ import annotations
 
 import ipaddress
+import logging
 import socket
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any  # Delta vs upstream: TYPE_CHECKING/Any for strict mypy.
@@ -354,19 +355,34 @@ def _http_get_text(url: str) -> str | None:
     Isolated so tests can monkeypatch it, mirroring `scholar._http_get_json`.
     Deliberately NOT routed through `api_cache`: that table is for small JSON
     metadata, and the note itself is the cache for full text.
+
+    P1-5 hardening (twin-site closure, filed in the P1-4 sweep): routes
+    through `web._netguard.guarded_get` so the start URL AND every redirect
+    hop are validated against internal infrastructure — the old
+    `follow_redirects=True` call followed a poisoned Location header without
+    re-checking it. check_oa_url gates candidate URLs before this lane runs,
+    but only for its initial address; redirects were previously unchecked.
     """
-    import httpx
+    from hyperresearch.web._netguard import UnsafeUrlError, guarded_get
 
     try:
-        resp = httpx.get(
+        resp = guarded_get(
             url,
-            follow_redirects=True,
             timeout=60,
             headers={"User-Agent": "hyperresearch (mailto:research@example.com)"},
         )
         if resp.status_code != 200:
             return None
-        return resp.text
+        # Delta vs upstream (strict mypy): guarded_get is typed `-> Any` to stay
+        # decoupled from the httpx Response type; bind `.text` so the declared
+        # return type holds.
+        text: str = resp.text
+        return text
+    except UnsafeUrlError as e:
+        logging.getLogger(__name__).warning(
+            "blocked by SSRF guard while fetching %s: %s", url, e
+        )
+        return None
     except Exception:
         return None
 

@@ -641,3 +641,128 @@ class TestConfigSection:
         assert "REQUIRED by Unpaywall" in text
         assert "legal open-access copy" in text
         assert "oa_url" in text
+
+
+# ---------------------------------------------------------------------------
+# P1-5 hardening — twin-site SSRF closure (oa._http_get_text lane)
+#
+# Pre-fix, this lane called httpx.get(follow_redirects=True) with only the
+# check_oa_url initial gate upstream of it: a poisoned Location header hopped
+# straight into internal infrastructure with no re-validation. Mirrors
+# tests/test_web/test_ssrf_guard.py patterns; fully offline (DNS + httpx
+# stubbed).
+# ---------------------------------------------------------------------------
+
+
+class _Resp:
+    """Minimal httpx.Response stand-in (same shape as test_ssrf_guard's)."""
+
+    def __init__(self, url: str, status_code: int = 200, headers: dict | None = None,
+                 text: str = ""):
+        self.url = url
+        self.status_code = status_code
+        self.headers = headers or {}
+        self._text = text
+
+    @property
+    def text(self) -> str:
+        return self._text
+
+
+def _info(addr: str):
+    """A getaddrinfo result tuple shaped like the real thing."""
+    if ":" in addr:
+        return (10, 1, 6, "", (addr, 0, 0, 0))
+    return (2, 1, 6, "", (addr, 0))
+
+
+@pytest.fixture
+def guarded_httpx(monkeypatch):
+    """Script httpx.get responses for _netguard.guarded_get; records calls.
+
+    Asserts follow_redirects=False on every call — manual hop validation is
+    the whole point of the fix.
+    """
+    calls: list[str] = []
+    script: list[_Resp] = []
+
+    def fake_get(url, **kwargs):
+        calls.append(str(url))
+        assert kwargs.get("follow_redirects") is False, "redirects must be manual"
+        if not script:
+            pytest.fail(f"unexpected httpx request to {url}")
+        return script.pop(0)
+
+    monkeypatch.setattr("httpx.get", fake_get)
+
+    class _Stub:
+        @property
+        def calls(self) -> list[str]:
+            return calls
+
+        def enqueue(self, *responses: _Resp) -> None:
+            script.extend(responses)
+
+    return _Stub()
+
+
+class TestHttpTextSsrfGuard:
+    def test_loopback_start_never_requested(self, monkeypatch, guarded_httpx, caplog):
+        from hyperresearch.web import _netguard
+
+        monkeypatch.setattr(
+            _netguard.socket, "getaddrinfo", lambda host, port: [_info("127.0.0.1")]
+        )
+
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            assert oa._http_get_text("http://127.0.0.1:8000/paper/fullTextXML") is None
+
+        assert "blocked by SSRF guard" in caplog.text
+        assert "loopback" in caplog.text
+        assert guarded_httpx.calls == [], "nothing may be requested at a blocked URL"
+
+    def test_public_shaped_redirect_into_loopback_blocked(
+        self, monkeypatch, guarded_httpx, caplog
+    ):
+        """A JATS host answering 302 -> http://127.0.0.1/... must die at hop
+        validation, never at connect time."""
+        from hyperresearch.web import _netguard
+
+        table = {"127.0.0.1": "127.0.0.1"}
+
+        def fake(host, port):
+            return [_info(table.get(host, "93.184.216.34"))]
+
+        monkeypatch.setattr(_netguard.socket, "getaddrinfo", fake)
+        guarded_httpx.enqueue(
+            _Resp(
+                "https://epmc.example.org/PMC1/fullTextXML",
+                status_code=302,
+                headers={"location": "http://127.0.0.1/vault/salaries.xml"},
+            ),
+        )
+
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            assert (
+                oa._http_get_text("https://epmc.example.org/PMC1/fullTextXML") is None
+            )
+
+        assert "blocked by SSRF guard" in caplog.text
+        assert guarded_httpx.calls == ["https://epmc.example.org/PMC1/fullTextXML"], (
+            "the redirect target must be rejected BEFORE its request is issued"
+        )
+
+    def test_plain_failure_stays_soft(self, monkeypatch, guarded_httpx):
+        """Non-guard failures keep the module's every-failure-is-soft contract."""
+        from hyperresearch.web import _netguard
+
+        monkeypatch.setattr(
+            _netguard.socket, "getaddrinfo",
+            lambda host, port: [_info("93.184.216.34")],
+        )
+        guarded_httpx.enqueue(_Resp("https://epmc.example.org/x", status_code=500))
+        assert oa._http_get_text("https://epmc.example.org/x") is None

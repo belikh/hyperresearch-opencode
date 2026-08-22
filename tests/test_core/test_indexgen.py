@@ -6,9 +6,15 @@ cli/{index,repair,watch}.py, are later pieces). These offline smoke tests
 pin the module's engagement with OUR Vault (index_dir layout, page set,
 stale-page cleanup) so the CLI piece inherits a proven base, mirroring the
 P1-2 precedent of covering upstream-untested modules when they land.
+
+P1-7 remediation additions: TestTagSlugSafety + TestCrashSafeRebuild (D4)
+and TestInterpolationEscaping (D5) — all failed against pre-fix code.
 """
 
 from __future__ import annotations
+
+import pytest
+import yaml
 
 from hyperresearch.core.note import write_note
 from hyperresearch.core.sync import compute_sync_plan, execute_sync
@@ -111,3 +117,126 @@ class TestPageContents:
         # python-async-patterns is linked from rust-ownership and concurrency.
         assert "- [[python-async-patterns]]" in text
         assert "(2 inbound links)" in text
+
+
+def _three_tagged(tmp_vault, tag: str) -> None:
+    for i in range(3):
+        write_note(
+            tmp_vault.notes_dir,
+            f"{tag} Note {i}",
+            body=f"Body {i} with [[anchor-{i}]].\n",
+            tags=[tag],
+        )
+    _resync(tmp_vault)
+
+
+class TestTagSlugSafety:
+    """P1-7 remediation D4: a tag containing '/' crashed build_all by turning
+    `_tag-{tag}.md` into a nested path whose parent does not exist."""
+
+    def test_slash_tag_builds_safe_flat_page(self, tmp_vault):
+        _three_tagged(tmp_vault, "ml/theory")
+        built = IndexGenerator(tmp_vault).build_all()
+        # Same slug rules as note IDs: 'ml/theory' -> 'mltheory'.
+        assert "index/_tag-mltheory.md" in built
+        page = tmp_vault.index_dir / "_tag-mltheory.md"
+        assert page.exists(), "per-tag page must land as a flat file"
+        tags_page = (tmp_vault.index_dir / "_tags.md").read_text(encoding="utf-8")
+        assert "[[_tag-mltheory]]" in tags_page
+        assert "_tag-ml/theory" not in tags_page, "unsanitized tag must not leak into links"
+
+    def test_slash_tag_creates_no_nested_directory(self, tmp_vault):
+        _three_tagged(tmp_vault, "ml/theory")
+        IndexGenerator(tmp_vault).build_all()
+        dirs = [p for p in tmp_vault.index_dir.iterdir() if p.is_dir()]
+        assert dirs == [], f"index_dir must stay flat, got {dirs}"
+
+
+class TestCrashSafeRebuild:
+    """P1-7 remediation D4: build_all unlinked every existing index page
+    BEFORE rendering the new ones, so any mid-build failure left the vault
+    indexless. Pages must now be fully rendered before anything is removed,
+    and surviving pages must never be unlinked at all."""
+
+    def test_failed_render_keeps_previous_generation(self, seeded_vault, monkeypatch):
+        IndexGenerator(seeded_vault).build_all()  # generation A on disk
+        before = {
+            page: (seeded_vault.index_dir / page).read_text(encoding="utf-8")
+            for page in CORE_PAGES
+        }
+
+        def explode(self):
+            raise RuntimeError("induced mid-build failure")
+
+        monkeypatch.setattr(IndexGenerator, "_build_stats", explode)
+        with pytest.raises(RuntimeError, match="induced"):
+            IndexGenerator(seeded_vault).build_all()
+
+        after = {
+            page: (seeded_vault.index_dir / page).read_text(encoding="utf-8")
+            for page in CORE_PAGES
+        }
+        assert before == after, "a failed rebuild must leave the old indexes untouched"
+
+    def test_successful_rebuild_still_removes_stale_pages(self, seeded_vault):
+        stale = seeded_vault.index_dir / "_retired-page.md"
+        seeded_vault.index_dir.mkdir(parents=True, exist_ok=True)
+        stale.write_text("obsolete\n", encoding="utf-8")
+        IndexGenerator(seeded_vault).build_all()
+        assert not stale.exists()
+
+
+class TestInterpolationEscaping:
+    """P1-7 remediation D5: titles/tags were interpolated raw into markdown
+    bullets and double-quoted YAML scalars — a newline or quote corrupted the
+    generated file's structure."""
+
+    def test_multiline_title_flattened_in_markdown_and_yaml(self, tmp_vault):
+        evil_title = "Real Title\ninjected: [oops](x)"
+        write_note(
+            tmp_vault.notes_dir,
+            evil_title,
+            body="Harmless body.\n",
+            summary="one line summary",
+        )
+        _resync(tmp_vault)
+        built = IndexGenerator(tmp_vault).build_all()
+        assert built  # generation completed without crashing
+
+        master = (tmp_vault.index_dir / "_index.md").read_text(encoding="utf-8")
+        fm = yaml.safe_load(master.split("---\n")[1])
+        # The PAGE's own frontmatter stays intact (constant title here; the
+        # note-title-in-frontmatter surface is covered by the quote-tag test
+        # below, whose per-tag page embeds the raw tag in its YAML title).
+        assert "\n" not in fm["title"]
+        assert fm["type"] == "index"
+
+        # Body bullet stays one line: the flattened title lands on the note's
+        # bullet, and the injected fragment never starts a line of its own.
+        bullets = [
+            line for line in master.splitlines() if "injected: [oops](x)" in line
+        ]
+        assert len(bullets) == 1, "flattened title must appear exactly once"
+        assert bullets[0].startswith("- [["), "title fragment must not start its own line"
+        assert "Real Title" in bullets[0]
+
+    def test_quote_tag_yields_parseable_frontmatter(self, tmp_vault):
+        _three_tagged(tmp_vault, 'say "hi"')
+        IndexGenerator(tmp_vault).build_all()
+
+        page = tmp_vault.index_dir / "_tag-say-hi.md"
+        assert page.exists()
+        data = yaml.safe_load(page.read_text(encoding="utf-8").split("---\n")[1])
+        assert data["title"] == 'Tag: say "hi"'
+        assert data["type"] == "index"
+
+        tags_page = (tmp_vault.index_dir / "_tags.md").read_text(encoding="utf-8")
+        assert yaml.safe_load(tags_page.split("---\n")[1])["title"] == "Tags Index"
+
+    def test_newline_tag_is_slugified_and_neutralized(self, tmp_vault):
+        _three_tagged(tmp_vault, "multi\nline")
+        built = IndexGenerator(tmp_vault).build_all()
+        # \n routes through slugify's whitespace rule -> 'multi-line'.
+        assert "index/_tag-multi-line.md" in built
+        for name in built:
+            assert "/" not in name.removeprefix("index/"), name

@@ -1090,6 +1090,40 @@ strict clean (39 source files). Offline proof above.
 - `enrich_note_file` consumers (research/repair/fetch_batch/mcp) listed
   above; `auto_tag`'s inline `import math` kept verbatim (loop-local).
 
+## P1-5 hardening — twin-site SSRF closure (ownership granted)
+
+Closes the two fixed-API-host fetch lanes and the one substring host
+classifier FILED by the P1-4 hardening twin sweep ("when ownership allows,
+route both through `_netguard.guarded_get`") — core/{oa,scholar}.py ownership
+granted with the P1-7 remediation wave. Both regressions were proven to FAIL
+against pre-fix code before the fix landed (pre-fix, the stubbed lanes issued
+`follow_redirects=True` requests and the spoofed hosts classified as
+DOI-bearing; 5 failed / 10 passed across the twin tests in the window).
+Patterns mirror tests/test_web/test_ssrf_guard.py; fully offline.
+
+- **`core/scholar.py::_http_get_json`** (OpenAlex/S2/Unpaywall/EPMC lookups)
+  now goes through `web._netguard.guarded_get`: start URL validated, then
+  every redirect hop re-validated (manual following, relative Locations
+  resolved per-hop, >5 hops rejected). `UnsafeUrlError` logs
+  `blocked by SSRF guard while fetching ...` at WARNING and returns None —
+  the module's every-failure-is-soft contract is unchanged.
+  Tests: test_scholar_enrichment.py::TestHttpGetJsonSsrfGuard::* (loopback
+  start never requested; public-shaped 302 → intranet.internal dies BEFORE its
+  request; success path unchanged).
+- **`core/oa.py::_http_get_text`** (Europe PMC JATS full text): same routing.
+  `check_oa_url` still gates candidate URLs up front, but only their initial
+  address — redirects were previously unchecked on this lane.
+  Tests: test_oa_recovery.py::TestHttpTextSsrfGuard::* .
+- **`core/scholar.py::extract_doi` doi.org classifier**: `"doi.org" in netloc`
+  substring replaced by exact/suffix match (`host == "doi.org" or
+  host.endswith(".doi.org")`, mirroring crawl4ai's `_on_arxiv_host`), so
+  `notdoi.org.evil.com` / `doi.org.evil.com` no longer route their PATH through
+  the DOI extractor. `parsed.hostname` (port-stripping, already lowercased)
+  replaces raw `netloc`.
+  Tests: test_scholar_enrichment.py::TestDoiHostExactMatch::* (spoofed
+  suffix/prefix rejected; real host, www subdomain, and :443 port still
+  classify).
+
 ## P1-7 — Profiles/render/levers/templates machinery + indexgen (+ [models] alias table)
 
 Ported near-verbatim from upstream v0.10.0. Sources (6 files):
@@ -1263,3 +1297,89 @@ profile-CLI + 8 levers runs/CLI + 5 claims-dependent. Passed delta
 - `cli/{index,repair,watch}.py`: consume `IndexGenerator.build_all` /
   single builders (lazy upstream); `VaultConfig.index_pages` lists the five
   canonical page stems already built here.
+
+## P1-7 remediation — gauntlet verdict-r1 defects D1–D6 fixed
+
+From `evidence/gauntlet/P1-7-verdict-r1.md`. D1 was OUR regression (the
+`[models]` layer added in the P1-7 port); D2–D6 were inherited verbatim from
+upstream v0.10.0 (diff-checked against the pinned reference tree). Disposition
+per verdict: all six fixed in-port as cheap correctness wins. Falsification
+discipline unchanged from prior waves: every regression test below FAILED
+against pre-fix code before the fix landed — 27 new tests / 27 pre-fix
+failures in the window, with the D1 PoC raising bare `TypeError: 'str' object
+is not a mapping` outside the ProfileError wrapper and the D4 PoC dying on
+`FileNotFoundError ... index/_tag-ml/theory.md` after the unlink sweep.
+
+1. **D1 MEDIUM — non-table `models` overlay escaped the ProfileError wrapper.**
+   `[profile.full] models = "haiku"` reached `{**aliases, **overlay["models"]}`
+   and died with a bare TypeError OUTSIDE the try/except around
+   `Profile(**merged)` (upstream wraps this same case). The overlay's shape is
+   now validated at the merge boundary:
+   `ProfileError: profile '<name>': models overlay must be a table of role =
+   model assignments, got str`.
+   Test: TestP17Remediation::test_non_table_models_overlay_rejected_as_profile_error
+   ("haiku" / 5 / true / [1,2]).
+
+2. **D2 MEDIUM — dict-of-Range fields skipped ordering validation.**
+   `_range_ordered` covered only the tuple Range fields; an inverted entry like
+   `word_targets = { short = [9000, 200] }` validated clean and reached
+   prompts. New `_dict_ranges_ordered` applies the same low<=high rule per
+   entry to must_read / word_targets / char_targets_no_word_boundary /
+   citation_totals, naming the offending key
+   (`range 'short' low 9000 > high 200`). `depth_budget_brackets` is
+   deliberately NOT ordered-checked — its rows are (score_threshold, budget),
+   not ranges, and ship inverted by design ((30, 15) …).
+   Tests: TestP17Remediation::test_inverted_dict_range_rejected ×4 fields.
+
+3. **D3 MEDIUM — no non-negativity validation on scalar knobs.**
+   `source_min = -5` resolved happily into gates that can never fire. Upstream
+   semantics checked FIRST per the audit's guard: zero IS load-bearing and
+   stays legal — chapters == (0, 0) means unchaptered, depth_budget_brackets
+   bottom out at score threshold 0, a zero interval/cap means off/always — and
+   no shipped upstream value anywhere is negative. Negatives are therefore
+   rejected wholesale by a `"*"` validator walking scalars, range elements,
+   dict values, and bracket rows, with the key path in the message
+   (`critic_finding_caps['dialectic'] must be non-negative (got -3)`). Bools
+   exempt (int subclass).
+   Tests: TestP17Remediation::{test_negative_scalar_knob,test_negative_cap_value,
+   test_negative_range_element,test_negative_float_knob}_rejected +
+   test_zero_stays_legal_where_designed.
+
+4. **D4 HIGH-operational — '/' in a tag crashed build_all AFTER it had unlinked
+   every existing index page**: `_tag-{tag}.md` became a nested path whose
+   parent never exists (`FileNotFoundError index/_tag-ml/theory.md`), leaving a
+   vault with zero indexes until the next successful rebuild. Two-part fix:
+   - tags are slugified for filenames AND `_tags.md` wikilink targets with the
+     same `slugify()` used for note ids (`ml/theory` → `_tag-mltheory.md`),
+     so any tag yields a flat, non-empty, length-capped filename;
+   - `build_all` is now render-then-swap: every page renders into memory
+     first; stale pages NOT in the new generation are unlinked second;
+     replaced pages are overwritten in place, never unlinked. Any mid-render
+     failure leaves the previous generation byte-identical on disk.
+   Tests: TestTagSlugSafety::* , TestCrashSafeRebuild::* .
+
+5. **D5 LOW-MED — raw title/tag interpolation corrupted markdown/YAML.**
+   Titles/summaries/tags were f-stringed straight into generated pages: a
+   newline started its own bullet or heading inside an auto-maintained page,
+   and a literal `"` closed the hand-written double-quoted YAML title scalar.
+   All free-text interpolations now collapse whitespace to single spaces
+   (`_flat`), and frontmatter scalars escape backslash then quote
+   (`_yaml_scalar`) — a note titled `Real Title\ninjected: …` renders as one
+   inline bullet line and a tag `say "hi"` produces parseable
+   `title: "Tag: say \"hi\""`.
+   Tests: TestInterpolationEscaping::* .
+
+6. **D6 LOW — unknown lever keys silently no-op'd**, contradicting the
+   module's fail-loud posture: upstream validated the register/depth enums but
+   merged unknown keys straight through, so a typo'd key just ran on defaults.
+   `validate_levers` now rejects any key outside the documented decomposition
+   schema (register / register_confidence / domain_notes / inference_depth /
+   rationale) BEFORE the merge — None-valued ones included, since the value
+   filter would otherwise hide the typo behind a null.
+   Tests: TestCompose::test_unknown_key_rejected,
+   ::test_none_valued_unknown_key_rejected,
+   ::test_documented_extra_keys_accepted.
+
+Result after remediation: **483 passed, 96 skipped** (+34 regressions over the
+449 baseline; skip ledger unchanged), ruff clean, `mypy src` strict clean
+(46 source files).

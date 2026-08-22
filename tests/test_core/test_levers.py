@@ -83,6 +83,28 @@ class TestCompose:
         with pytest.raises(LeverError, match="unknown inference_depth"):
             compose_shims({"inference_depth": "bottomless"})
 
+    def test_unknown_key_rejected(self):
+        # P1-7 remediation D6: unknown keys used to merge into the resolved
+        # dict and no-op silently (a typo'd key just kept defaults). Fail loud,
+        # consistent with the register/depth guards above.
+        with pytest.raises(LeverError, match=r"unknown lever key.*registor"):
+            compose_shims({"register": "teach", "registor": "teach"})
+
+    def test_none_valued_unknown_key_rejected(self):
+        # None filters the VALUE out of the resolved merge; the unknown KEY
+        # itself is still rejected — a typo must not hide behind a null.
+        with pytest.raises(LeverError, match="unknown lever key"):
+            compose_shims({"bogus_lever": None})
+
+    def test_documented_extra_keys_accepted(self):
+        # register_confidence and rationale are part of the decomposition
+        # schema this module documents (see module docstring); they must not
+        # trip the unknown-key guard.
+        shims = compose_shims(
+            {**DEFAULT_LEVERS, "register_confidence": "low", "rationale": {"why": "survey"}}
+        )
+        assert set(shims) == set(ROLES)
+
     def test_domain_notes_land_verbatim_in_research_and_drafting(self):
         notes = "Sourcing: court filings first; recency window is the last two terms."
         shims = compose_shims({**DEFAULT_LEVERS, "domain_notes": notes})

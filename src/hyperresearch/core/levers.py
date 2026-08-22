@@ -43,6 +43,11 @@ DEFAULT_LEVERS = {
     "inference_depth": "standard",
 }
 
+# Every key the decomposition schema documents (module docstring). P1-7
+# remediation (D6): anything outside this set used to merge into the resolved
+# dict and no-op silently — a typo'd key just ran on defaults. Fail loud.
+KNOWN_LEVER_KEYS = frozenset(DEFAULT_LEVERS) | {"rationale"}
+
 
 class LeverError(Exception):
     pass
@@ -207,6 +212,15 @@ def validate_levers(levers: dict[str, Any]) -> dict[str, Any]:
     """Merge with defaults and validate enums. Returns the resolved dict."""
     if not isinstance(levers, dict):
         raise LeverError("levers must be an object")
+    # P1-7 remediation (D6): unknown keys are rejected before anything else —
+    # including None-valued ones, whose values the merge below would drop but
+    # whose presence still signals a typo.
+    unknown = set(levers) - KNOWN_LEVER_KEYS
+    if unknown:
+        raise LeverError(
+            f"unknown lever key(s) {', '.join(sorted(unknown))} "
+            f"(known: {', '.join(sorted(KNOWN_LEVER_KEYS))})"
+        )
     resolved = {**DEFAULT_LEVERS, **{k: v for k, v in levers.items() if v is not None}}
     if resolved["register"] not in REGISTERS:
         raise LeverError(

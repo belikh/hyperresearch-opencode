@@ -21,6 +21,7 @@ re-scoring a vault is cheap and offline-friendly. Tests monkeypatch
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
 import sqlite3  # Delta vs upstream: annotation-only import for strict mypy.
@@ -70,7 +71,12 @@ def extract_doi(
     to Semantic Scholar (OpenAlex has no arXiv-id lookup scheme).
     """
     parsed = urlparse(url)
-    if "doi.org" in parsed.netloc.lower():
+    # P1-5 hardening (twin sweep): exact-host/suffix match on doi.org, the
+    # same rule as crawl4ai's _on_arxiv_host. The old `"doi.org" in netloc`
+    # substring test let notdoi.org.evil.com (or doi.org.evil.com) route its
+    # PATH through this extractor.
+    host = parsed.hostname or ""
+    if host == "doi.org" or host.endswith(".doi.org"):
         m = DOI_RE.search(parsed.path)
         if m:
             return _clean_doi(m.group(1))
@@ -98,13 +104,18 @@ def _http_get_json(url: str) -> dict[str, Any] | None:
 
     Isolated so tests can monkeypatch it; every failure is soft — partial
     enrichment beats a crashed scoring run.
+
+    P1-5 hardening (twin-site closure, filed in the P1-4 sweep): routes
+    through `web._netguard.guarded_get` so the start URL AND every redirect
+    hop are validated against internal infrastructure — the old
+    `follow_redirects=True` call followed a poisoned Location header without
+    re-checking it.
     """
-    import httpx
+    from hyperresearch.web._netguard import UnsafeUrlError, guarded_get
 
     try:
-        resp = httpx.get(
+        resp = guarded_get(
             url,
-            follow_redirects=True,
             timeout=20,
             headers={"User-Agent": "hyperresearch (mailto:research@example.com)"},
         )
@@ -114,6 +125,11 @@ def _http_get_json(url: str) -> dict[str, Any] | None:
         # declared return type holds under strict mypy. Runtime identical.
         data: dict[str, Any] = resp.json()
         return data
+    except UnsafeUrlError as e:
+        logging.getLogger(__name__).warning(
+            "blocked by SSRF guard while fetching %s: %s", url, e
+        )
+        return None
     except Exception:
         return None
 
