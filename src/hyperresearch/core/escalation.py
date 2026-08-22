@@ -19,10 +19,12 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-# Delta vs upstream: Vault imported for mypy --strict annotations only.
-from hyperresearch.core.vault import Vault
+if TYPE_CHECKING:
+    # Delta vs upstream: annotation-only Vault import behind TYPE_CHECKING
+    # (P1-9 hardening H-3: cycle hygiene); runtime never needs it here.
+    from hyperresearch.core.vault import Vault
 
 REASONS = ("login_wall", "bot_block", "captcha", "fetch_failed", "interactive_needed", "scholar_search")
 STATUSES = ("queued", "in_progress", "fetched", "needs_human", "abandoned")

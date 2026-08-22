@@ -9,9 +9,16 @@ P1-2 precedent of covering upstream-untested modules when they land.
 
 P1-7 remediation additions: TestTagSlugSafety + TestCrashSafeRebuild (D4)
 and TestInterpolationEscaping (D5) — all failed against pre-fix code.
+
+Critic-gap wave addition (H-1): TestHostileMonthKey — the month key in
+`_month-{created[:7]}.md` was raw frontmatter `created`, so a hostile value
+staged a path-separator filename that crashed the WRITE phase after build_all
+had already unlinked every 'stale' page.
 """
 
 from __future__ import annotations
+
+import re
 
 import pytest
 import yaml
@@ -240,3 +247,49 @@ class TestInterpolationEscaping:
         assert "index/_tag-multi-line.md" in built
         for name in built:
             assert "/" not in name.removeprefix("index/"), name
+
+
+class TestHostileMonthKey:
+    """Critic-gap H-1: `_month-{created[:7]}.md` interpolated the raw
+    frontmatter `created` string into a FILENAME. A hostile value like
+    '../../pwn' staged fine (filenames were just dict keys during render),
+    then crashed `write_text` with FileNotFoundError AFTER build_all had
+    unlinked every page not in the fresh set — vault left indexless.
+
+    The DB is the trust boundary here: sync validates `created` through the
+    NoteMeta schema, but indexgen reads whatever sits in sqlite (external
+    tools, migrations, hand edits), so these tests seed out-of-band UPDATEs.
+    """
+
+    def _seed_hostile_month(self, tmp_vault) -> None:
+        for i in range(3):  # a month page only stages at 3+ notes
+            write_note(tmp_vault.notes_dir, f"Hostile {i}", body=f"body {i}\n")
+        _resync(tmp_vault)
+        tmp_vault.db.execute("UPDATE notes SET created = '../../pwn'")
+        tmp_vault.db.commit()
+
+    def test_hostile_created_raises_before_touching_disk(self, tmp_vault):
+        IndexGenerator(tmp_vault).build_all()  # generation A on disk
+        before = {
+            p.name: p.read_text(encoding="utf-8")
+            for p in sorted(tmp_vault.index_dir.glob("*.md"))
+        }
+
+        self._seed_hostile_month(tmp_vault)
+
+        with pytest.raises(ValueError, match="created"):
+            IndexGenerator(tmp_vault).build_all()
+
+        after = {
+            p.name: p.read_text(encoding="utf-8")
+            for p in sorted(tmp_vault.index_dir.glob("*.md"))
+        }
+        assert before == after, "a hostile month key must abort BEFORE unlink/write"
+        assert before, "generation A must still be fully present"
+
+    def test_happy_path_month_pages_unchanged(self, seeded_vault):
+        built = IndexGenerator(seeded_vault).build_all()
+        months = [b.removeprefix("index/") for b in built if "_month-" in b]
+        assert months, "all four seeded notes share one creation month"
+        for name in months:
+            assert re.fullmatch(r"_month-\d{4}-\d{2}\.md", name), name

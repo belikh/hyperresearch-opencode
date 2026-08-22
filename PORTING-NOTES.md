@@ -1548,3 +1548,98 @@ sub-apps above; hidden root `show` alias resolves to note show.
   upstream wires `--lint` to THIS helper, not cli/lint.py; do not couple them.
 - For the agent-docs piece: restore repair step 6 (call + modified-paths
   report) and the two vault AGENTS.md skips together.
+
+## Critic-gap closure wave (post-P1-9)
+
+Four blind gauntlet critics picked this tree over upstream for P1-5/7/8/9 and
+named six residual gaps. All six closed; every behavioral fix falsified
+pre-fix (final test versions run against stashed-original source: all FAIL;
+post-fix: PASS). Gates at close: pytest 617 passed / 120 skipped
+(baseline 607/120), ruff clean, mypy --strict clean.
+
+### H-1 — indexgen crash-window + hostile month key (`indexgen/generator.py`)
+
+`_build_by_month` interpolated raw frontmatter `created` into the FILENAME
+`_month-{created[:7]}.md`. Filenames are inert dict keys during render, so a
+hostile value (`../../pwn`) staged fine — then crashed `write_text` with
+FileNotFoundError AFTER `build_all` had unlinked every page not in the fresh
+set: vault left indexless, render-then-swap guarantee voided. Tag slugs were
+re-verified safe without changes (slugify strips `/ . \` + caps length);
+title interpolation was already escaped via `_yaml_scalar`/`_flat`.
+
+Fix: month keys must fullmatch `\d{4}-\d{2}` or build_all raises ValueError
+during RENDER (before any disk mutation); `_stage()` additionally enforces
+`^_[\w.-]+\.md$` on EVERY staged filename as a structural invariant, so no
+data-derived filename can reach the write phase unsafe. Prior generation
+stays byte-identical on any failure. Falsification:
+`test_hostile_created_raises_before_touching_disk` → pre-fix FAILED with
+`FileNotFoundError: .../research/index/_month-../../p.md`, post-fix PASS.
+Pin (both sides pass): `test_happy_path_month_pages_unchanged`.
+
+### H-2 — test double-skip defect (`tests/test_core/test_levers.py`,
+### `tests/test_core/test_dissertation_profile.py`)
+
+TestRenderCli and TestLiteratureMatrix carried a conditional skipif AND an
+unconditional class-body `pytestmark = pytest.mark.skip` that won forever —
+with a copy-pasted reason ("levers render / profile matrix" in both files).
+Removed both unconditional marks; each class keeps ONE conditional skipif
+whose condition probes what it really needs (core.runs/core.claims AND the
+typer verb group). Probes import `hyperresearch.cli.levers_cmd` /
+`hyperresearch.cli.claims_cmd` — the exact modules upstream registers for
+those groups, so the skips self-release when P1-10 lands. Verified today:
+skips report accurate reasons via the single mechanism; with levers_cmd
+stubbed into sys.modules, skipif evaluates False (tests would run).
+Not behavioral code → not in the falsify-required set; mechanism proof above.
+
+### H-3 — Vault import-cycle risk (`core/{runs,escalation,citecheck,claims}.py`)
+
+All four imported Vault at module level purely for annotations while running
+under `from __future__ import annotations`. Moved behind TYPE_CHECKING
+(grep-verified zero runtime uses in each file; generator/batch already used
+the pattern). mypy --strict clean post-move.
+
+### H-4 — `index show` path escape (`cli/index.py`)
+
+User-supplied name joined raw onto `vault.index_dir`: `../secret` read any
+file outside the vault. Now resolves and requires containment within
+index_dir; escapes emit the standard envelope (`INVALID_PATH`, exit 1) in
+both JSON and plain modes. Benign-but-missing names keep upstream's plain
+not-found path (left as upstream). Falsification:
+`test_dotdot_escape_rejected_with_envelope` → pre-fix exit 0 with the secret
+file's contents served; post-fix PASS. Also pins benign `_tags` show.
+
+### H-5 — `note mv` destination escape + silent overwrite (`cli/note.py`)
+
+`vault.root / new_path` accepted absolute paths (Path join replaces root)
+and `..`; POSIX rename silently OVERWROTE an existing destination file.
+Destinations must now resolve inside `vault.root` (`INVALID_PATH`); an
+existing destination is refused (`DEST_EXISTS`) with both notes intact.
+Falsification: dotdot / absolute / collision tests → pre-fix all exited 0
+(move out succeeded, alpha-note silently destroyed by collision); post-fix
+PASS with clean envelopes. Pin: normal move still works.
+
+### H-6 — dangling numbered citations dropped (`core/citecheck.py`)
+
+`extract_pairs` skipped `[N]` with no Sources entry (`if num in numbered_map`)
+while wikilinks recorded dangling entries — fabricated `[7]` sailed past the
+ship-gate dangling counts. Now `numbered_map.get(num)`: unmapped numbers
+record note_id=None → triage counts them dangling. Mapped-but-unresolved [N]
+behavior unchanged (already None pre-fix). Upstream structure otherwise kept
+(this IS a delta vs upstream v0.10.0, adopted deliberately). Falsification:
+`test_unmapped_numbered_citation_is_dangling` → pre-fix pairs == []; post-fix
+dangling pair recorded.
+
+### Deliberately left filed rather than fixed
+
+- `_build_raw_pending`/`_build_by_month` embed DB date strings into body
+  bullets WITHOUT `_flat()` — a newline-bearing `created` could break one
+  bullet line. Not a crash window, unreachable through sync's NoteMeta
+  validation; left for upstream parity (needs a content-level decision).
+- `note mv` self-move (destination == current path) now errors DEST_EXISTS
+  instead of silently "succeeding" — consequence of the collision guard,
+  judged correct (a scripted no-op rename is a user error).
+- `note mv` FileNotFoundError when the DB row exists but the file is gone
+  remains unhandled (upstream parity).
+- TestLiteratureMatrix's pure-core tests stay class-skipped until P1-10
+  (skipif is class-granular); splitting classes would deviate from the
+  upstream test structure beyond this wave's mandate.

@@ -25,12 +25,14 @@ import json
 import re
 import sqlite3
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hyperresearch.core.patterns import WIKI_LINK_RE
 
-# Delta vs upstream: Vault imported for mypy --strict annotations only.
-from hyperresearch.core.vault import Vault
+if TYPE_CHECKING:
+    # Delta vs upstream: annotation-only Vault import behind TYPE_CHECKING
+    # (P1-9 hardening H-3: cycle hygiene); runtime never needs it here.
+    from hyperresearch.core.vault import Vault
 
 # Sentence split: period/question/exclamation followed by space+capital, or newline.
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z一-鿿])|\n+")
@@ -99,8 +101,12 @@ def extract_pairs(report_text: str, conn: sqlite3.Connection) -> list[dict[str, 
         cited: list[str | None] = []
         for m in _NUMBERED_CITE_RE.finditer(sentence):
             for num in re.split(r"\s*,\s*", m.group(1)):
-                if num in numbered_map:
-                    cited.append(numbered_map[num])
+                # Delta vs upstream (P1-9 hardening H-6): an [N] with no
+                # Sources entry used to be dropped silently, unlike wikilinks
+                # which record a dangling entry — fabricated citations could
+                # slip past the ship-gate counts. .get() records unmapped
+                # numbers as note_id=None (dangling) exactly like wikilinks.
+                cited.append(numbered_map.get(num))
         for m in WIKI_LINK_RE.finditer(sentence):
             target = m.group(1).strip()
             cited.append(target if target in known_ids else None)

@@ -97,6 +97,60 @@ def test_note_mv(vault_with_notes):
     assert (vault_with_notes / "notes" / "moved" / "beta-note.md").exists()
 
 
+class TestNoteMvContainment:
+    """Critic-gap H-5: `note mv` did `vault.root / new_path` unchecked — an
+    absolute path replaced the vault root outright and '..' segments walked
+    out of it, so notes could be moved (and via POSIX rename semantics,
+    existing files silently overwritten) outside the vault."""
+
+    def test_dotdot_destination_rejected(self, vault_with_notes):
+        result = runner.invoke(
+            app, ["note", "mv", "alpha-note", "../../outside.md", "--json"]
+        )
+        assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert data["ok"] is False
+        assert data.get("error_code")
+        # The note stays put inside the vault.
+        assert (vault_with_notes / "research" / "notes" / "alpha-note.md").exists()
+        assert not (vault_with_notes.parent / "outside.md").exists()
+
+    def test_absolute_destination_rejected(self, vault_with_notes, tmp_path: Path):
+        target = tmp_path / "outside-vault.md"
+        result = runner.invoke(app, ["note", "mv", "alpha-note", str(target), "--json"])
+        assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert data["ok"] is False
+        assert data.get("error_code")
+        assert not target.exists()
+        assert (vault_with_notes / "research" / "notes" / "alpha-note.md").exists()
+
+    def test_existing_destination_collision_is_a_clean_error(
+        self, vault_with_notes
+    ):
+        result = runner.invoke(
+            app, ["note", "mv", "beta-note", "research/notes/alpha-note.md", "--json"]
+        )
+        assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert data["ok"] is False
+        assert data.get("error_code")
+        # Both notes survive untouched — no silent overwrite.
+        alpha = vault_with_notes / "research" / "notes" / "alpha-note.md"
+        beta = vault_with_notes / "research" / "notes" / "beta-note.md"
+        assert alpha.exists() and beta.exists()
+        assert "Alpha Note" in alpha.read_text(encoding="utf-8")
+
+    def test_normal_move_still_works_after_guards(self, vault_with_notes):
+        result = runner.invoke(
+            app, ["note", "mv", "beta-note", "research/notes/moved-beta.md", "--json"]
+        )
+        assert result.exit_code == 0, result.output
+        assert (
+            vault_with_notes / "research" / "notes" / "moved-beta.md"
+        ).exists()
+
+
 def test_note_show_raw(vault_with_notes):
     result = runner.invoke(app, ["note", "show", "alpha-note", "--raw"])
     assert result.exit_code == 0

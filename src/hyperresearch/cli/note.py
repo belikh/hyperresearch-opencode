@@ -565,6 +565,24 @@ def note_mv(
     old_file = vault.root / row["path"]
     new_file = vault.root / new_path
 
+    # Delta vs upstream (P1-9 hardening H-5): upstream joined new_path raw,
+    # so an absolute path replaced the vault root outright and '..' segments
+    # walked out of the vault; POSIX rename also silently OVERWROTE an
+    # existing destination file. Confine destinations to the vault and
+    # surface collisions through the structured error envelope.
+    if not new_file.resolve().is_relative_to(vault.root):
+        if json_output:
+            output(error(f"Destination must stay inside the vault: {new_path}", "INVALID_PATH"), json_mode=True)
+        else:
+            console.print(f"[red]Invalid destination:[/] {new_path}")
+        raise typer.Exit(1)
+    if new_file.exists():
+        if json_output:
+            output(error(f"Destination already exists: {new_path}", "DEST_EXISTS"), json_mode=True)
+        else:
+            console.print(f"[red]Destination already exists:[/] {new_path}")
+        raise typer.Exit(1)
+
     new_file.parent.mkdir(parents=True, exist_ok=True)
     old_file.rename(new_file)
 

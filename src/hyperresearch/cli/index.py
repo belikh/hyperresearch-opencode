@@ -5,7 +5,7 @@ from __future__ import annotations
 import typer
 
 from hyperresearch.cli._output import console, output
-from hyperresearch.models.output import success
+from hyperresearch.models.output import error, success
 
 app = typer.Typer()
 
@@ -63,7 +63,18 @@ def index_show(
 
     vault = Vault.discover()
     fname = name if name.endswith(".md") else f"{name}.md"
-    path = vault.index_dir / fname
+    # Delta vs upstream (P1-9 hardening H-4): upstream joined the raw name
+    # onto index_dir, so '../x' resolved OUTSIDE the vault and got read.
+    # Confine the user-supplied name to the index directory; escapes get the
+    # standard error envelope instead of arbitrary file contents.
+    index_dir = vault.index_dir.resolve()
+    path = (vault.index_dir / fname).resolve()
+    if path.parent != index_dir:
+        if json_output:
+            output(error(f"Index name must stay inside index/: {name}", "INVALID_PATH"), json_mode=True)
+        else:
+            console.print(f"[red]Invalid index name:[/] {name}")
+        raise typer.Exit(1)
     if not path.exists():
         console.print(f"[red]Index page not found:[/] {fname}")
         raise typer.Exit(1)

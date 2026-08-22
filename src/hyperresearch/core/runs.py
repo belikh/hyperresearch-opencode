@@ -25,11 +25,12 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-# Delta vs upstream: Vault imported for mypy --strict annotations only
-# (no cycle: vault imports neither runs nor anything runs lazily pulls).
-from hyperresearch.core.vault import Vault
+if TYPE_CHECKING:
+    # Delta vs upstream: annotation-only Vault import behind TYPE_CHECKING
+    # (P1-9 hardening H-3: cycle hygiene); runtime never needs it here.
+    from hyperresearch.core.vault import Vault
 
 MANIFEST_VERSION = 1
 MANIFEST_NAME = "run.json"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
@@ -13,6 +14,19 @@ if TYPE_CHECKING:
     # left the constructor parameter unannotated. No runtime import cycle —
     # vault imports nothing from indexgen.
     from hyperresearch.core.vault import Vault
+
+# P1-9 hardening (H-1): every staged page lands as a FLAT file directly in
+# index_dir. Data reaches these filenames from two places — tag slugs (via
+# slugify, which strips separators and caps length) and the month key derived
+# from frontmatter `created`. The stage-time guard below makes "an unsafe
+# filename can never reach the write phase" a structural invariant instead of
+# a per-builder convention: anything odd raises during RENDER, i.e. before
+# build_all touches the disk.
+_INDEX_FILENAME_RE = re.compile(r"^_[\w.-]+\.md$")
+# A month key must be a bare YYYY-MM prefix; anything else out of `created`
+# is malformed or hostile (path separators would crash the write phase AFTER
+# stale pages were unlinked).
+_MONTH_KEY_RE = re.compile(r"^\d{4}-\d{2}$")
 
 
 def _flat(text: str | None) -> str:
@@ -95,6 +109,13 @@ class IndexGenerator:
 
     def _stage(self, filename: str, title: str, body: str) -> str:
         """Render one page into memory. Returns its index-relative path."""
+        # P1-9 hardening (H-1): render-phase filename validation. A rejection
+        # here aborts the build BEFORE any unlink/write happens, so the prior
+        # generation stays byte-identical on any data-derived failure.
+        if not _INDEX_FILENAME_RE.fullmatch(filename):
+            raise ValueError(
+                f"unsafe index page filename rejected before disk write: {filename!r}"
+            )
         now_iso = datetime.now(UTC).isoformat()
         content = (
             f"---\n"
@@ -272,6 +293,19 @@ class IndexGenerator:
         for r in rows:
             created = r["created"] or ""
             month = created[:7] if len(created) >= 7 else "unknown"
+            if month != "unknown" and not _MONTH_KEY_RE.fullmatch(month):
+                # P1-9 hardening (H-1): `created` is frontmatter data read
+                # straight out of sqlite (external writers bypass the
+                # NoteMeta schema), and it used to flow raw into the
+                # `_month-{month}.md` FILENAME. A hostile value crashed
+                # write_text after build_all had already unlinked every
+                # stale page — vault left indexless. Fail loudly during
+                # render instead: no disk mutation has happened yet.
+                raise ValueError(
+                    f"note {r['id']!r} has malformed frontmatter 'created' "
+                    f"({created!r}): refusing to derive index filename "
+                    f"_month-{month}.md (expected a YYYY-MM date prefix)"
+                )
             months.setdefault(month, []).append(r)
 
         built: list[str] = []

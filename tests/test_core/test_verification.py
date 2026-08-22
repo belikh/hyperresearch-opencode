@@ -74,6 +74,23 @@ class TestCiteCheckExtraction:
         triaged = triage_pairs(pairs, cited_vault.db)
         assert triaged["dangling"] == 1
 
+    def test_unmapped_numbered_citation_is_dangling(self, cited_vault):
+        """Critic-gap H-6: a `[N]` with no Sources entry used to be dropped
+        silently, unlike wikilinks which record a dangling entry — so a
+        fabricated citation could sail past the ship-gate counts. It must
+        surface as note_id=None / dangling like any other unresolvable cite."""
+        report = (
+            "Fabricated stat goes here [7].\n\n"
+            "## Sources\n[1] Unresolvable Entry. https://example.com/gone\n"
+        )
+        pairs = extract_pairs(report, cited_vault.db)
+        dangling_numbered = [
+            p for p in pairs if p["note_id"] is None and "[7]" in p["sentence"]
+        ]
+        assert dangling_numbered, "[7] with no source 7 must yield a pair"
+        triaged = triage_pairs(pairs, cited_vault.db)
+        assert triaged["dangling"] >= 1
+
     def test_triage_auto_passes_number_match(self, cited_vault):
         pairs = extract_pairs(
             "Async improves throughput by 10x [[python-async-patterns]].", cited_vault.db

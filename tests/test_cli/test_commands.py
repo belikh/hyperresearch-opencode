@@ -218,6 +218,47 @@ def test_index_build(vault_dir: Path):
     assert result.exit_code == 0
 
 
+class TestIndexShowContainment:
+    """Critic-gap H-4: `index show` joined the user-supplied name straight
+    onto vault.index_dir, so '../x' read an arbitrary file outside the vault.
+    Names must resolve INSIDE index_dir; escapes get the error envelope."""
+
+    def test_benign_name_shows_page(self, vault_dir: Path):
+        os.chdir(vault_dir)
+        runner.invoke(app, ["note", "new", "Shown Note", "--tag", "idx"])
+        runner.invoke(app, ["sync"])
+        runner.invoke(app, ["index", "build"])
+
+        result = runner.invoke(app, ["index", "show", "_tags", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        assert "Tags Index" in data["data"]["content"]
+
+    def test_dotdot_escape_rejected_with_envelope(self, vault_dir: Path):
+        os.chdir(vault_dir)
+        secret = vault_dir / "secret.md"
+        secret.write_text("TOP SECRET OUTSIDE INDEX DIR\n", encoding="utf-8")
+
+        result = runner.invoke(app, ["index", "show", "../secret", "--json"])
+        assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert data["ok"] is False
+        assert data.get("error_code"), "escape must carry an error_code"
+        assert "TOP SECRET" not in result.output
+
+    def test_nested_escape_rejected_without_json(self, vault_dir: Path):
+        os.chdir(vault_dir)
+        (vault_dir / "research").mkdir(exist_ok=True)
+        leak = vault_dir / "research" / "leak.md"
+        leak.write_text("NESTED-SECRET-CONTENT\n", encoding="utf-8")
+
+        result = runner.invoke(app, ["index", "show", "../notes/../leak"])
+        assert result.exit_code == 1
+        # The rejection may echo the rejected NAME, but never the file BODY.
+        assert "NESTED-SECRET-CONTENT" not in result.output
+
+
 def test_export_json(vault_dir: Path):
     os.chdir(vault_dir)
     runner.invoke(app, ["note", "new", "Export Me"])

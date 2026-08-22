@@ -35,6 +35,17 @@ try:
 except ImportError:  # Delta vs upstream: core.runs is a later port piece.
     RUNS_AVAILABLE = False
 
+try:
+    # H-2 fix probe: TestRenderCli needs the typer `levers render` verb on top
+    # of core.runs. The levers sub-app is a P1-10 slot (upstream registers
+    # cli/levers_cmd.py as the "levers" group); probing that exact module is
+    # what makes this skip self-releasing the moment P1-10 lands.
+    from hyperresearch.cli.levers_cmd import app as _levers_cli_app  # noqa: F401
+
+    LEVERS_CLI_AVAILABLE = True
+except ImportError:
+    LEVERS_CLI_AVAILABLE = False
+
 
 def _write_decomposition(vault, tag: str, levers: dict | None) -> None:
     run_dir = vault.run_dir(tag)
@@ -127,12 +138,17 @@ class TestCompose:
         assert "audited absences" in deep["research"].lower()
 
 
+# H-2 fix: this class carried BOTH a conditional skipif AND an unconditional
+# class-body `pytestmark = pytest.mark.skip`, which won and disabled the tests
+# permanently (with a copy-pasted reason from the matrix test). Single
+# accurate mechanism now: run as soon as core.runs AND the levers CLI verb
+# exist — no second unconditional mark.
 @pytest.mark.skipif(
-    not RUNS_AVAILABLE,
-    reason="needs core.runs (init_run/load_manifest) + the typer app — both land as later pieces",
+    not (RUNS_AVAILABLE and LEVERS_CLI_AVAILABLE),
+    reason="needs core.runs (init_run/load_manifest) + the typer levers sub-app "
+    "(hpr levers render) — cli/levers_cmd.py lands with P1-10",
 )
 class TestRenderCli:
-    pytestmark = pytest.mark.skip(reason="needs CLI verbs (hpr levers render / profile matrix) landing with P1-9/P1-10; CLI is a stub until then")
     def test_render_writes_files_and_manifest(self, tmp_vault, monkeypatch):
         from typer.testing import CliRunner
 

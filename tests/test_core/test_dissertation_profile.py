@@ -27,6 +27,17 @@ try:
 except ImportError:  # Delta vs upstream: core.claims is a later port piece.
     CLAIMS_AVAILABLE = False
 
+try:
+    # H-2 fix probe: the matrix CLI test needs the typer `claims matrix` verb
+    # on top of core.claims. The claims sub-app is a P1-10 slot (upstream
+    # registers cli/claims_cmd.py as the "claims" group); probing that exact
+    # module makes this skip self-releasing when P1-10 lands.
+    from hyperresearch.cli.claims_cmd import app as _claims_cli_app  # noqa: F401
+
+    CLAIMS_CLI_AVAILABLE = True
+except ImportError:
+    CLAIMS_CLI_AVAILABLE = False
+
 
 class TestDissertationProfile:
     def test_builtin_resolves(self):
@@ -68,12 +79,16 @@ class TestDissertationProfile:
             resolve_profile("dissertation", cfg)
 
 
+# H-2 fix: this class carried BOTH a conditional skipif AND an unconditional
+# class-body `pytestmark = pytest.mark.skip`, which won and disabled the tests
+# permanently (with a reason copy-pasted from the levers file). Single accurate
+# mechanism now: run as soon as core.claims AND the claims CLI verb exist.
 @pytest.mark.skipif(
-    not CLAIMS_AVAILABLE,
-    reason="needs core.claims (ingest_claims_dir/literature_matrix/group_by_target) — lands with the claims piece; test_matrix_cli_writes_file additionally needs the typer app",
+    not (CLAIMS_AVAILABLE and CLAIMS_CLI_AVAILABLE),
+    reason="needs core.claims (ingest_claims_dir/literature_matrix/group_by_target) "
+    "+ the typer claims sub-app (hpr claims matrix) — cli/claims_cmd.py lands with P1-10",
 )
 class TestLiteratureMatrix:
-    pytestmark = pytest.mark.skip(reason="needs CLI verbs (hpr levers render / profile matrix) landing with P1-9/P1-10; CLI is a stub until then")
     def _seed_claims(self, vault):
         temp = vault.root / "research" / "temp"
         temp.mkdir(parents=True, exist_ok=True)
