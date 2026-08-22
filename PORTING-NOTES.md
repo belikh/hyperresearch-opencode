@@ -1098,7 +1098,8 @@ route both through `_netguard.guarded_get`") — core/{oa,scholar}.py ownership
 granted with the P1-7 remediation wave. Both regressions were proven to FAIL
 against pre-fix code before the fix landed (pre-fix, the stubbed lanes issued
 `follow_redirects=True` requests and the spoofed hosts classified as
-DOI-bearing; 5 failed / 10 passed across the twin tests in the window).
+DOI-bearing; 7 failed / 4 passed across the 11 twin tests in the window —
+the 4 both-side passes are positive/soft-failure contract pins).
 Patterns mirror tests/test_web/test_ssrf_guard.py; fully offline.
 
 - **`core/scholar.py::_http_get_json`** (OpenAlex/S2/Unpaywall/EPMC lookups)
@@ -1304,10 +1305,13 @@ From `evidence/gauntlet/P1-7-verdict-r1.md`. D1 was OUR regression (the
 `[models]` layer added in the P1-7 port); D2–D6 were inherited verbatim from
 upstream v0.10.0 (diff-checked against the pinned reference tree). Disposition
 per verdict: all six fixed in-port as cheap correctness wins. Falsification
-discipline unchanged from prior waves: every regression test below FAILED
-against pre-fix code before the fix landed — 27 new tests / 27 pre-fix
-failures in the window, with the D1 PoC raising bare `TypeError: 'str' object
-is not a mapping` outside the ProfileError wrapper and the D4 PoC dying on
+discipline unchanged from prior waves: of the 34 new tests, 27 FAILED against
+pre-fix code before the fix landed; the other 7 are both-side contract pins
+(zero stays legal where designed, stale-page cleanup still works, documented
+lever keys still accepted, real doi.org hosts still classify ×3, soft-failure
+contract) that pass on BOTH sides and would catch over-rejection regressions.
+Window highlights: the D1 PoC raised bare `TypeError: 'str' object is not a
+mapping` outside the ProfileError wrapper and the D4 PoC died on
 `FileNotFoundError ... index/_tag-ml/theory.md` after the unlink sweep.
 
 1. **D1 MEDIUM — non-table `models` overlay escaped the ProfileError wrapper.**
