@@ -329,3 +329,81 @@ these files:
   all of them, so `!!` and `??` both seed `note-<same-hash>`.
 - `exclude_patterns` knob consumed nowhere (`core/config.py:222-227` defines;
   `core/sync.py:97` walks `rglob("*.md")` without consulting it).
+
+## P1-3 — Graph layer: linker/graphrank/quality/independence (+ similarity)
+
+Ported near-verbatim from upstream v0.10.0. Sources (6 files, 5 listed in the
+piece brief + one transitive): `graph/__init__.py` (byte-identical docstring
+module) and `core/{linker,graphrank,quality,independence,similarity}.py`.
+Linker test coverage (`tests/test_graph/test_links.py`) had already landed
+byte-identical in P1-1; untouched here.
+
+### Transitive scope addition: `core/similarity.py`
+
+`core/independence.py` (in-brief) imports `jaccard`/`shingle` from
+`core/similarity.py` at module level — a hard dependency. Same disposition as
+P1-1's `core/config.py`: ported verbatim rather than stubbed. It is stdlib-only
+(hashlib/struct/collections). Its MinHash/LSH half has no upstream test file of
+its own; it becomes exercisable when the dedup CLI piece lands.
+
+### mypy --strict annotation deltas (zero logic changes)
+
+Every delta below is an added type annotation/import, each marked with a
+"Delta vs upstream" comment in-source:
+
+| File | Delta |
+|------|-------|
+| core/similarity.py | `jaccard(a: set, b: set)` → `a: set[str], b: set[str]` |
+| core/linker.py | `auto_link(vault, ...) -> dict` → `vault: Vault`, `-> dict[str, list[str]]`; module-level `from hyperresearch.core.vault import Vault` added (no cycle: vault imports neither linker nor independence) |
+| core/graphrank.py | `compute_centrality(conn)` → `conn: sqlite3.Connection`; local `new_rank = {}` → `dict[str, float]` |
+| core/quality.py | `compute_quality_scores(conn, ...)` → `conn: sqlite3.Connection` |
+| core/independence.py | `compute_independence(vault, ...) -> dict` → `vault: Vault`, `-> dict[str, Any]`; `params: tuple` → `tuple[str, ...]`; `rows` given `list[dict[str, Any]]`; bare generics parameterized on `cluster_kind`/`by_url`/`by_wire`/`groups`/`clusters` (`dict`→`dict[str, Any]`, `frozenset`→`frozenset[str]`, `clusters = []` annotated) |
+
+No third-party overrides needed; all four modules were already strict-clean
+modulo these annotations.
+
+### Test porting decisions (surveyed all of upstream tests/)
+
+Upstream has NO dedicated `test_linker*`/`test_graphrank*`/`test_quality*`
+files; coverage of this piece's modules lives inside two multi-domain files.
+Per "take what resolves in-scope", each was split at class boundaries into new
+files; every ported class is byte-identical to upstream (verified by diff):
+
+- `tests/test_core/test_source_ranking.py` (NEW): TestSchemaV9 + TestPageRank +
+  TestQualityComposite verbatim. The brief conditioned on the file "not
+  importing core.scholar/web.base": the module-level scholar import blocks
+  taking the file whole, but the graphrank/quality portions themselves only
+  need config/graphrank/quality/migrations/note/sync — all present since P1-1 —
+  so they are taken into a fresh file with the scholar/search/cli imports left
+  behind. Deferred classes (land them with their owners):
+  - TestDoiExtraction → needs `hyperresearch.core.scholar.extract_doi` (P1-5)
+  - TestRankedSearch → needs `hyperresearch.search.fts.search_fts` + cli app
+    (search package / CLI pieces); asserts quality-ranked FTS ordering, i.e.
+    the consumer side of compute_quality_scores
+- `tests/test_core/test_independence.py` (NEW): TestIndependence verbatim,
+  extracted from upstream `tests/test_core/test_verification.py`. Rest of that
+  file deferred: TestCiteCheckExtraction/TestVerificationLints/
+  TestCJKLengthCheck/TestTelemetryAndVerify/TestFinishGate/
+  TestCiteCheckerAgentInstall → core/citecheck.py, core/runs.py, core/hooks.py,
+  CLI (later pieces).
+
+Not taken (incidental term matches only): `test_dissertation_profile.py` and
+`test_scholar_enrichment.py` mention `quality_score` as a DB column inside
+tests owned by profiles/scholar pieces.
+
+Result: 127 passed, 2 skipped (the two pre-existing agent-docs skips), ruff
+clean, `mypy src` strict clean (24 source files).
+
+### Out-of-scope imports discovered (feed later builders)
+
+- `core/scholar.py` consumes `core.quality.compute_quality_scores`
+  (enrichment tail) — P1-5 must also backfill TestDoiExtraction +
+  TestRankedSearch into `tests/test_core/test_source_ranking.py`.
+- `cli/dedup.py` imports `minhash_signature`/`lsh_candidates` from
+  `core/similarity.py` at module level — the dedup CLI piece gets similarity's
+  untested half for free.
+- `cli/link.py`, `cli/research.py`, `cli/fetch_batch.py` call
+  `auto_link`; `cli/sources.py` calls `compute_independence`;
+  `cli/repair.py` + `cli/graph.py` call `compute_centrality` +
+  `compute_quality_scores` — all lazy imports, no wiring done in P1-3.
+
