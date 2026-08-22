@@ -60,6 +60,16 @@ def lsh_candidates(
         return set()
 
     num_perm = len(next(iter(signatures.values())))
+    # Delta vs upstream (unguarded `num_perm // bands`, gauntlet G13-LSH-BANDING):
+    # bands > num_perm gave rows_per_band == 0, so every band hashed the empty
+    # slice and ALL pairs became candidates — silently defeating LSH. Rejected
+    # loudly rather than clamped: clamping would silently change the banding
+    # recall semantics instead of surfacing a misuse.
+    if not 0 < bands <= num_perm:
+        raise ValueError(
+            f"bands must satisfy 1 <= bands <= num_perm "
+            f"(got bands={bands}, num_perm={num_perm})"
+        )
     rows_per_band = num_perm // bands
 
     candidates: set[tuple[str, str]] = set()

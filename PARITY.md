@@ -228,7 +228,7 @@ Claude Code install machinery below.
 Registration surface: root commands bound at `cli/__init__.py:78-102`;
 sub-apps added at `cli/__init__.py:104-150` (first block :117-127, second
 block :140-150). Entry points `hyperresearch`/`hpr` →
-`hyperresearch.cli:app` (`pyproject.toml:58-61`); Python guard
+`hyperresearch.cli:app` (`pyproject.toml:58-60`); Python guard
 `>=3.11,<3.14` warning shim at `cli/__init__.py:6-31`.
 
 Root-level commands:
@@ -296,16 +296,24 @@ Sub-app groups (verbs enumerated from each file's typer decorators):
 
 | Area | Reference citation | What it does | Port decision | opencode-port target / justification |
 |---|---|---|---|---|
-| Package entry | `src/hyperresearch/__init__.py:1-3`, `__main__.py:1-5`, `pyproject.toml:7,:11,:59-62` | `__version__`, `python -m hyperresearch`, console scripts `hyperresearch`/`hpr`, requires-python >=3.11,<3.14. | PORT-VERBATIM | mirror (name collision with PyPI package irrelevant while deferred) |
+| Package entry | `src/hyperresearch/__init__.py:1-3`, `__main__.py:1-5`, `pyproject.toml:7,:11,:58-60` | `__version__`, `python -m hyperresearch`, console scripts `hyperresearch`/`hpr`, requires-python >=3.11,<3.14. | PORT-VERBATIM | mirror (name collision with PyPI package irrelevant while deferred) |
 
 ## Survey notes (deviations from the planning checklist)
 
 1. `src/hyperresearch/cli/` holds **38** `.py` files, not 39.
 2. `mcp/server.py` registers **13** tools but its docstring still says "8"
    (`server.py:3`).
-3. Agent prompt constants number **16**, not 15 (roster at
-   `hooks.py:3558-3563` includes `researcher` alongside the 15 pipeline
-   agents; all 16 counted above, browser-fetcher deferred).
+3. Agent prompt constants number **16**, not 15 — counted by direct
+   enumeration of the module-level `*_AGENT` prompt constants in
+   `core/hooks.py` (16 declarations at lines :90 LOCI_ANALYST, :294
+   DEPTH_INVESTIGATOR, :585 DIALECTIC_CRITIC, :719 DEPTH_CRITIC, :838
+   WIDTH_CRITIC, :994 INSTRUCTION_CRITIC, :1320 PATCHER, :1496
+   POLISH_AUDITOR, :1858 DRAFT_ORCHESTRATOR, :2059 SYNTHESIZER, :2494
+   READABILITY_REFORMATTER, :2709 SOURCE_ANALYST, :2908 RESEARCHER,
+   :3173 CORPUS_CRITIC, :3293 BROWSER_FETCHER, :3419 CITE_CHECKER):
+   15 port + browser-fetcher deferred. The `install_hooks` roster summary at
+   `hooks.py:3558-3563` is NOT the count source — it names only the 12
+   pipeline agents (no `researcher`, `cite-checker`, or `browser-fetcher`).
 4. The 16-step skill texts are NOT in `templates.py`/`render.py`; they are
    packaged markdowns under `src/hyperresearch/skills/` (§12).
 5. `graph/__init__.py` and `export/__init__.py` are one-line package

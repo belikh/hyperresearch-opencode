@@ -407,3 +407,86 @@ clean, `mypy src` strict clean (24 source files).
   `cli/repair.py` + `cli/graph.py` call `compute_centrality` +
   `compute_quality_scores` — all lazy imports, no wiring done in P1-3.
 
+## P1-2 — Search layer (fts/filters) + embeddings (+ P1-3 side-fixes)
+
+Ported near-verbatim from upstream v0.10.0. Sources (4 files):
+`search/{__init__,fts,filters}.py` and `core/embed.py`.
+`tests/test_search/test_fts.py` (deferred by P1-1 until the search package
+existed) taken whole.
+
+### Drift verdict on P1-3's `core/similarity.py`
+
+Re-diffed against upstream as required: byte-faithful modulo exactly the two
+strict-mypy annotation deltas already declared in §P1-3 (`jaccard` params
+`set[str]`, plus its "Delta vs upstream" comment). No other drift found; not
+re-ported. The G13-LSH-BANDING guard below is the only functional change,
+applied on top.
+
+### mypy --strict annotation deltas (zero logic changes)
+
+Every delta below is an added type annotation/import, each marked with a
+"Delta vs upstream" comment in-source:
+
+| File | Delta |
+|------|-------|
+| search/filters.py | `to_sql -> tuple[str, list]` → `tuple[str, list[Any]]`; local `params: list` → `list[Any]`; module-level `from typing import Any` |
+| search/fts.py | `ranking: dict \| None` → `dict[str, Any] \| None`; return `list[dict]` → `list[dict[str, Any]]`; `filter_params: list` → `list[Any]`; `results = []` annotated `list[dict[str, Any]]` |
+| core/embed.py | `_note_text(row)` → `row: sqlite3.Row`; `embed_sync(vault, ...) -> dict` / `semantic_search(vault, ...) -> list[dict]` → `vault: Vault`, `dict[str, Any]` / `list[dict[str, Any]]`; local `todo = []` annotated `list[tuple[sqlite3.Row, str]]`, `results = []` annotated; `cosine` locals `dot`/`norm_a`/`norm_b` annotated `float` (mypy 2.3.1 infers `sum(...)` as `float \| Literal[0]`, making the final division Any); module-level `from hyperresearch.core.vault import Vault` + stdlib `sqlite3`/`typing.Any` imports (no cycle: vault imports neither embed nor search) |
+
+### Gauntlet r1 side-fixes landed here (from evidence/gauntlet/P1-3-verdict-r1.md)
+
+1. **MEDIUM G13-LSH-BANDING** — `core/similarity.py` `lsh_candidates`:
+   upstream computed `rows_per_band = num_perm // bands` unguarded;
+   `bands > num_perm` gave 0-row bands whose empty-slice hash puts every doc
+   in one bucket per band, so ALL pairs became candidates (reproduced against
+   upstream reference: bands=200/num_perm=128 returned the unrelated pair).
+   Fixed with an explicit domain guard `not 0 < bands <= num_perm` raising
+   `ValueError`. Chose raising over clamping: clamping would silently change
+   LSH banding recall semantics instead of surfacing misuse, and the future
+   dedup consumer must never silently degrade into O(n²) all-pairs or silent
+   misses. Regression tests: `TestLshBandingGuard::*`
+   (tests/test_core/test_similarity.py — new file; upstream ships no test for
+   this module).
+
+2. **LOW G13-REFVOCAB-ORDER** — `core/linker.py` ref_vocab population: both
+   population queries now ORDER BY stable unique keys
+   (`notes ... ORDER BY id`; `aliases ORDER BY alias, note_id`), keeping the
+   existing last-wins assignment — the winner is deterministic: highest note
+   id wins duplicate titles/aliases. Honesty note recorded: on a stock vault
+   SQLite happens to insert/scan rows id-ascending, so pre-fix behavior
+   coincided with the rule on this platform; the nondeterminism is
+   plan/storage-order dependent (any reorder flips the link target).
+   tests/test_core/test_linker_determinism.py covers it with duplicate-title
+   fixtures locking the contract, plus one forced physical-reorder case
+   (alias row delete+reinsert) that demonstrably fails against pre-fix code
+   (verified against the upstream module directly).
+
+### Test porting decisions
+
+- `tests/test_search/{__init__,test_fts}.py`: byte-identical to upstream
+  (diff-verified), incl. the degenerate-query/broken-index error-contract
+  tests.
+- Upstream `tests/test_core/test_claims_and_embed.py` split at the class
+  boundary like P1-3 did for its multi-domain files: `TestEmbeddings` moved
+  byte-identical (diff-verified) into NEW tests/test_core/test_embed.py with
+  claims imports trimmed; `TestClaimsIngest` stays deferred with its owner
+  (`core/claims.py` + CLI app, later pieces).
+
+Result: 166 passed, 2 skipped (the two pre-existing agent-docs skips), ruff
+clean, `mypy src` strict clean (28 source files).
+
+### Out-of-scope imports discovered (feed later builders)
+
+- `cli/dedup.py` imports `minhash_signature`/`lsh_candidates` from
+  `core/similarity.py` at MODULE level — dedup CLI piece gets the now-tested
+  LSH half wired for free (and inherits the bands≤num_perm contract).
+- `cli/search.py` + `mcp/server.py` + `serve/server.py` consume
+  `search_fts`/`SearchFilters` (lazy); `cli/embed_cmd.py` consumes
+  `embed_sync`/`semantic_search` (lazy) — none wired in P1-2.
+- `TestRankedSearch.test_quality_reorders_equal_relevance`
+  (upstream tests/test_core/test_source_ranking.py:173) needs ONLY
+  `hyperresearch.search.fts.search_fts` via an in-method import — it is NOW
+  fully resolvable and awaits the P1-5 backfill into
+  tests/test_core/test_source_ranking.py alongside TestDoiExtraction (its
+  sibling `test_search_cli_ranked_flag` still needs the CLI app).
+

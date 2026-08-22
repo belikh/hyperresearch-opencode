@@ -5,7 +5,7 @@ Live status page for the port of
 (v0.10.0, reference pinned at `15010c5142244b88265f7abadf7b7aa1a8237fde`)
 to opencode. Scope and citations per piece live in [PARITY.md](PARITY.md).
 
-**Last updated:** 2026-08-22 — P1-1 marked critic-won (blind r2 win, evidence/gauntlet/P1-1-verdict-r2.md); remediation landed: migration cascade data loss (critical), TOML escaping, str-tag coercion + rebuild-brick hardening as documented deltas in PORTING-NOTES.md §P1-1
+**Last updated:** 2026-08-22 — P1-3 marked critic-won (blind r1 win with two latent-defect findings, evidence/gauntlet/P1-3-verdict-r1.md); both fixes landed as P1-2 side-deltas. P1-2 built: search fts/filters + embed ported near-verbatim, similarity.py drift re-check clean, gates green as documented in PORTING-NOTES.md §P1-2
 
 ## Legend
 
@@ -34,8 +34,8 @@ evidence pointers fill in at first commit touching the piece.
 | S0-4 | Skill-load freshness (static) | built | CONFIRMED(static)-DYNAMIC-DEFERRED to P3 E2E: both SKILL.md path patterns proven via `opencode debug skill` locations. Countersigned; no amendments required | docs/spikes/S0-4-skill-load.md, evidence/spikes/S0-4-debug-skill-project-and-global.txt, evidence/gauntlet/P0-3-countersign.md |
 | S0-6 | Packaging on Python 3.14 | built | CONFIRMED tiered: pymupdf wheel works (round-trip), Crawl4AI real install FAILS at lxml build (dry-run-only false pass recorded). Countersigned; amendment landed — `[all]` row upgraded to REAL-install proof in clean venv /tmp/opencode/s06-clean (exit=0, no crawl4ai, hpr CLI OK) | docs/spikes/S0-6-packaging.md, evidence/spikes/S0-6-*, evidence/gauntlet/P0-3-countersign.md |
 | P1-1 | Foundation layer: models + core | critic-won | blind r2 win; 4 latent upstream defects fixed as deltas, 1 filed | evidence/gauntlet/P1-1-verdict-r2.md |
-| P1-2 | — | pending | — | — |
-| P1-3 | — | pending | — | — |
+| P1-2 | Search layer (fts/filters) + embeddings | built | pending review; near-verbatim port incl. deferred test_fts.py; similarity.py drift re-check clean; P1-3 side-fixes (LSH banding guard, linker determinism) landed with regression tests; 166 passed / 2 skipped, ruff+mypy strict clean | PORTING-NOTES.md §P1-2, evidence/gauntlet/P1-3-verdict-r1.md |
+| P1-3 | Graph layer: linker/graphrank/quality/independence (+ similarity) | critic-won | blind r1 win; 2 latent upstream defects found (MEDIUM LSH banding all-pairs, LOW ref_vocab unordered-SQL nondeterminism), both fixed as P1-2 side-deltas with regression tests | evidence/gauntlet/P1-3-verdict-r1.md, PORTING-NOTES.md §P1-2 |
 | P1-4 | — | pending | — | — |
 | P1-5 | — | pending | — | — |
 | P1-6 | — | pending | — | — |

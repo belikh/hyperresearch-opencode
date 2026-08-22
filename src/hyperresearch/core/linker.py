@@ -25,8 +25,14 @@ def auto_link(vault: Vault, note_ids: list[str] | None = None) -> dict[str, list
     conn = vault.db
 
     # Build reference vocabulary: {lowercase_title: note_id, lowercase_alias: note_id}
+    # Delta vs upstream (no ORDER BY, gauntlet G13-REFVOCAB-ORDER): with
+    # duplicate titles/aliases the last-wins assignment below was resolved by
+    # whatever order SQLite returned. Ordering by stable unique keys makes the
+    # winner deterministic: highest note id wins.
     ref_vocab: dict[str, str] = {}
-    for row in conn.execute("SELECT id, title FROM notes WHERE type != 'index'"):
+    for row in conn.execute(
+        "SELECT id, title FROM notes WHERE type != 'index' ORDER BY id"
+    ):
         title = row["title"]
         nid = row["id"]
         if len(title) >= MIN_TITLE_LEN:
@@ -34,7 +40,9 @@ def auto_link(vault: Vault, note_ids: list[str] | None = None) -> dict[str, list
         # Always include note IDs as matchable references
         ref_vocab[nid.lower()] = nid
 
-    for row in conn.execute("SELECT note_id, alias FROM aliases"):
+    for row in conn.execute(
+        "SELECT note_id, alias FROM aliases ORDER BY alias, note_id"
+    ):
         alias = row["alias"]
         if len(alias) >= MIN_TITLE_LEN:
             ref_vocab[alias.lower()] = row["note_id"]
