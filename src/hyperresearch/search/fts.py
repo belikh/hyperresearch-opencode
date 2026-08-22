@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 import sqlite3
 from typing import Any
@@ -27,6 +28,25 @@ def _split_alphanum(word: str) -> list[str]:
     # Also split on dots/hyphens between digits (3.1 -> 3 1)
     split = re.sub(r'(\d)[.\-](\d)', r'\1 \2', split)
     return split.split()
+
+
+def _coerce_weight(name: str, value: Any) -> float:
+    """Coerce a BM25 ranking weight to float BEFORE SQL interpolation.
+
+    The weights are spliced into the bm25() argument list as literals, so
+    they must be provably numeric by the time they reach the SQL text — a
+    raw string would either break FTS5 syntax or silently restructure the
+    statement (e.g. '0.0, 999' shifts weights onto other columns).
+    """
+    try:
+        weight = float(value)
+    except (TypeError, ValueError) as exc:
+        raise SearchQueryError(
+            f"Ranking weight {name}={value!r} must be a number."
+        ) from exc
+    if not math.isfinite(weight):
+        raise SearchQueryError(f"Ranking weight {name}={value!r} must be finite.")
+    return weight
 
 
 def preprocess_query(raw: str) -> str:
@@ -103,12 +123,13 @@ def search_fts(
     # Exclude auto-generated index pages by default
     index_clause = "" if include_index else "AND n.type != 'index'"
 
-    # BM25 column weights from config (id=unindexed=0, title, body, tags, aliases)
+    # BM25 column weights from config (id=unindexed=0, title, body, tags, aliases).
+    # Coerced to floats up-front so only numeric literals reach the SQL text.
     w = ranking or {}
-    tw = w.get("title_weight", 10.0)
-    bw = w.get("body_weight", 1.0)
-    tgw = w.get("tags_weight", 5.0)
-    aw = w.get("aliases_weight", 3.0)
+    tw = _coerce_weight("title_weight", w.get("title_weight", 10.0))
+    bw = _coerce_weight("body_weight", w.get("body_weight", 1.0))
+    tgw = _coerce_weight("tags_weight", w.get("tags_weight", 5.0))
+    aw = _coerce_weight("aliases_weight", w.get("aliases_weight", 3.0))
 
     sql = f"""
         SELECT

@@ -106,3 +106,70 @@ def test_broken_index_surfaces_instead_of_returning_empty(seeded_vault):
     seeded_vault.db.execute("DROP TABLE IF EXISTS notes_fts")
     with pytest.raises(sqlite3.OperationalError, match="notes_fts"):
         search_fts(seeded_vault.db, "python")
+
+
+# --- P1-2 hardening: BM25 weights coerced before SQL interpolation ------------
+# evidence/gauntlet/P1-2-verdict-r1.md F1: ranking weights were interpolated
+# raw into the bm25() argument list, so a string weight either broke the SQL
+# (raw OperationalError) or — worse — silently restructured the statement.
+
+
+def test_numeric_string_weights_are_coerced(seeded_vault):
+    """Config plumbing may hand over numeric strings; float() coercion must
+    accept them instead of letting them reach the SQL text."""
+    results = search_fts(seeded_vault.db, "python", ranking={"title_weight": "10"})
+    assert len(results) > 0
+
+
+def test_non_numeric_weight_raises_search_query_error_naming_weight(seeded_vault):
+    """A non-numeric weight must raise SearchQueryError naming the offending
+    key. Pre-fix it surfaced as a raw sqlite3.OperationalError ('no such
+    column') or a generic 'Invalid search query' syntax error."""
+    with pytest.raises(SearchQueryError, match="tags_weight"):
+        search_fts(seeded_vault.db, "python", ranking={"tags_weight": "high"})
+
+
+def test_weight_string_cannot_restructure_bm25_statement(seeded_vault):
+    """The probe payload: interpolating '0.0, 999' raw changed the effective
+    column weights silently. Coercion must reject it before the SQL is built."""
+    with pytest.raises(SearchQueryError, match="body_weight"):
+        search_fts(
+            seeded_vault.db,
+            "python",
+            ranking={"body_weight": "0.0, 999"},
+        )
+
+
+def test_before_bare_date_boundary_end_to_end(seeded_vault):
+    """Integration: a note created at the last instant of 2024-01-15 is found
+    by before=2024-01-15; one created at next midnight is not. `after` keeps
+    its inclusive semantics."""
+    db = seeded_vault.db
+    draft_id = db.execute("SELECT id FROM notes WHERE status = 'draft'").fetchone()[0]
+    assert draft_id
+
+    db.execute(
+        "UPDATE notes SET created = '2024-01-15T23:59:59.500000+00:00' WHERE id = ?",
+        (draft_id,),
+    )
+    results = search_fts(db, "orphan", filters=SearchFilters(before="2024-01-15"))
+    assert any(r["id"] == draft_id for r in results), (
+        "note at 23:59:59 on the before-date must be included"
+    )
+
+    db.execute(
+        "UPDATE notes SET created = '2024-01-16T00:00:00+00:00' WHERE id = ?",
+        (draft_id,),
+    )
+    results = search_fts(db, "orphan", filters=SearchFilters(before="2024-01-15"))
+    assert not any(r["id"] == draft_id for r in results), (
+        "note at next-day midnight must be excluded"
+    )
+
+    # after stays inclusive from the first instant of its date
+    db.execute(
+        "UPDATE notes SET created = '2024-01-15T00:00:00+00:00' WHERE id = ?",
+        (draft_id,),
+    )
+    results = search_fts(db, "orphan", filters=SearchFilters(after="2024-01-15"))
+    assert any(r["id"] == draft_id for r in results)

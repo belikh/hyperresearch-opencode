@@ -491,6 +491,63 @@ clean, `mypy src` strict clean (28 source files).
   sibling `test_search_cli_ranked_flag` still needs the CLI app).
 
 
+## P1-2 hardening — verdict-r1 findings F1/F2/F4 fixed
+
+From `evidence/gauntlet/P1-2-verdict-r1.md`. Each fix carries a regression
+test proven to FAIL against the pre-fix code (git-stash round, like P1-1).
+Upstream inherits all four findings; data-correctness/injection trumps
+verbatim here, same rule as the P1-1 remediation wave.
+
+1. **F1 (MEDIUM) — bm25 weights interpolated raw into SQL** (`search/fts.py`
+   bm25() f-string). A string ranking weight reached the SQL text verbatim:
+   non-numbers surfaced as raw `sqlite3.OperationalError` ("no such column")
+   or a generic syntax-error SearchQueryError, and crafted values like
+   `'0.0, 999'` silently RESTRUCTURED the statement (shifting weight onto
+   other columns — live-proven in the verdict). `search_fts` now coerces
+   each weight with `float()` at function entry via `_coerce_weight()`;
+   non-numeric OR non-finite values raise `SearchQueryError` naming the
+   offending key, so only provably numeric literals are interpolated.
+   Numeric strings (config plumbing) coerce cleanly instead of reaching SQL.
+   Tests: `test_numeric_string_weights_are_coerced`,
+   `test_non_numeric_weight_raises_search_query_error_naming_weight`,
+   `test_weight_string_cannot_restructure_bm25_statement`
+   (tests/test_search/test_fts.py).
+
+2. **F2 (MEDIUM) — bare-date `before` excluded the entire final day**
+   (`search/filters.py`). `created` stores full ISO timestamps, which sort
+   lexicographically AFTER their own date prefix, so
+   `created <= '2024-01-15'` dropped every note created ON that day
+   (end-to-end reproduced). Semantics now defined explicitly: a bare
+   YYYY-MM-DD `before` compiles to an EXCLUSIVE bound at midnight next day
+   (`created < '2024-01-16'`) — includes 2024-01-15T23:59:59.999, excludes
+   next-day 00:00:00. Full datetime inputs keep the exact inclusive `<=`
+   bound; `after` semantics untouched (`>=`, already covers the day from
+   its first instant — mirror-checked). Date-shaped-but-invalid input
+   (`2024-13-45`) raises ValueError with a clear message instead of a
+   confusing SQLite type error downstream.
+   Tests: `TestBeforeDateBoundary::*`
+   (tests/test_search/test_filters.py, NEW file),
+   `test_before_bare_date_boundary_end_to_end`.
+
+3. **F4 (LOW) — `has_backlinks=False` silently ignored ('1=1').** Upstream
+   intent checked first, as required: reference `cli/search.py` normalizes
+   with `has_backlinks or None` — upstream NEVER implements a negative
+   query; False is purely a CLI default sentinel meaning "no constraint".
+   Since our CLI piece is not ported yet, we chose the loud-failure branch:
+   `has_backlinks=False` now raises `NotImplementedError` explaining the
+   truthy-only design, so a future consumer that forgets the `or None`
+   mapping gets an immediate error instead of silently wrong results. True
+   (positive subquery) and None (unconstrained) unchanged.
+   Tests: `TestHasBacklinks::test_false_raises_not_implemented_rather_than_silent_ignore`,
+   `test_true_keeps_positive_subquery`, `test_none_stays_unconstrained`.
+
+4. **F3 (LOW-MED) operator-sniffing passthrough** stays FILED per the
+   verdict's own disposition — not touched in this wave.
+
+Result after hardening (combined with §P1-6 below): 257 passed, 6 skipped
+(unchanged skips), ruff clean, `mypy src` strict clean (36 source files).
+
+
 ## P1-4 — Web layer: providers/base + fetcher (+PDF text extraction, junk gates)
 
 Ported near-verbatim from upstream v0.10.0. Sources (7 files):
@@ -728,3 +785,49 @@ Result: 237 passed, 6 skipped (unchanged pre-existing skips), ruff clean,
 
 None new: `core/untrusted.py` is stdlib-only (html/re) and imports nothing
 from the project; nobody in-tree consumes it until the CLI pieces above.
+
+## P1-6 hardening — fence-probe findings F-01/F-02 fixed (was W4/W2)
+
+The adversarial probe suite at `/tmp/opencode/fence-probes/`
+(`run_probes.py`, with `audit_fixups.py` as the corrected P7/P12 record)
+proved two of the filed weak spots exploitable; both are now fixed in-tree
+with regression tests that FAIL against the pre-fix module (git-stash
+round, like P1-1). Probe outcomes moved: P9 BROKE → NEUTRALIZED,
+P10 BROKE → NEUTRALIZED; nothing else changed.
+
+1. **F-01 / was W4 (MEDIUM) — `is_untrusted` failed OPEN on padded URLs.**
+   The scheme check ran on the raw string, so storage whitespace defeated
+   classification: `is_untrusted(' https://attacker.example/', 'note')` was
+   False and the note rendered UNFENCED despite being web-fetched.
+   `is_untrusted` now strips surrounding whitespace before scheme
+   classification — fail CLOSED (padded http(s) still wraps). Trusted-type
+   gating unchanged; whitespace-only and typo'd schemes stay unclassified
+   (padding alone never CREATES an untrusted verdict).
+   Tests: `test_whitespace_padded_http_source_still_untrusted[*]`,
+   `test_padded_source_still_respects_trusted_types`,
+   `test_whitespace_or_typo_stays_unclassified`.
+
+2. **F-02 / was W2 (MEDIUM) — body control bytes passed through verbatim**
+   (terminal boundary spoofing: `\x1b[2J` clear-screen + OSC title-retitle
+   rendered outside-looking-in). `wrap_body` now sanitizes BODY text before
+   fence neutralization while leaving the fence markers themselves intact
+   (they are appended after): ESC-initiated sequences stripped (CSI,
+   OSC incl. unterminated-to-BEL/ESC/end so no dangling ESC survives, and
+   other two-byte forms), then remaining C0 controls except \n\t, plus DEL
+   (mirroring the URL sanitizer). ORDER IS LOAD-BEARING and documented
+   in-source: strip FIRST, neutralize SECOND — a control byte used to
+   splice a forged tag (`</\x00untrusted-source>`) reassembles into text
+   the fence neutralizer then sees and renames; neutralizing first would
+   leave a live closer behind. Clean bodies stay BYTE-EXACT through
+   wrap→unwrap (audit_fixups P12 redo: all four benign cases lossless;
+   run_probes P12's residual BROKE is its known rstrip-all-newlines false
+   positive).
+   Tests: `test_wrap_body_neutralizes_ansi_and_osc_in_body`,
+   `test_wrap_body_strips_unterminated_osc_sequence`,
+   `test_wrap_body_benign_multiline_body_round_trips_byte_exact`.
+
+Probe-suite honesty note: run_probes/audit_fixups P7 flags `compile` via
+naive AST call-name collection (it sees the two `re.compile()` calls);
+identical on HEAD BEFORE these changes, and its substantive assertion
+(`payload_inside_fence=True`) passes pre and post. Filed weak spots W1/W3/
+W5/W6 remain FILED, NOT fixed.
