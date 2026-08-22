@@ -1,0 +1,6 @@
+[93m[1m! [0m agent "nester" is a subagent, not a primary agent. Falling back to default agent
+[0m
+> build · x-preview-f-free
+[0m
+[0m• [0mReply NESTED_OK test[90m General Agent[0m
+[0m✓ [0mReply NESTED_OK test[90m General Agent[0m

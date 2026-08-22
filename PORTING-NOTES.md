@@ -90,3 +90,77 @@ imports cleanly on Python 3.14** (`import pymupdf` OK) — no build toolchain
 needed. Also note mypy resolved to 2.x despite our floor of `mypy>=1.8`
 (upstream floor kept verbatim); if later pieces hit mypy 2.x breaking changes,
 tighten to an upper bound then.
+
+## P0-3 — Spikes (S0-1, S0-2, S0-3, S0-4, S0-6) + toolchain policy alignment
+
+Full method/transcripts/verdicts under `docs/spikes/`; raw command output
+under `evidence/spikes/`. Summary of deliberate deltas each spike forces:
+
+### S0-1 nested subagents: REFUTED → flat orchestration design
+
+An opencode subagent has NO task tool (child session export shows zero tool
+calls; it answers `NO_TASK_TOOL_AVAILABLE`). Level-1 delegation
+(primary → subagent) works and returns child results faithfully
+(`NESTED_OK` round-tripped through the `general` agent). Two consequences:
+
+- Port orchestration depth is capped at primary → subagent; "researcher
+  spawns fetcher" chains are flattened into sequential task calls from the
+  primary session.
+- Investigators call `hpr fetch-batch` directly; roster prompts carry a
+  "## Degraded mode" clause describing direct calls.
+
+Method correction recorded (F-METHOD): `opencode run --agent <subagent>` is
+not drivable from the CLI — opencode falls back to the default build agent
+with a warning. Subagents can only be exercised via a primary driver.
+
+### S0-2 agents dir naming: CONFIRMED (both dirs load)
+
+`.opencode/agent/<name>.md` AND `.opencode/agents/<name>.md` both appear in
+one `opencode agent list`, merged with built-ins and global user agents.
+Default mode renders `(all)` unless frontmatter restricts it, so port roster
+agents set `mode: subagent` explicitly. A cold-init discovery miss was seen
+once by the coordinator across ~5 fresh trees but not reproduced this
+session — installers must re-run discovery after writing agent files and
+treat first-run absence as retryable, never fatal.
+
+### S0-3 tool-lock: CONFIRMED — belt-and-braces adopted
+
+All three mechanisms produced REAL denials on live transcripts (not config
+inspection): frontmatter `tools.write:false`, frontmatter `tools.edit:false`
+(tool removed from toolset entirely), and a project plugin
+`.opencode/plugins/denywrite.js` hooking `tool.execute.before` to throw on
+`tool === "write"` (hard error in transcript even for UNLOCKED agents; hook
+API taken from host-installed `@opencode-ai/plugin@1.17.13` types since no
+working examples existed on this host). Patcher/polish-auditor ship BOTH
+layers: frontmatter locks as layer 1, the deny plugin as backstop. Known
+accepted gap: bash remains available under both mechanisms.
+
+### S0-4 skill-load: CONFIRMED(static)-DYNAMIC-DEFERRED
+
+Skills load from `<project>/.opencode/skills/<name>/SKILL.md` (probe found at
+its exact scratch path via `opencode debug skill`) and
+`~/.config/opencode/skills/<name>/SKILL.md` (7/7 global skills resolve
+there). Dynamic freshness across steps is explicitly deferred to P3 E2E;
+until then installed skills are write-once artifacts.
+
+### S0-6 packaging: CONFIRMED (tiered), with metadata-trap finding
+
+pymupdf 1.28.2 works end-to-end on 3.14 (render→extract round trip).
+`.[all]` resolves without crawl4ai. Crawl4AI 0.7.3's dry run RESOLVES
+(metadata-only false pass: lxml 5.4.0 sdist satisfies `~=5.3`), but a real
+install FAILS building lxml on cpython-3.14 — upstream's blocker holds in
+practice, so crawl4ai stays an opt-in ≤3.13 extra and opencode carries the
+browser lane on the supported host. Rule recorded for later pieces: a pip
+dry-run may only ever support a "metadata resolves" claim; installability
+claims need a real install.
+
+### mypy `python_version`: `"3.14"` → `"3.11"` (reverted)
+
+P0-2 critic finding F3: single language-level policy — lint (ruff
+`target-version = "py311"`) and type-check calibrate to the declared floor
+3.11, while runtime correctness is proven by pytest on the host interpreter
+3.14. Evidence: `evidence/gauntlet/P0-2-verdict-r1.md`. Post-fix gate green
+in one pass: `.venv/bin/mypy src` → "Success: no issues found in 4 source
+files"; `.venv/bin/ruff check .` → "All checks passed!"; `.venv/bin/pytest
+-q` → exit 0 (1 passed). Raw outputs: `evidence/spikes/postfix-{mypy,ruff,
+pytest}.txt`. This supersedes the P0-2 entry above that moved it to 3.14.

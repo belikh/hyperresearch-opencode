@@ -1,0 +1,12 @@
+=== STDERR (denial visible) ===
+[0m
+> probe-unlocked · x-preview-f-free
+[0m
+[0m✗ [0mWrite out2.txt failed
+[91m[1mError: [0mDENIED_BY_PLUGIN: write tool hard-denied by denywrite.js (spike S0-3b)
+=== STDOUT ===
+PLUGIN_DENIED
+
+Error message: `DENIED_BY_PLUGIN: write tool hard-denied by denywrite.js (spike S0-3b)`
+=== FILE CHECK: out2.txt ===
+ls: cannot access '/tmp/opencode/s03-lock/out2.txt': No such file or directory

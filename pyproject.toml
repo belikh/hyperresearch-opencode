@@ -105,7 +105,11 @@ ignore = [
 "tests/test_cli/test_install_profile.py" = ["RUF001", "RUF002"]
 
 [tool.mypy]
-python_version = "3.14"
+# P0-2 critic finding F3: single language-level policy. Lint and type-check
+# both calibrate to the declared floor (3.11); runtime correctness is proven
+# by pytest on the host interpreter (3.14). Evidence:
+# evidence/gauntlet/P0-2-verdict-r1.md
+python_version = "3.11"
 strict = true
 
 [tool.pytest.ini_options]

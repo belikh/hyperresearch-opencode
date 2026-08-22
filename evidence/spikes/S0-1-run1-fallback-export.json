@@ -1,0 +1,262 @@
+{
+  "info": {
+    "id": "ses_fd8d85c20ffe4IohTAKozCT0cm",
+    "slug": "silent-star",
+    "projectID": "global",
+    "directory": "/tmp/opencode/s01-nest",
+    "path": "tmp/opencode/s01-nest",
+    "title": "Nested subagent NESTED_OK test",
+    "agent": "build",
+    "model": {
+      "id": "x-preview-f-free",
+      "providerID": "opencode",
+      "variant": "default"
+    },
+    "version": "1.18.21",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 26218,
+      "output": 90,
+      "reasoning": 17,
+      "cache": {
+        "read": 64,
+        "write": 0
+      }
+    },
+    "permission": [
+      {
+        "permission": "question",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_enter",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_exit",
+        "pattern": "*",
+        "action": "deny"
+      }
+    ],
+    "time": {
+      "created": 1787363304416,
+      "updated": 1787363343772
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1787363305802
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "opencode",
+          "modelID": "x-preview-f-free"
+        },
+        "summary": {
+          "diffs": []
+        },
+        "id": "msg_02727a94a001I2cqFTFw6LGQKc",
+        "sessionID": "ses_fd8d85c20ffe4IohTAKozCT0cm"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "\"Use your task tool to spawn the general subagent asking it to reply with exactly NESTED_OK. Then tell me what it replied.\"",
+          "id": "prt_02727a95c001Ex9HZqyyFO3dQK",
+          "sessionID": "ses_fd8d85c20ffe4IohTAKozCT0cm",
+          "messageID": "msg_02727a94a001I2cqFTFw6LGQKc"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_02727a94a001I2cqFTFw6LGQKc",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/tmp/opencode/s01-nest",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 13155,
+          "input": 13077,
+          "output": 68,
+          "reasoning": 10,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "x-preview-f-free",
+        "providerID": "opencode",
+        "time": {
+          "created": 1787363307772,
+          "completed": 1787363335968
+        },
+        "finish": "tool-calls",
+        "id": "msg_02727b0fc001gjrTNshCWhko4L",
+        "sessionID": "ses_fd8d85c20ffe4IohTAKozCT0cm"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_02727f7f8001bqPu14p05TJTuz",
+          "sessionID": "ses_fd8d85c20ffe4IohTAKozCT0cm",
+          "messageID": "msg_02727b0fc001gjrTNshCWhko4L"
+        },
+        {
+          "type": "reasoning",
+          "text": "The user wants me to spawn a general subagent via the task tool, asking it to reply with exactly \"NESTED_OK\", then report what it replied. Simple task. Let me do it.",
+          "time": {
+            "start": 1787363325948,
+            "end": 1787363327112
+          },
+          "id": "prt_02727f7fc001q8nf11YmTNvrns",
+          "sessionID": "ses_fd8d85c20ffe4IohTAKozCT0cm",
+          "messageID": "msg_02727b0fc001gjrTNshCWhko4L"
+        },
+        {
+          "type": "tool",
+          "tool": "task",
+          "callID": "call_7720f9da9d17437ab08ba5cf",
+          "state": {
+            "status": "completed",
+            "input": {
+              "description": "Reply NESTED_OK test",
+              "prompt": "Reply with exactly: NESTED_OK",
+              "subagent_type": "general"
+            },
+            "output": "<task id=\"ses_fd8d8035bffe4DPnPXeEoUdS9N\" state=\"completed\">\n<task_result>\nNESTED_OK\n</task_result>\n</task>",
+            "metadata": {
+              "parentSessionId": "ses_fd8d85c20ffe4IohTAKozCT0cm",
+              "sessionId": "ses_fd8d8035bffe4DPnPXeEoUdS9N",
+              "model": {
+                "modelID": "x-preview-f-free",
+                "providerID": "opencode"
+              },
+              "truncated": false
+            },
+            "title": "Reply NESTED_OK test",
+            "time": {
+              "start": 1787363328705,
+              "end": 1787363335923
+            }
+          },
+          "id": "prt_02727fc8f001ssTSgHmOZUrGGr",
+          "sessionID": "ses_fd8d85c20ffe4IohTAKozCT0cm",
+          "messageID": "msg_02727b0fc001gjrTNshCWhko4L"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 13155,
+            "input": 13077,
+            "output": 68,
+            "reasoning": 10,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_027281f04001oVIZ01Ps6YAl0i",
+          "sessionID": "ses_fd8d85c20ffe4IohTAKozCT0cm",
+          "messageID": "msg_02727b0fc001gjrTNshCWhko4L"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_02727a94a001I2cqFTFw6LGQKc",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/tmp/opencode/s01-nest",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 13234,
+          "input": 13141,
+          "output": 22,
+          "reasoning": 7,
+          "cache": {
+            "write": 0,
+            "read": 64
+          }
+        },
+        "modelID": "x-preview-f-free",
+        "providerID": "opencode",
+        "time": {
+          "created": 1787363335983,
+          "completed": 1787363343727
+        },
+        "finish": "stop",
+        "id": "msg_027281f2f0015hNG1r8YtVav8L",
+        "sessionID": "ses_fd8d85c20ffe4IohTAKozCT0cm"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_027283adc001uQWB1rL4Mw7CTg",
+          "sessionID": "ses_fd8d85c20ffe4IohTAKozCT0cm",
+          "messageID": "msg_027281f2f0015hNG1r8YtVav8L"
+        },
+        {
+          "type": "reasoning",
+          "text": "The subagent replied with exactly \"NESTED_OK\". Report that concisely.",
+          "time": {
+            "start": 1787363343074,
+            "end": 1787363343521
+          },
+          "id": "prt_027283ae2001Q34j6Q3hX4vOWO",
+          "sessionID": "ses_fd8d85c20ffe4IohTAKozCT0cm",
+          "messageID": "msg_027281f2f0015hNG1r8YtVav8L"
+        },
+        {
+          "type": "text",
+          "text": "It replied: `NESTED_OK`",
+          "time": {
+            "start": 1787363343525,
+            "end": 1787363343711
+          },
+          "id": "prt_027283ca50011m7WI2g4VvwIYh",
+          "sessionID": "ses_fd8d85c20ffe4IohTAKozCT0cm",
+          "messageID": "msg_027281f2f0015hNG1r8YtVav8L"
+        },
+        {
+          "reason": "stop",
+          "type": "step-finish",
+          "tokens": {
+            "total": 13234,
+            "input": 13141,
+            "output": 22,
+            "reasoning": 7,
+            "cache": {
+              "write": 0,
+              "read": 64
+            }
+          },
+          "cost": 0,
+          "id": "prt_027283d67001eB0KSq1J4n3UcB",
+          "sessionID": "ses_fd8d85c20ffe4IohTAKozCT0cm",
+          "messageID": "msg_027281f2f0015hNG1r8YtVav8L"
+        }
+      ]
+    }
+  ]
+}

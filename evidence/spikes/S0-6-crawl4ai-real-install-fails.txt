@@ -1,0 +1,332 @@
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+WARNING: Cache entry deserialization failed, entry ignored
+  error: subprocess-exited-with-error
+  
+  × Building wheel for lxml (pyproject.toml) did not run successfully.
+  │ exit code: 1
+  ╰─> [133 lines of output]
+      /tmp/pip-build-env-ujxiirdp/overlay/lib/python3.14/site-packages/setuptools/dist.py:765: SetuptoolsDeprecationWarning: License classifiers are deprecated.
+      !!
+      
+              ********************************************************************************
+              Please consider removing the following classifiers in favor of a SPDX license expression:
+      
+              License :: OSI Approved :: BSD License
+      
+              See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+              ********************************************************************************
+      
+      !!
+        self._finalize_license_expression()
+      Building lxml version 5.4.0.
+      Building without Cython.
+      Building against libxml2 2.15.3 and libxslt 1.1.45
+      running bdist_wheel
+      running build
+      running build_py
+      creating build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/usedoctest.py -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/sax.py -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/pyclasslookup.py -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/doctestcompare.py -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/cssselect.py -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/builder.py -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/_elementpath.py -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/__init__.py -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/ElementInclude.py -> build/lib.linux-x86_64-cpython-314/lxml
+      creating build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/__init__.py -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      creating build/lib.linux-x86_64-cpython-314/lxml/html
+      copying src/lxml/html/usedoctest.py -> build/lib.linux-x86_64-cpython-314/lxml/html
+      copying src/lxml/html/soupparser.py -> build/lib.linux-x86_64-cpython-314/lxml/html
+      copying src/lxml/html/html5parser.py -> build/lib.linux-x86_64-cpython-314/lxml/html
+      copying src/lxml/html/formfill.py -> build/lib.linux-x86_64-cpython-314/lxml/html
+      copying src/lxml/html/diff.py -> build/lib.linux-x86_64-cpython-314/lxml/html
+      copying src/lxml/html/defs.py -> build/lib.linux-x86_64-cpython-314/lxml/html
+      copying src/lxml/html/clean.py -> build/lib.linux-x86_64-cpython-314/lxml/html
+      copying src/lxml/html/builder.py -> build/lib.linux-x86_64-cpython-314/lxml/html
+      copying src/lxml/html/_setmixin.py -> build/lib.linux-x86_64-cpython-314/lxml/html
+      copying src/lxml/html/_html5builder.py -> build/lib.linux-x86_64-cpython-314/lxml/html
+      copying src/lxml/html/_diffcommand.py -> build/lib.linux-x86_64-cpython-314/lxml/html
+      copying src/lxml/html/__init__.py -> build/lib.linux-x86_64-cpython-314/lxml/html
+      copying src/lxml/html/ElementSoup.py -> build/lib.linux-x86_64-cpython-314/lxml/html
+      creating build/lib.linux-x86_64-cpython-314/lxml/isoschematron
+      copying src/lxml/isoschematron/__init__.py -> build/lib.linux-x86_64-cpython-314/lxml/isoschematron
+      copying src/lxml/etree.h -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/etree_api.h -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/lxml.etree.h -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/lxml.etree_api.h -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/objectify.pyx -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/etree.pyx -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/xsltext.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/xslt.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/xpath.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/xmlschema.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/xmlid.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/xmlerror.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/xinclude.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/serializer.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/schematron.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/saxparser.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/relaxng.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/readonlytree.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/public-api.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/proxy.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/parsertarget.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/parser.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/objectpath.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/nsclasses.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/iterparse.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/extensions.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/dtd.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/docloader.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/debug.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/cleanup.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/classlookup.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/apihelpers.pxi -> build/lib.linux-x86_64-cpython-314/lxml
+      copying src/lxml/includes/xslt.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/xpath.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/xmlschema.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/xmlparser.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/xmlerror.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/xinclude.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/uri.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/tree.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/schematron.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/relaxng.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/htmlparser.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/etreepublic.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/dtdvalid.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/config.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/c14n.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/__init__.pxd -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/lxml-version.h -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      copying src/lxml/includes/etree_defs.h -> build/lib.linux-x86_64-cpython-314/lxml/includes
+      creating build/lib.linux-x86_64-cpython-314/lxml/isoschematron/resources/rng
+      copying src/lxml/isoschematron/resources/rng/iso-schematron.rng -> build/lib.linux-x86_64-cpython-314/lxml/isoschematron/resources/rng
+      creating build/lib.linux-x86_64-cpython-314/lxml/isoschematron/resources/xsl
+      copying src/lxml/isoschematron/resources/xsl/XSD2Schtrn.xsl -> build/lib.linux-x86_64-cpython-314/lxml/isoschematron/resources/xsl
+      copying src/lxml/isoschematron/resources/xsl/RNG2Schtrn.xsl -> build/lib.linux-x86_64-cpython-314/lxml/isoschematron/resources/xsl
+      creating build/lib.linux-x86_64-cpython-314/lxml/isoschematron/resources/xsl/iso-schematron-xslt1
+      copying src/lxml/isoschematron/resources/xsl/iso-schematron-xslt1/iso_svrl_for_xslt1.xsl -> build/lib.linux-x86_64-cpython-314/lxml/isoschematron/resources/xsl/iso-schematron-xslt1
+      copying src/lxml/isoschematron/resources/xsl/iso-schematron-xslt1/iso_schematron_skeleton_for_xslt1.xsl -> build/lib.linux-x86_64-cpython-314/lxml/isoschematron/resources/xsl/iso-schematron-xslt1
+      copying src/lxml/isoschematron/resources/xsl/iso-schematron-xslt1/iso_schematron_message.xsl -> build/lib.linux-x86_64-cpython-314/lxml/isoschematron/resources/xsl/iso-schematron-xslt1
+      copying src/lxml/isoschematron/resources/xsl/iso-schematron-xslt1/iso_dsdl_include.xsl -> build/lib.linux-x86_64-cpython-314/lxml/isoschematron/resources/xsl/iso-schematron-xslt1
+      copying src/lxml/isoschematron/resources/xsl/iso-schematron-xslt1/iso_abstract_expand.xsl -> build/lib.linux-x86_64-cpython-314/lxml/isoschematron/resources/xsl/iso-schematron-xslt1
+      copying src/lxml/isoschematron/resources/xsl/iso-schematron-xslt1/readme.txt -> build/lib.linux-x86_64-cpython-314/lxml/isoschematron/resources/xsl/iso-schematron-xslt1
+      running build_ext
+      building 'lxml.etree' extension
+      gcc -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -march=x86-64-v3 -mtune=generic -O3 -pipe -fno-plt -fexceptions -Wp,-D_FORTIFY_SOURCE=3 -Wformat -Werror=format-security -fstack-clash-protection -fcf-protection -g -ffile-prefix-map=/tmp/pkg/src=/usr/src/debug/python -flto=auto -ffat-lto-objects -march=x86-64-v3 -mtune=generic -O3 -pipe -fno-plt -fexceptions -Wp,-D_FORTIFY_SOURCE=3 -Wformat -Werror=format-security -fstack-clash-protection -fcf-protection -g -ffile-prefix-map=/tmp/pkg/src=/usr/src/debug/python -flto=auto -march=x86-64-v3 -mtune=generic -O3 -pipe -fno-plt -fexceptions -Wp,-D_FORTIFY_SOURCE=3 -Wformat -Werror=format-security -fstack-clash-protection -fcf-protection -g -ffile-prefix-map=/tmp/pkg/src=/usr/src/debug/python -flto=auto -fPIC -DCYTHON_CLINE_IN_TRACEBACK=0 -I/usr/include/libxml2 -Isrc -Isrc/lxml/includes -I/tmp/opencode/s06-c4-venv/include -I/usr/include/python3.14 -c src/lxml/etree.c -o build/temp.linux-x86_64-cpython-314/src/lxml/etree.o -w -DWITH_GZFILEOP
+      src/lxml/etree.c: In function ‘__pyx_f_4lxml_5etree_fixThreadDictNamesForDtd’:
+      src/lxml/etree.c:28111:49: error: passing argument 1 of ‘__pyx_f_4lxml_5etree__fixThreadDictPtr’ from incompatible pointer type [-Wincompatible-pointer-types]
+      28111 |         __pyx_f_4lxml_5etree__fixThreadDictPtr((&__pyx_v_c_attribute->defaultValue), __pyx_v_c_src_dict, __pyx_v_c_dict);
+            |                                                ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            |                                                 |
+            |                                                 xmlChar ** {aka unsigned char **}
+      src/lxml/etree.c:27454:82: note: expected ‘const xmlChar **’ {aka ‘const unsigned char **’} but argument is of type ‘xmlChar **’ {aka ‘unsigned char **’}
+      27454 | static CYTHON_INLINE void __pyx_f_4lxml_5etree__fixThreadDictPtr(const xmlChar **__pyx_v_c_ptr, xmlDict *__pyx_v_c_src_dict, xmlDict *__pyx_v_c_dict) {
+            |                                                                  ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~
+      Compile failed: Command '['gcc', '-fno-strict-overflow', '-Wsign-compare', '-DNDEBUG', '-g', '-O3', '-Wall', '-march=x86-64-v3', '-mtune=generic', '-O3', '-pipe', '-fno-plt', '-fexceptions', '-Wp,-D_FORTIFY_SOURCE=3', '-Wformat', '-Werror=format-security', '-fstack-clash-protection', '-fcf-protection', '-g', '-ffile-prefix-map=/tmp/pkg/src=/usr/src/debug/python', '-flto=auto', '-ffat-lto-objects', '-march=x86-64-v3', '-mtune=generic', '-O3', '-pipe', '-fno-plt', '-fexceptions', '-Wp,-D_FORTIFY_SOURCE=3', '-Wformat', '-Werror=format-security', '-fstack-clash-protection', '-fcf-protection', '-g', '-ffile-prefix-map=/tmp/pkg/src=/usr/src/debug/python', '-flto=auto', '-march=x86-64-v3', '-mtune=generic', '-O3', '-pipe', '-fno-plt', '-fexceptions', '-Wp,-D_FORTIFY_SOURCE=3', '-Wformat', '-Werror=format-security', '-fstack-clash-protection', '-fcf-protection', '-g', '-ffile-prefix-map=/tmp/pkg/src=/usr/src/debug/python', '-flto=auto', '-fPIC', '-DCYTHON_CLINE_IN_TRACEBACK=0', '-I/usr/include/libxml2', '-Isrc', '-Isrc/lxml/includes', '-I/tmp/opencode/s06-c4-venv/include', '-I/usr/include/python3.14', '-c', 'src/lxml/etree.c', '-o', 'build/temp.linux-x86_64-cpython-314/src/lxml/etree.o', '-w', '-DWITH_GZFILEOP']' returned non-zero exit status 1.
+      cc -I/usr/include/libxml2 -I/usr/include/libxml2 -c /tmp/xmlXPathInitwgcsfg0c.c -o tmp/xmlXPathInitwgcsfg0c.o
+      /tmp/xmlXPathInitwgcsfg0c.c: In function ‘main’:
+      /tmp/xmlXPathInitwgcsfg0c.c:3:5: warning: ‘xmlXPathInit’ is deprecated: See https://gnome.pages.gitlab.gnome.org/libxml2/html/deprecated.html [-Wdeprecated-declarations]
+          3 |     xmlXPathInit();
+            |     ^~~~~~~~~~~~
+      In file included from /tmp/xmlXPathInitwgcsfg0c.c:1:
+      /usr/include/libxml2/libxml/xpath.h:561:21: note: declared here
+        561 |                     xmlXPathInit                (void);
+            |                     ^~~~~~~~~~~~
+      cc tmp/xmlXPathInitwgcsfg0c.o -lxml2 -o a.out
+      error: Command '['gcc', '-fno-strict-overflow', '-Wsign-compare', '-DNDEBUG', '-g', '-O3', '-Wall', '-march=x86-64-v3', '-mtune=generic', '-O3', '-pipe', '-fno-plt', '-fexceptions', '-Wp,-D_FORTIFY_SOURCE=3', '-Wformat', '-Werror=format-security', '-fstack-clash-protection', '-fcf-protection', '-g', '-ffile-prefix-map=/tmp/pkg/src=/usr/src/debug/python', '-flto=auto', '-ffat-lto-objects', '-march=x86-64-v3', '-mtune=generic', '-O3', '-pipe', '-fno-plt', '-fexceptions', '-Wp,-D_FORTIFY_SOURCE=3', '-Wformat', '-Werror=format-security', '-fstack-clash-protection', '-fcf-protection', '-g', '-ffile-prefix-map=/tmp/pkg/src=/usr/src/debug/python', '-flto=auto', '-march=x86-64-v3', '-mtune=generic', '-O3', '-pipe', '-fno-plt', '-fexceptions', '-Wp,-D_FORTIFY_SOURCE=3', '-Wformat', '-Werror=format-security', '-fstack-clash-protection', '-fcf-protection', '-g', '-ffile-prefix-map=/tmp/pkg/src=/usr/src/debug/python', '-flto=auto', '-fPIC', '-DCYTHON_CLINE_IN_TRACEBACK=0', '-I/usr/include/libxml2', '-Isrc', '-Isrc/lxml/includes', '-I/tmp/opencode/s06-c4-venv/include', '-I/usr/include/python3.14', '-c', 'src/lxml/etree.c', '-o', 'build/temp.linux-x86_64-cpython-314/src/lxml/etree.o', '-w', '-DWITH_GZFILEOP']' returned non-zero exit status 1.
+      [end of output]
+  
+  note: This error originates from a subprocess, and is likely not a problem with pip.
+  ERROR: Failed building wheel for lxml
+error: failed-wheel-build-for-install
+
+× Failed to build installable wheels for some pyproject.toml based projects
+╰─> lxml

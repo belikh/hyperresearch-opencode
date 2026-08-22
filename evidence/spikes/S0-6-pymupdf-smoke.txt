@@ -1,0 +1,6 @@
+python pymupdf wheel check: version=1.28.2
+rendered: /tmp/s06-6sqv5amy/smoke.pdf (1053 bytes)
+extracted text ---
+HYPERRESEARCH S0-6 WHEEL SMOKE
+pdf -> text round trip on cp314
+round-trip OK: True

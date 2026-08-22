@@ -1,0 +1,262 @@
+{
+  "info": {
+    "id": "ses_fd8d718beffeR5P4Pyd020LfYQ",
+    "slug": "crisp-engine",
+    "projectID": "global",
+    "directory": "/tmp/opencode/s01-nest",
+    "path": "tmp/opencode/s01-nest",
+    "title": "Nesting probe run",
+    "agent": "driver",
+    "model": {
+      "id": "x-preview-f-free",
+      "providerID": "opencode",
+      "variant": "default"
+    },
+    "version": "1.18.21",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 5804,
+      "output": 154,
+      "reasoning": 27,
+      "cache": {
+        "read": 17088,
+        "write": 0
+      }
+    },
+    "permission": [
+      {
+        "permission": "question",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_enter",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_exit",
+        "pattern": "*",
+        "action": "deny"
+      }
+    ],
+    "time": {
+      "created": 1787363387202,
+      "updated": 1787363429836
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1787363387442
+        },
+        "agent": "driver",
+        "model": {
+          "providerID": "opencode",
+          "modelID": "x-preview-f-free"
+        },
+        "summary": {
+          "diffs": []
+        },
+        "id": "msg_02728e832001CcmhRmBFIc8zWu",
+        "sessionID": "ses_fd8d718beffeR5P4Pyd020LfYQ"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "\"Run the nesting probe now.\"",
+          "id": "prt_02728e845001PomP97g4IDA3PI",
+          "sessionID": "ses_fd8d718beffeR5P4Pyd020LfYQ",
+          "messageID": "msg_02728e832001CcmhRmBFIc8zWu"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_02728e832001CcmhRmBFIc8zWu",
+        "role": "assistant",
+        "mode": "driver",
+        "agent": "driver",
+        "path": {
+          "cwd": "/tmp/opencode/s01-nest",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 11483,
+          "input": 5600,
+          "output": 105,
+          "reasoning": 18,
+          "cache": {
+            "write": 0,
+            "read": 5760
+          }
+        },
+        "modelID": "x-preview-f-free",
+        "providerID": "opencode",
+        "time": {
+          "created": 1787363389255,
+          "completed": 1787363418990
+        },
+        "finish": "tool-calls",
+        "id": "msg_02728ef46001qOOyIb3igCUlLl",
+        "sessionID": "ses_fd8d718beffeR5P4Pyd020LfYQ"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0272929650014ZAFSlWCN7gV6i",
+          "sessionID": "ses_fd8d718beffeR5P4Pyd020LfYQ",
+          "messageID": "msg_02728ef46001qOOyIb3igCUlLl"
+        },
+        {
+          "type": "reasoning",
+          "text": "The user is asking me to run the nesting probe. According to my instructions:\n\n1. Use my task tool to spawn the agent named \"nester\" with this exact message: \"Run your nesting probe now.\"\n2. Report the nester agent's final answer verbatim in my reply.\n\nI should not answer the question myself; only relay what the nester agent replied.\n\nLet me spawn the \"nester\" agent with the exact message.",
+          "time": {
+            "start": 1787363404139,
+            "end": 1787363405614
+          },
+          "id": "prt_02729296b0014He8dzdhnc06Yw",
+          "sessionID": "ses_fd8d718beffeR5P4Pyd020LfYQ",
+          "messageID": "msg_02728ef46001qOOyIb3igCUlLl"
+        },
+        {
+          "type": "tool",
+          "tool": "task",
+          "callID": "call_4c19cde9cd86486490bfd362",
+          "state": {
+            "status": "completed",
+            "input": {
+              "description": "Run nesting probe",
+              "prompt": "Run your nesting probe now.",
+              "subagent_type": "nester"
+            },
+            "output": "<task id=\"ses_fd8d6d0afffesJt9Jqar2wWzzk\" state=\"completed\">\n<task_result>\nNO_TASK_TOOL_AVAILABLE\n</task_result>\n</task>",
+            "metadata": {
+              "parentSessionId": "ses_fd8d718beffeR5P4Pyd020LfYQ",
+              "sessionId": "ses_fd8d6d0afffesJt9Jqar2wWzzk",
+              "model": {
+                "modelID": "x-preview-f-free",
+                "providerID": "opencode"
+              },
+              "truncated": false
+            },
+            "title": "Run nesting probe",
+            "time": {
+              "start": 1787363405661,
+              "end": 1787363418799
+            }
+          },
+          "id": "prt_027292f38001bnFZQdEq9z5i5F",
+          "sessionID": "ses_fd8d718beffeR5P4Pyd020LfYQ",
+          "messageID": "msg_02728ef46001qOOyIb3igCUlLl"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 11483,
+            "input": 5600,
+            "output": 105,
+            "reasoning": 18,
+            "cache": {
+              "write": 0,
+              "read": 5760
+            }
+          },
+          "cost": 0,
+          "id": "prt_0272962b7001dvpTRNO563MWWJ",
+          "sessionID": "ses_fd8d718beffeR5P4Pyd020LfYQ",
+          "messageID": "msg_02728ef46001qOOyIb3igCUlLl"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_02728e832001CcmhRmBFIc8zWu",
+        "role": "assistant",
+        "mode": "driver",
+        "agent": "driver",
+        "path": {
+          "cwd": "/tmp/opencode/s01-nest",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 11590,
+          "input": 204,
+          "output": 49,
+          "reasoning": 9,
+          "cache": {
+            "write": 0,
+            "read": 11328
+          }
+        },
+        "modelID": "x-preview-f-free",
+        "providerID": "opencode",
+        "time": {
+          "created": 1787363418999,
+          "completed": 1787363429775
+        },
+        "finish": "stop",
+        "id": "msg_027296377001QHktX0mmmSSRWf",
+        "sessionID": "ses_fd8d718beffeR5P4Pyd020LfYQ"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0272989690017v96jR1bhkZPG8",
+          "sessionID": "ses_fd8d718beffeR5P4Pyd020LfYQ",
+          "messageID": "msg_027296377001QHktX0mmmSSRWf"
+        },
+        {
+          "type": "reasoning",
+          "text": "The nester agent replied with \"NO_TASK_TOOL_AVAILABLE\". My instructions say to report the nester agent's final answer verbatim in my reply. So I should relay exactly that.",
+          "time": {
+            "start": 1787363428728,
+            "end": 1787363429536
+          },
+          "id": "prt_027298978001LMlCRah9Qy65ec",
+          "sessionID": "ses_fd8d718beffeR5P4Pyd020LfYQ",
+          "messageID": "msg_027296377001QHktX0mmmSSRWf"
+        },
+        {
+          "type": "text",
+          "text": "The nester agent's final answer, verbatim:\n\n```\nNO_TASK_TOOL_AVAILABLE\n```",
+          "time": {
+            "start": 1787363429541,
+            "end": 1787363429760
+          },
+          "id": "prt_027298ca5001RoEVYfR9Gj8w9a",
+          "sessionID": "ses_fd8d718beffeR5P4Pyd020LfYQ",
+          "messageID": "msg_027296377001QHktX0mmmSSRWf"
+        },
+        {
+          "reason": "stop",
+          "type": "step-finish",
+          "tokens": {
+            "total": 11590,
+            "input": 204,
+            "output": 49,
+            "reasoning": 9,
+            "cache": {
+              "write": 0,
+              "read": 11328
+            }
+          },
+          "cost": 0,
+          "id": "prt_027298d850015sGIw5ylxRpjct",
+          "sessionID": "ses_fd8d718beffeR5P4Pyd020LfYQ",
+          "messageID": "msg_027296377001QHktX0mmmSSRWf"
+        }
+      ]
+    }
+  ]
+}
