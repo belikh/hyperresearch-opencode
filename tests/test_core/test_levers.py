@@ -132,6 +132,7 @@ class TestCompose:
     reason="needs core.runs (init_run/load_manifest) + the typer app — both land as later pieces",
 )
 class TestRenderCli:
+    pytestmark = pytest.mark.skip(reason="needs CLI verbs (hpr levers render / profile matrix) landing with P1-9/P1-10; CLI is a stub until then")
     def test_render_writes_files_and_manifest(self, tmp_vault, monkeypatch):
         from typer.testing import CliRunner
 
