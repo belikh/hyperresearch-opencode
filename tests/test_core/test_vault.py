@@ -74,3 +74,36 @@ def test_init_only_creates_claude_md(tmp_path: Path):
     assert not (vault.root / "AGENTS.md").exists()
     assert not (vault.root / "GEMINI.md").exists()
     assert not (vault.root / ".github" / "copilot-instructions.md").exists()
+
+
+# --- P1-1 round-1 residual: context-manager coverage gap ----------------------
+
+
+def test_context_manager_opens_and_closes_connection(tmp_path: Path):
+    import sqlite3
+
+    vault = Vault.init(tmp_path / "kb")
+    with vault as entered:
+        assert entered is vault
+        entered.db.execute("SELECT 1").fetchone()  # opens the connection
+        held = vault._conn
+        assert isinstance(held, sqlite3.Connection)
+    # close() must have actually closed the underlying sqlite connection...
+    with pytest.raises(sqlite3.ProgrammingError, match="closed"):
+        held.execute("SELECT 1")
+    # ...and detached it from the vault.
+    assert vault._conn is None
+
+
+def test_context_manager_closes_on_exception(tmp_path: Path):
+    import sqlite3
+
+    vault = Vault.init(tmp_path / "kb")
+    with pytest.raises(RuntimeError, match="boom"), vault:
+        vault.db.execute("SELECT 1").fetchone()
+        held = vault._conn
+        raise RuntimeError("boom")
+    # __exit__ runs even when the body raises: connection closed and detached.
+    with pytest.raises(sqlite3.ProgrammingError, match="closed"):
+        held.execute("SELECT 1")
+    assert vault._conn is None

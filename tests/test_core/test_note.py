@@ -240,3 +240,30 @@ def test_read_empty_body(tmp_vault):
     note = read_note(path, tmp_vault.root)
     assert note.meta.title == "Empty"
     assert note.body.strip() == ""
+
+
+# --- P1-1 gauntlet r2 finding 4 (LOW-MED): scalar tag coercion ----------------
+# A YAML frontmatter line `tags: research` loads as the plain str "research".
+# The validator iterated whatever it received, so a single tag arrived
+# char-split: ['r','e','s','e','a','r','c','h']. It must coerce to [value].
+
+
+def test_scalar_tag_string_becomes_single_tag():
+    from hyperresearch.models.note import NoteMeta
+
+    meta = NoteMeta(title="t", tags="research")
+    assert meta.tags == ["research"]
+
+
+def test_scalar_tag_string_is_lowercased_and_stripped():
+    from hyperresearch.models.note import NoteMeta
+
+    meta = NoteMeta(title="t", tags="  Research  ")
+    assert meta.tags == ["research"]
+
+
+def test_list_tags_unchanged_by_coercion():
+    from hyperresearch.models.note import NoteMeta
+
+    meta = NoteMeta(title="t", tags=["Python", "ASYNC"])
+    assert meta.tags == ["python", "async"]

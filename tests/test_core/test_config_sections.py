@@ -221,3 +221,49 @@ class TestVaultConfigIntegration:
         )
         reloaded = VaultConfig.load(cfg_path)
         assert reloaded.junk.min_content_chars == 77
+
+
+# --- P1-1 gauntlet r2 finding 3 (MEDIUM): TOML string escaping ----------------
+# _toml_value / save() previously spliced strings raw between quotes, so any
+# value carrying `"`, `\`, or a newline produced INVALID TOML that load()
+# could not parse back — the config file was corrupted on save.
+
+
+class TestTomlStringEscaping:
+    def test_toml_value_escapes_quotes_backslashes_newlines(self):
+        import tomllib
+
+        tricky = 'He said "hi" \\ done\nnext\tline\x01ctl'
+        rendered = VaultConfig._toml_value(tricky)
+        assert tomllib.loads(f"value = {rendered}")["value"] == tricky
+
+    def test_toml_array_escapes_items(self):
+        import tomllib
+
+        items = ['a"b', "c\\d", "e\nf"]
+        rendered = VaultConfig._toml_array(items)
+        assert tomllib.loads(f"x = {rendered}")["x"] == items
+
+    def test_vault_name_round_trips_through_save_and_load(self, tmp_path: Path):
+        name = 'Quote " Backslash \\ Newline \n Tab \t'
+        cfg = VaultConfig(name=name)
+        p = tmp_path / "config.toml"
+        cfg.save(p)
+        reloaded = VaultConfig.load(p)  # would raise TOMLDecodeError pre-fix
+        assert reloaded.name == name
+
+    def test_exclude_patterns_with_special_chars_round_trip(self, tmp_path: Path):
+        patterns = ['a"b', "c\\d"]
+        cfg = VaultConfig(exclude_patterns=patterns)
+        p = tmp_path / "config.toml"
+        cfg.save(p)
+        reloaded = VaultConfig.load(p)
+        assert reloaded.exclude_patterns == patterns
+
+    def test_web_profile_special_chars_round_trip(self, tmp_path: Path):
+        profile = 'my"profile\\v1'
+        cfg = VaultConfig(web_profile=profile)
+        p = tmp_path / "config.toml"
+        cfg.save(p)
+        reloaded = VaultConfig.load(p)
+        assert reloaded.web_profile == profile

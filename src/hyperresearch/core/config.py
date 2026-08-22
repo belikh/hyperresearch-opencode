@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import tomllib
 from collections.abc import Iterable
 from dataclasses import dataclass, field, fields
@@ -305,7 +306,10 @@ class VaultConfig:
     # Delta vs upstream: parameter annotations added for mypy --strict.
     @staticmethod
     def _toml_array(items: Iterable[str]) -> str:
-        quoted = ", ".join(f'"{item}"' for item in items)
+        # Delta vs upstream (P1-1 gauntlet r2 finding 3): items are escaped as
+        # proper basic strings, not spliced raw between quotes — an item
+        # containing `"` or `\` previously produced invalid TOML.
+        quoted = ", ".join(VaultConfig._toml_value(item) for item in items)
         return f"[{quoted}]"
 
     @staticmethod
@@ -318,7 +322,13 @@ class VaultConfig:
             inner = ", ".join(f"{k} = {VaultConfig._toml_value(v)}" for k, v in value.items())
             return "{ " + inner + " }"
         if isinstance(value, str):
-            return f'"{value}"'
+            # Delta vs upstream (P1-1 gauntlet r2 finding 3, MEDIUM): raw
+            # interpolation produced invalid TOML for any string carrying `"`,
+            # `\`, or a newline/control char, corrupting the config on
+            # save->load round-trips. json.dumps output IS a valid TOML basic
+            # string: it escapes exactly the set TOML requires (`\\`,
+            # `\"`, `\n`, ... and `\uXXXX` for control/non-ASCII chars).
+            return json.dumps(value)
         return str(value)
 
     def _section_lines(self, header: str, section: Any, preamble: tuple[str, ...] = ()) -> list[str]:
@@ -330,11 +340,14 @@ class VaultConfig:
         return lines
 
     def save(self, config_path: Path) -> None:
+        # Delta vs upstream (P1-1 gauntlet r2 finding 3): every string value
+        # is emitted through _toml_value so quotes/backslashes/newlines in
+        # e.g. the vault name survive save->load round-trips.
         lines = [
             "[vault]",
-            f'name = "{self.name}"',
-            f'default_status = "{self.default_status}"',
-            f'research_dir = "{self.research_dir}"',
+            f"name = {self._toml_value(self.name)}",
+            f"default_status = {self._toml_value(self.default_status)}",
+            f"research_dir = {self._toml_value(self.research_dir)}",
             "",
             "[search]",
             f"title_weight = {self.search_title_weight}",
@@ -349,12 +362,12 @@ class VaultConfig:
             f"snippet_len = {self.search_snippet_len}",
             "",
             "[web]",
-            f'provider = "{self.web_provider}"',
-            f'profile = "{self.web_profile}"',
+            f"provider = {self._toml_value(self.web_provider)}",
+            f"profile = {self._toml_value(self.web_profile)}",
             f"magic = {'true' if self.web_magic else 'false'}",
             "",
             "[pipeline]",
-            f'profile = "{self.pipeline_profile}"',
+            f"profile = {self._toml_value(self.pipeline_profile)}",
             "",
         ]
         lines += self._section_lines("fetch", self.fetch)

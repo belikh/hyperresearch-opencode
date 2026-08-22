@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Callable
+from typing import Any
 
 # Each migration upgrades from version N-1 to N. May be either:
 #   - a SQL string (executed via executescript)
@@ -328,26 +329,96 @@ def get_schema_version(conn: sqlite3.Connection) -> int:
         return 0
 
 
+def _clear_rebuild_leftovers(conn: sqlite3.Connection) -> None:
+    """Drop scratch tables left behind by an interrupted table rebuild.
+
+    Delta vs upstream (P1-1 gauntlet r2 finding 2, HIGH): the v7/v8 rebuilds
+    CREATE a scratch table (notes_v7 / notes_v8) whose DDL is already
+    committed by executescript's implicit pre-commit, so a crash mid-rebuild
+    leaves it behind and every later run dies on "table notes_v7 already
+    exists" — the vault never opens again. The leftover copy is redundant
+    whenever `notes` survived — the rebuild only drops the original after
+    copying. The one window where it is NOT redundant is a crash between DROP
+    TABLE notes and the RENAME; there the scratch holds the only copy of the
+    data, so we restore it under the real name instead of dropping it.
+    """
+    names = {
+        row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+    for scratch in ("notes_v7", "notes_v8"):
+        if scratch not in names:
+            continue
+        if "notes" in names:
+            conn.execute(f'DROP TABLE "{scratch}"')
+        else:
+            # Crash landed between DROP TABLE notes and the RENAME: promote
+            # the scratch copy back rather than destroying the last data.
+            conn.execute(f'ALTER TABLE "{scratch}" RENAME TO notes')
+            names.add("notes")
+
+
 def migrate(conn: sqlite3.Connection, target_version: int) -> list[int]:
-    """Run pending migrations. Returns list of versions applied."""
+    """Run pending migrations. Returns list of versions applied.
+
+    Delta vs upstream (P1-1 gauntlet r2 finding 1, CRITICAL): db.py opens
+    every connection with `PRAGMA foreign_keys=ON`. Under enforcement, a
+    `DROP TABLE notes` inside the v7/v8 table rebuilds performs an implicit
+    DELETE of every row first — firing ON DELETE CASCADE against tags /
+    note_content / embeddings / claims / assets and ON DELETE SET NULL against
+    sources.note_id, silently wiping a legacy vault's child data on open.
+    Fixed with the standard SQLite table-rebuild procedure
+    (https://www.sqlite.org/lang_altertable.html): foreign-key enforcement is
+    disabled around the whole migration run (making DROP a pure metadata
+    operation), verified with PRAGMA foreign_key_check, then re-enabled.
+    """
     current = get_schema_version(conn)
     if current >= target_version:
         return []
 
-    applied = []
-    for version in range(current + 1, target_version + 1):
-        migration = MIGRATIONS.get(version)
-        if migration:
+    applied: list[int] = []
+    violations: list[Any] = []
+    # The pragma is a no-op inside an open transaction — flush any pending
+    # work first so turning enforcement off actually takes effect.
+    conn.commit()
+    conn.execute("PRAGMA foreign_keys=OFF")
+    try:
+        _clear_rebuild_leftovers(conn)
+        for version in range(current + 1, target_version + 1):
+            migration = MIGRATIONS.get(version)
+            if migration is None:
+                # Gap in the migration table: nothing ran, so nothing may be
+                # stamped. Idempotent later migrations keep re-runs safe.
+                continue
             if callable(migration):
                 migration(conn)
             else:
                 conn.executescript(migration)
-        conn.execute(
-            "INSERT OR REPLACE INTO _meta (key, value) VALUES ('schema_version', ?)",
-            (str(version),),
+            conn.commit()
+            # Stamp only AFTER this version's changes are durably committed,
+            # so a crash can never leave a stamped-but-unapplied schema.
+            conn.execute(
+                "INSERT OR REPLACE INTO _meta (key, value) VALUES ('schema_version', ?)",
+                (str(version),),
+            )
+            conn.commit()
+            applied.append(version)
+        # Verify referential integrity while enforcement is still off;
+        # re-enabling would otherwise turn any dangling reference into a
+        # deferred landmine on the first later write.
+        violations = conn.execute("PRAGMA foreign_key_check").fetchall()
+    finally:
+        try:
+            # Success paths are fully committed above, so this commits only
+            # trailing partial work on failure paths — and either way clears
+            # any open transaction, without which the pragma below would be a
+            # silent no-op.
+            conn.commit()
+        except sqlite3.Error:
+            pass
+        conn.execute("PRAGMA foreign_keys=ON")
+    if violations:
+        table, rowid, ref_table, fkid = violations[0]
+        raise sqlite3.IntegrityError(
+            f"migration left dangling references: {table} row {rowid} -> {ref_table} (fk {fkid})"
         )
-        applied.append(version)
-
-    if applied:
-        conn.commit()
     return applied

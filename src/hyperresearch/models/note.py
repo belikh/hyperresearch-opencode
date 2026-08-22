@@ -6,6 +6,7 @@ import re
 import unicodedata
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -126,7 +127,15 @@ class NoteMeta(BaseModel):
 
     @field_validator("tags", mode="before")
     @classmethod
-    def lowercase_tags(cls, v: list[str]) -> list[str]:
+    def lowercase_tags(cls, v: Any) -> Any:
+        # Delta vs upstream (P1-1 gauntlet r2 finding 4): a bare string (YAML
+        # `tags: research`) is ONE tag, not an iterable of characters.
+        # Upstream iterates whatever it gets, so a scalar tag arrived as
+        # ['r','e','s','e','a','r','c','h']; verified identical at
+        # /tmp/opencode/hyperresearch-reference models/note.py. Nothing
+        # upstream depends on the char-splitting, so we coerce instead.
+        if isinstance(v, str):
+            return [v.lower().strip()]
         return [t.lower().strip() for t in v]
 
     @field_validator("id", mode="before")

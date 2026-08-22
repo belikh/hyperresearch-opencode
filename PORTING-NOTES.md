@@ -256,3 +256,76 @@ ruff clean; `mypy src` strict clean (18 source files).
 - `models/graph.py` consumers live in `cli/graph.py` / graph package (later);
   `models/output.py` Envelope is the CLI-wide JSON output contract for P1-9/10;
   `models/search.py` SearchResult/SearchResponse pair with search/filters+fts.
+
+### Gauntlet r2 remediation: latent upstream defects fixed as deltas
+
+Round 2 of the blind gauntlet (ours won) empirically reproduced five latent
+defects inherited verbatim from upstream. Disposition per
+`evidence/gauntlet/P1-1-verdict-r2.md`: findings 1-4 fixed in our port (data
+loss/corruption trumps verbatim), finding 5 filed below. Every fix carries a
+regression test that fails against the pre-fix code (verified by re-running
+the new tests against HEAD sources).
+
+1. **CRITICAL — migration rebuild dropped `notes` with foreign keys ON**
+   (`core/migrations.py`). `db.get_connection` sets `PRAGMA foreign_keys=ON`
+   on every vault open, and under enforcement a `DROP TABLE notes` performs
+   an implicit DELETE that fires ON DELETE CASCADE against tags /
+   note_content / embeddings / claims / assets and ON DELETE SET NULL against
+   sources.note_id — so auto-migrating a legacy vault silently destroyed all
+   child data. Fixed with the standard SQLite table-rebuild procedure:
+   `migrate()` now disables foreign-key enforcement around the whole run
+   (committing first — the pragma is a no-op inside a transaction), gates the
+   result on `PRAGMA foreign_key_check`, and always re-enables enforcement in
+   a finally block. Regression tests:
+   `TestMigrationPreservesChildData::test_legacy_vault_migration_preserves_child_rows`,
+   `test_sources_note_id_not_nulled_by_rebuild`,
+   `test_foreign_keys_re_enabled_after_migration`
+   (tests/test_core/test_migrations.py, new file).
+
+2. **HIGH fragility hardening, same file.** New `_clear_rebuild_leftovers()`
+   runs at `migrate()` start: a crash mid-rebuild previously left a committed
+   notes_v7/notes_v8 scratch table and bricked the vault forever on "table
+   already exists" (executescript's implicit pre-commit had already persisted
+   the DDL); leftovers are now removed — or promoted back to `notes` when a
+   crash landed between DROP TABLE and the RENAME, where the scratch is the
+   only copy of the data. Version stamping moved to AFTER each version's
+   migration ran AND committed (a stamped version can no longer precede its
+   schema change), and dict-gap versions are skipped rather than stamped.
+   Tests: `TestInterruptedRebuildRecovery::*`.
+
+3. **MEDIUM — TOML string escaping** (`core/config.py`). `_toml_value` and
+   the inline f-strings in `save()` spliced strings raw between quotes, so a
+   value containing `"`, `\`, or a newline/control char produced INVALID TOML
+   — saving a config corrupted it against `load()`. Strings are now emitted
+   via `json.dumps` (its output is a valid TOML basic string: escapes exactly
+   the set TOML requires), applied also to `_toml_array` items and the
+   `[vault]`/`[web]`/`[pipeline]` inline interpolations. Tests:
+   `TestTomlStringEscaping::*` (tests/test_core/test_config_sections.py).
+
+4. **LOW-MED — scalar tag coercion** (`models/note.py`). The `tags` validator
+   iterated any input, so YAML frontmatter `tags: research` (a plain str)
+   became ['r','e','s','e','a','r','c','h']. Upstream intent checked at the
+   reference tree (same file): identical code, nothing consumes the
+   char-splitting deliberately — it is an unguarded iteration bug, fixed here
+   by coercing str → [value] (lowercased/stripped like list items). Tests:
+   `test_scalar_tag_string_becomes_single_tag`,
+   `test_scalar_tag_string_is_lowercased_and_stripped`
+   (tests/test_core/test_note.py).
+
+5. **Coverage gap closed** (round-1 residual): context-manager tests for
+   `with Vault(...) as v:` proving the sqlite connection is closed (and not
+   leaked on exception) after exit — `test_context_manager_opens_and_closes_connection`,
+   `test_context_manager_closes_on_exception` (tests/test_core/test_vault.py).
+
+### Known inherited issues (filed, NOT fixed — upstream-faithful by design)
+
+Filed from the same verdict; fix opportunistically if a later piece touches
+these files:
+
+- `write_note` collision loop TOCTOU (`core/note.py:125-131`): checks
+  `file_path.exists()` then writes; concurrent writers can still collide.
+- slugify symbol-title fallback seed collision (`models/note.py:70-74`):
+  distinct symbol-only titles hash the *stripped* text, which is empty for
+  all of them, so `!!` and `??` both seed `note-<same-hash>`.
+- `exclude_patterns` knob consumed nowhere (`core/config.py:222-227` defines;
+  `core/sync.py:97` walks `rglob("*.md")` without consulting it).
