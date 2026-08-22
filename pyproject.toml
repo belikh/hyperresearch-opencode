@@ -1,0 +1,113 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hyperresearch"
+version = "0.10.0.post1"
+description = "OpenCode harness for disciplined, adversarially-audited deep research with full provenance."
+readme = "README.md"
+license = "MIT"
+# Delta vs upstream (">=3.11,<3.14"): the <3.14 cap existed only because
+# core-dep Crawl4AI's lxml~=5.3 pin breaks on 3.14. Crawl4AI is an optional
+# extra here, so the cap is dropped — this harness must run on host Python 3.14.
+requires-python = ">=3.11"
+authors = [{name = "Jordan Gibbs", email = "jordan@jordangibbs.xyz"}]
+keywords = ["research", "knowledge-base", "wiki", "llm", "markdown", "cli", "agent", "zettelkasten"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
+dependencies = [
+    # Delta vs upstream: Crawl4AI moved OUT of core deps to the `crawl4ai`
+    # extra — opencode replaces the browser-fetcher lane it served, and its
+    # lxml~=5.3 pin is what forced upstream's <3.14 cap.
+    "typer>=0.9.0",
+    "rich>=13.0",
+    "pyyaml>=6.0",
+    "pydantic>=2.0",
+    "jinja2>=3.1",
+    "platformdirs>=4.0",
+    "pymupdf>=1.24",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+crawl4ai = ["Crawl4AI>=0.7.3"]
+# Upper-bounded on purpose: mcp 2.0 removed `mcp.server.fastmcp`, which
+# the MCP server module builds every tool on. Without the bound a fresh
+# `pip install hyperresearch[mcp]` resolves 2.x and `hyperresearch mcp`
+# dies on import, reporting the extra as missing when it is in fact installed.
+mcp = ["mcp>=1.6,<2"]
+exa = ["exa-py>=2.0.0"]
+tavily = ["tavily-python>=0.3"]
+watch = ["watchdog>=4.0"]
+# Delta vs upstream: `all` excludes crawl4ai so `[all]` stays installable on
+# Python 3.14; the browser lane is opt-in via `hyperresearch[crawl4ai]`.
+all = ["hyperresearch[mcp,exa,tavily,watch]"]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.3",
+    "mypy>=1.8",
+    "exa-py>=2.0.0",
+    "mcp>=1.6,<2",
+    "types-PyYAML>=6.0.12",
+    "watchdog>=4.0",
+]
+
+[project.scripts]
+hyperresearch = "hyperresearch.cli:app"
+hpr = "hyperresearch.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/belikh/hyperresearch-opencode"
+Repository = "https://github.com/belikh/hyperresearch-opencode"
+Issues = "https://github.com/belikh/hyperresearch-opencode/issues"
+Upstream = "https://github.com/jordan-gibbs/hyperresearch"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hyperresearch"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "E501",
+    "B008",
+    "B904",
+    "E402",
+    "N817",
+    "SIM105",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Profiles/render carry deliberate en dashes (user-facing range strings and
+# the dash filter); tests assert on en-dash-rendered prompt output. The
+# "ambiguous unicode" warnings are false positives by construction there.
+# Files not yet ported are listed anyway so later pieces inherit the policy.
+"src/hyperresearch/core/profiles.py" = ["RUF001"]
+"src/hyperresearch/core/render.py" = ["RUF001", "RUF002"]
+"src/hyperresearch/core/citecheck.py" = ["RUF001"]
+"tests/test_core/test_render.py" = ["RUF001", "RUF002"]
+"tests/test_core/test_prompt_golden.py" = ["RUF001", "RUF002"]
+"tests/test_cli/test_install_profile.py" = ["RUF001", "RUF002"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q --strict-markers"
