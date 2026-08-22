@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from hyperresearch.core.config import FetchSettings, JunkGates
+from hyperresearch.web._netguard import UnsafeUrlError, guarded_get
 from hyperresearch.web.base import WebResult, is_binary_garbage
 
 if TYPE_CHECKING:
@@ -46,6 +47,16 @@ if sys.platform == "win32":
                 pass
 
 
+def _on_arxiv_host(hostname: str | None) -> bool:
+    """Exact-host/suffix match on arxiv.org.
+
+    P1-4 hardening (LOW finding): the old `"arxiv.org" in netloc` substring
+    test let `notarxiv.org.evil.com` lane-choose as arXiv.
+    """
+    host = (hostname or "").lower()
+    return host == "arxiv.org" or host.endswith(".arxiv.org")
+
+
 def _is_pdf_url(url: str) -> bool:
     """Check if URL likely points to a PDF."""
     from urllib.parse import urlparse
@@ -59,7 +70,7 @@ def _is_pdf_url(url: str) -> bool:
     if "/pdf/" in path or "/pdfs/" in path:
         return True
     # arXiv PDF links
-    return "arxiv.org" in parsed.netloc and ("/pdf/" in path or "/abs/" in path)
+    return _on_arxiv_host(parsed.hostname) and ("/pdf/" in path or "/abs/" in path)
 
 
 def _looks_like_binary(text: str, gates: JunkGates | None = None) -> bool:
@@ -149,23 +160,33 @@ def _fetch_pdf(url: str, settings: FetchSettings | None = None) -> WebResult | N
 
     settings = settings or FetchSettings()
 
-    import httpx
-
     try:
-        # Convert arXiv abs links to PDF links
-        if "arxiv.org/abs/" in url:
+        # Convert arXiv abs links to PDF links. Host-gated (P1-4 hardening):
+        # the old substring test rewrote e.g.
+        # https://evil.example/notarxiv.org/abs/1 into a different target.
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        if _on_arxiv_host(parsed.hostname) and "/abs/" in parsed.path:
             url = url.replace("/abs/", "/pdf/")
             if not url.endswith(".pdf"):
                 url += ".pdf"
 
-        resp = httpx.get(url, follow_redirects=True, timeout=settings.pdf_timeout_s,
-                         verify=settings.pdf_verify_tls, headers={
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            ),
-            "Accept": "application/pdf,application/octet-stream;q=0.9,*/*;q=0.8",
-        })
+        # SSRF containment (P1-4 hardening): validate before requesting and
+        # again on every redirect hop — follow_redirects=True would carry a
+        # poisoned Location header straight into internal infrastructure.
+        resp = guarded_get(
+            url,
+            timeout=settings.pdf_timeout_s,
+            verify=settings.pdf_verify_tls,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                ),
+                "Accept": "application/pdf,application/octet-stream;q=0.9,*/*;q=0.8",
+            },
+        )
         if resp.status_code != 200:
             _pdf_log().warning("PDF fetch for %s returned HTTP %s", url, resp.status_code)
             return None
@@ -226,6 +247,9 @@ def _fetch_pdf(url: str, settings: FetchSettings | None = None) -> WebResult | N
             raw_content_type="application/pdf",
         )
 
+    except UnsafeUrlError as e:
+        _pdf_log().warning("PDF fetch blocked by SSRF guard: %s: %s", url, e)
+        return None
     except Exception as e:
         _pdf_log().warning("PDF extraction failed for %s: %s", url, e)
         return None

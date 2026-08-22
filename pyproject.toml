@@ -112,6 +112,15 @@ ignore = [
 python_version = "3.11"
 strict = true
 
+[[tool.mypy.overrides]]
+# P1-4 hardening: the tavily/exa SDK imports are env-conditional. Inline
+# ignores were wrong-code whenever an SDK happened to be installed
+# ([import-not-found] unused), and their absence failed the gate whenever an
+# SDK was missing. ignore_missing_imports covers both configurations: absent
+# modules resolve to Any; present-but-stub-less installs are silenced too.
+module = ["tavily.*", "exa_py.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra -q --strict-markers"

@@ -699,6 +699,127 @@ skip = stealth file ×3 tests + 3 crawl4ai-construction skips), ruff clean,
 - `web.base.get_provider` future callers: `cli/research.py`,
   `cli/fetch_batch.py` (surveyed earlier pieces noted them as lazy).
 
+### Known inherited issues (filed, NOT fixed — upstream-faithful by design)
+
+Adversarial read of the verbatim module; listed for the adversaries and for a
+future hardening wave, not patched in this piece:
+
+- **Charset decode discards cp1252 pages as binary.** `builtin._download`
+  decodes with `utf-8`/`errors="replace"`; Windows-1252 pages come through
+  mojibake-heavy (or U+FFFD-dense) and can trip the binary-garbage gate.
+  Proper fix needs a charset-detection dependency — deferred deliberately;
+  no stdlib-only answer is reliable.
+- **Login-wall / bot heuristics false-positive on prose.** `cf_signals` /
+  `login_signals` substring-match page TEXT, so an article *mentioning*
+  Cloudflare or "log in to see the dataset" can be fenced. Upstream design
+  trade-off; kept verbatim.
+- **`fetch_many` ordering + perf assumptions.** Results are zipped against
+  inputs with `strict=False` (order assumption on crawl4ai's return), and
+  PDF fetches run synchronously inside the async batch lane. Upstream
+  design; revisit if batch throughput ever matters.
+- **Fetcher's interim ModuleNotFoundError paths** (`core.escalation`,
+  `cli.fetch._save_assets`) — sequenced intentionally with P1-8/P1-10; the
+  self-cleaning ignores force their removal then.
+
+## P1-4 hardening — gauntlet verdict-r1 findings fixed
+
+From `evidence/gauntlet/P1-4-verdict-r1.md`. All four findings are defects
+inherited verbatim from upstream v0.10.0 (diff-checked against the pinned
+reference tree). Security/data-integrity trumps verbatim, same rule as the
+P1-1/P1-2 waves. Every regression test was proven to FAIL against pre-fix
+code via git-stash rounds (13 failed / 43 passed in the falsification window,
+with the PoC log capturing pre-fix code issuing `follow_redirects=True`
+straight into the attacker-controlled redirect).
+
+1. **HIGH SSRF-FETCHLANES → new `web/_netguard.py`.**
+   `validate_url_public(url)`: scheme ∈ {http, https}; hostname present, no
+   embedded credentials; `socket.getaddrinfo` must resolve and EVERY address
+   returned must be globally routable (`ip.is_global and not is_multicast`)
+   — rejects loopback (127/8, ::1), RFC1918, fc00::/7 ULA, link-local
+   (169.254/16 incl. the 169.254.169.254 metadata service, fe80::/10),
+   unspecified (0.0.0.0/::), documentation/benchmarking/reserved ranges —
+   with the address class named in the rejection message. Applied at
+   `crawl4ai_provider._fetch_pdf` BEFORE the request AND on every redirect
+   hop: `guarded_get()` replaces `httpx.get(follow_redirects=True)` with
+   manual following (max 5 hops, each Location re-validated, relative
+   Locations resolved per-hop); `builtin._download` httpx lane uses the same
+   helper and its urllib fallback uses `guarded_urlopen` behind
+   `GuardedRedirectHandler` (validates inside urllib's own redirect hook).
+   No config toggle was added on purpose: agent-chosen URLs are
+   attacker-influenceable, so a disable flag would re-open the hole.
+   DNS rebinding (check-vs-connect TOCTOU) documented out of scope in the
+   module docstring.
+   Tests: tests/test_web/test_ssrf_guard.py —
+   `TestValidateUrlPublic` (loopback literal/IPv6/DNS-resolved, metadata
+   service, RFC1918/ULA/link-local/unspecified/documentation parametrized,
+   mixed record sets, unresolvable hosts),
+   `TestGuardedGet::test_redirect_into_loopback_never_requested`,
+   `_test_redirect_to_new_host_is_revalidated`,
+   `_test_non_http_location_scheme_rejected`, `_test_more_than_five_hops_raises`,
+   `TestFetchPdfContainment::test_public_shaped_redirect_into_loopback_blocked`
+   (the verdict PoC end-to-end: loopback hop dies at validation, never
+   requested), `TestBuiltinLaneContainment::*`.
+
+2. **MEDIUM JUNKGATE-INVISIBLE-PADDING.** `web/base.py::strip_invisible`
+   removes ZWSP/ZWNJ/ZWJ/U+2060–2064/BOM/soft-hyphen/Mongolian-vowel-sep/
+   Arabic-letter-mark before length accounting AND signal matching:
+   `looks_like_junk` (near-empty gate, cf/error/search/pdf signal windows,
+   cookie-wall length) and twin gate `looks_like_login_wall` (same defect
+   class). Invisible padding can no longer fake substance, and signal phrases
+   split by zero-width characters ("Just\u200b a\u200b moment") match again.
+   Tests: tests/test_web/test_junk_detection.py `TestInvisiblePadding::*`
+   (ZWSP-padded spam and soft-hyphen padding now junk; split bot-wall signal
+   detected; padded login wall detected; legit CJK/accented text with stray
+   invisibles unaffected; direct pin on the strip set).
+
+3. **ENV-CONDITIONAL MYPY DIRT retired via config.** Inline
+   `# type: ignore[import-not-found]` on tavily (wrong-code whenever
+   tavily-python IS installed) and NO ignore on exa_py (hard error whenever
+   exa-py is ABSENT) replaced by `[[tool.mypy.overrides]]
+   module=["tavily.*","exa_py.*"] ignore_missing_imports=true` +
+   comment pointing at it. Proven clean in THREE SDK-presence configurations
+   without touching the project venv:
+   - A — project venv as-is (exa-py present+typed, tavily absent): clean;
+   - B — hard-link-free full clone of `.venv` with exa_py removed, both SDKs
+     absent, first-party editable install intact: clean;
+   - C — same clone with a stub-less fake `tavily` package (no py.typed)
+     dropped into site-packages: clean;
+   and DIRTY pre-fix in B/C (stash rounds): B showed exactly
+   `exa_provider.py:47 [import-not-found]`; C showed exactly
+   `tavily_provider.py:45 unused-ignore + wrong-code import-untyped vs
+   import-not-found` plus the exa error — i.e. the two env-conditional
+   failures CI never saw because dev extras always installed exa and nobody
+   had installed tavily.
+
+4. **LOW ARXIV-HOST-SPOOF.** `_is_pdf_url` and the abs→pdf rewrite now use
+   exact-host/suffix matching (`_on_arxiv_host`: hostname == arxiv.org or
+   endswith .arxiv.org) instead of substring/netloc containment, so
+   `notarxiv.org.evil.com` neither lane-chooses as arXiv nor gets its path
+   rewritten to a different target. Tests: `TestArxivExactHost::*`.
+
+### Twin sweep (defect-class completeness, this wave)
+
+Searched the whole tree for the three wrong constructs:
+
+- Unvalidated direct-fetch sites (`httpx.get`/`urlopen` outside _netguard):
+  found 2 — `core/scholar.py:105` and `core/oa.py:361`. Both are
+  fixed-API-host lanes (Unpaywall/Europe PMC constants; oa.py additionally
+  gates resolver URLs through `check_oa_url` first). Outside this wave's
+  file ownership (web/** only) — FILED: when ownership allows, route both
+  through `_netguard.guarded_get` to inherit per-hop revalidation
+  (oa.py's own NOTE already anticipates collapsing into a web-level check).
+- Substring host matching: found 1 more — `core/scholar.py:73`
+  (`"doi.org" in netloc`) — classification-only lane (DOI extraction from
+  links), not a security boundary; FILED with the same future wave.
+- Raw-content length gates: all three in-scope sites (min_content_chars,
+  cookie_wall_max_chars, login_wall_max_chars) now measure invisible-stripped
+  text. Out-of-scope raw-length uses are heuristics/stats (`oa.py:197`
+  paywall trigger — false-negative costs one cached API call; `fetcher.py`
+  word_count stat) — noted, not gated.
+
+Result after hardening: 449 passed, 96 skipped (skips unchanged),
+ruff clean, `mypy src` strict clean (46 source files).
+
 ## P1-6 — Untrusted-source fencing (core/untrusted)
 
 Ported near-verbatim from upstream v0.10.0. Sources (2 files):

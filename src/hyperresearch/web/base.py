@@ -11,6 +11,26 @@ from hyperresearch.core.config import FetchSettings, JunkGates
 # Whitespace that is legitimate in extracted text.
 _TEXT_WHITESPACE = "\t\n\r\f\v"
 
+# Invisible formatting characters used to pad junk past length gates or to
+# split signal phrases ("Just a moment") so they stop matching (P1-4
+# hardening finding 2): ZWSP, ZWNJ, ZWJ, word joiner + invisible operators,
+# BOM/ZWNBSP, soft hyphen, Mongolian vowel separator, Arabic letter mark.
+# Deliberately an explicit set: a blanket unicodedata category-Cf filter has
+# no evidence behind it and these are the characters observed in scraped spam.
+_INVISIBLE_CHARS = frozenset("\u200b\u200c\u200d\u2060\u2061\u2062\u2063\u2064\ufeff\u00ad\u180e\u061c")
+
+
+def strip_invisible(text: str) -> str:
+    """Remove zero-width/invisible formatting characters from `text`.
+
+    The junk gates measure and match on this normalization, so invisible
+    padding can neither fake substance nor camouflage a signal phrase.
+    """
+    if not any(c in text for c in _INVISIBLE_CHARS):
+        return text  # fast path: nothing to strip on ordinary text
+    return "".join(c for c in text if c not in _INVISIBLE_CHARS)
+
+
 # Default thresholds — used when no vault config is in play (e.g. direct
 # provider usage in tests/scripts). Matches VaultConfig defaults.
 DEFAULT_GATES = JunkGates()
@@ -81,15 +101,19 @@ class WebResult:
             "auth", "register", "sso", "verify your identity",
             *gates.extra_login_signals,
         )
-        title_lower = (self.title or "").lower()
-        content_lower = (self.content or "")[: gates.login_sample_chars].lower()
+        # Same invisible-padding normalization as looks_like_junk: padding
+        # must not fake length, and signals split by zero-width characters
+        # must still match.
+        title_lower = strip_invisible(self.title or "").lower()
+        content = strip_invisible(self.content or "")
+        content_lower = content[: gates.login_sample_chars].lower()
 
         # Title contains login language
         title_match = any(s in title_lower for s in login_signals)
 
         # Content is mostly login form (very short with login keywords)
         content_match = (
-            len(self.content or "") < gates.login_wall_max_chars
+            len(content) < gates.login_wall_max_chars
             and any(s in content_lower for s in login_signals)
         )
 
@@ -108,11 +132,12 @@ class WebResult:
         Returns a reason string if junk, None if OK.
         """
         gates = gates or DEFAULT_GATES
-        content = self.content or ""
-        title_lower = (self.title or "").lower()
+        content = strip_invisible(self.content or "")
+        title_lower = strip_invisible(self.title or "").lower()
         content_lower = content[: gates.sample_window].lower()
 
-        # Empty or near-empty content
+        # Empty or near-empty content — measured on visible characters only,
+        # so zero-width padding cannot fake substance
         if len(content.strip()) < gates.min_content_chars:
             return "Empty or near-empty content"
 

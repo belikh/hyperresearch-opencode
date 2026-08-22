@@ -40,9 +40,12 @@ class TavilyProvider:
         exclude_domains: list[str] | None = None,
     ):
         try:
-            # Delta vs upstream: ignore for --strict; tavily-python ships no stubs
-            # (upstream ran non-strict over this import).
-            from tavily import TavilyClient  # type: ignore[import-not-found]
+            # P1-4 hardening: no inline ignore here — tavily-python may be
+            # absent (extra) or present-without-stubs, and an inline
+            # [import-not-found] ignore is wrong-code in the latter. The
+            # env-independent suppression lives in the
+            # [[tool.mypy.overrides]] block in pyproject.toml.
+            from tavily import TavilyClient
         except ImportError as exc:
             raise ImportError(
                 'tavily provider requires: pip install "hyperresearch[tavily]"'

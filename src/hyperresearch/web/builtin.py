@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 from html.parser import HTMLParser
-from typing import Any
 
+from hyperresearch.web._netguard import guarded_get, guarded_urlopen
 from hyperresearch.web.base import WebResult
 
 
@@ -72,26 +72,23 @@ class BuiltinProvider:
         )
 
     def _download(self, url: str) -> tuple[str, str]:
-        """Download URL, return (html, final_url). Tries httpx first, falls back to urllib."""
-        try:
-            import httpx
+        """Download URL, return (html, final_url). Tries httpx first, falls back to urllib.
 
-            with httpx.Client(follow_redirects=True, timeout=30) as client:
-                resp = client.get(url, headers={"User-Agent": "hyperresearch/0.1"})
-                resp.raise_for_status()
-                return resp.text, str(resp.url)
+        Both lanes are SSRF-guarded (P1-4 hardening): the start URL is
+        validated before any request and every redirect hop is re-validated —
+        `follow_redirects=True` / urllib's default redirect handling would
+        follow a poisoned Location straight into internal infrastructure.
+        """
+        try:
+            # guarded_get imports httpx lazily; ImportError here means "no
+            # httpx installed" and selects the stdlib lane below.
+            resp = guarded_get(url, timeout=30, headers={"User-Agent": "hyperresearch/0.1"})
+            resp.raise_for_status()
+            return resp.text, str(resp.url)
         except ImportError:
             pass
 
-        import urllib.request
-
-        req = urllib.request.Request(url, headers={"User-Agent": "hyperresearch/0.1"})
-        # Delta vs upstream: `resp` pre-declared as Any — typeshed types urlopen()
-        # as IO[Any], which has no `.url`; the attribute is real at runtime.
-        # The no-redef ignore is because this function also binds `resp` in the
-        # httpx branch above; strict flags what upstream's non-strict run never saw.
-        resp: Any  # type: ignore[no-redef]
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with guarded_urlopen(url, timeout=30) as resp:
             html = resp.read().decode("utf-8", errors="replace")
             return html, resp.url or url
 

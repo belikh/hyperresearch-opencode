@@ -109,3 +109,62 @@ def test_single_shared_implementation():
 
     assert _looks_like_binary(CHINESE) is False
     assert _looks_like_binary("\x00\x01\x02" * 700) is True
+
+
+# ---------------------------------------------------------------------------
+# P1-4 hardening: invisible-padding gate bypass
+# ---------------------------------------------------------------------------
+#
+# Zero-width/invisible characters used to count toward min_content_chars and
+# toward login-wall length, and could split signal phrases ("Just a moment")
+# so they stopped matching. Every test below fails against pre-fix code.
+
+ZWSP = "\u200b"  # zero-width space
+SOFT_HYPHEN = "\u00ad"
+
+
+class TestInvisiblePadding:
+    def test_zwsp_padded_spam_is_junk(self):
+        """400 invisible chars + 'hi' must not read as ~400-char content."""
+        padded = ZWSP * 400 + "hi"
+        result = WebResult(url="https://example.com/spam", title="spam", content=padded)
+        assert result.looks_like_junk() == "Empty or near-empty content"
+
+    def test_soft_hyphen_padding_cannot_fake_length(self):
+        padded = SOFT_HYPHEN * 400 + "ok"
+        result = WebResult(url="https://example.com/pad", title="pad", content=padded)
+        assert result.looks_like_junk() == "Empty or near-empty content"
+
+    def test_bot_wall_signal_split_by_zero_width_chars_is_detected(self):
+        """'Just\\u200ba\\u200bmoment' must still match the Cloudflare signal."""
+        evasive = "Just\u200b a\u200b moment. " * 40
+        result = WebResult(url="https://example.com/cf", title="cf", content=evasive)
+        reason = result.looks_like_junk()
+        assert reason is not None and reason.startswith("Bot detection page")
+
+    def test_login_wall_padding_bypass_closed(self):
+        """Same defect class in looks_like_login_wall: padding must not fake
+        enough length to keep a login form out of that gate."""
+        padded = ZWSP * 995 + "please log in"
+        result = WebResult(url="https://example.com/a", title="Article", content=padded)
+        assert result.looks_like_login_wall(result.url) is True
+
+    @pytest.mark.parametrize(
+        ("name", "text"),
+        [
+            ("chinese_with_zwsp", CHINESE[:120] + ZWSP + CHINESE[120:] + ZWSP),
+            ("accented_latin_with_soft_hyphen", ACCENTED_LATIN + SOFT_HYPHEN),
+        ],
+    )
+    def test_legit_text_with_invisible_chars_is_not_junk(self, name, text):
+        """The normalization must strip ONLY invisibles — real text unaffected."""
+        result = WebResult(url=f"https://example.com/{name}", title=name, content=text)
+        assert result.looks_like_junk() is None, f"{name} was rejected: {result.looks_like_junk()}"
+
+    def test_strip_invisible_removes_only_the_invisible_set(self):
+        """Direct pin on the helper: tabs/newlines/CJK survive; ZWSP family goes."""
+        from hyperresearch.web.base import strip_invisible
+
+        assert strip_invisible("a\u200bb\u200cc\u200dd\u2060e\ufefff\u00adg") == "abcdefg"
+        assert strip_invisible("a\tb\nc 锂") == "a\tb\nc 锂"
+        assert strip_invisible("plain") == "plain"
