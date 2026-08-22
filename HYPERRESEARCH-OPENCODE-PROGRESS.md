@@ -5,7 +5,7 @@ Live status page for the port of
 (v0.10.0, reference pinned at `15010c5142244b88265f7abadf7b7aa1a8237fde`)
 to opencode. Scope and citations per piece live in [PARITY.md](PARITY.md).
 
-**Last updated:** 2026-08-22 — P1-4 built: web providers/base + core/fetcher ported near-verbatim (+PDF text extraction, junk gates), crawl4ai provider made lazily importable without its extra, gates green as documented in PORTING-NOTES.md §P1-4
+**Last updated:** 2026-08-22 — P1-6 built: untrusted-source fencing ported near-verbatim (core/untrusted + full upstream test file, byte-identical); consumer trace complete — both runtime hooks (`cli/note.py::show`, `cli/search.py` post-truncation) documented for their owning CLI pieces; gates green as documented in PORTING-NOTES.md §P1-6
 
 ## Legend
 
@@ -38,7 +38,7 @@ evidence pointers fill in at first commit touching the piece.
 | P1-3 | Graph layer: linker/graphrank/quality/independence (+ similarity) | critic-won | blind r1 win; 2 latent upstream defects found (MEDIUM LSH banding all-pairs, LOW ref_vocab unordered-SQL nondeterminism), both fixed as P1-2 side-deltas with regression tests | evidence/gauntlet/P1-3-verdict-r1.md, PORTING-NOTES.md §P1-2 |
 | P1-4 | Web layer: providers/base + fetcher (+PDF text extraction, junk gates) + tests | built | pending review; near-verbatim port; crawl4ai imports made lazy so the provider module (and its offline PDF/smart-wait helpers) import without the uninstallable-on-3.14 extra — factory ImportError contract unchanged; 211 passed / 6 skipped, ruff+mypy strict clean | PORTING-NOTES.md §P1-4 |
 | P1-5 | — | pending | — | — |
-| P1-6 | — | pending | — | — |
+| P1-6 | Untrusted-source fencing (core/untrusted) | built | pending review; module + full upstream test file byte-identical (zero strict-mypy deltas needed); exhaustive consumer trace: only runtime consumers are cli/note.py::show and cli/search.py want_body path — both later pieces, engagement points + wrap-after-truncation ordering constraint documented in PORTING-NOTES.md §P1-6; 6 upstream weak spots filed, not fixed | PORTING-NOTES.md §P1-6 |
 | P1-7 | — | pending | — | — |
 | P1-8 | — | pending | — | — |
 | P1-9 | — | pending | — | — |

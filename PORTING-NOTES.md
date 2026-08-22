@@ -641,3 +641,90 @@ skip = stealth file ×3 tests + 3 crawl4ai-construction skips), ruff clean,
   (MCP-side entry per brief) — later wiring, untouched here.
 - `web.base.get_provider` future callers: `cli/research.py`,
   `cli/fetch_batch.py` (surveyed earlier pieces noted them as lazy).
+
+## P1-6 — Untrusted-source fencing (core/untrusted)
+
+Ported near-verbatim from upstream v0.10.0. Sources (2 files):
+`core/untrusted.py` + `tests/test_core/test_untrusted.py`, BOTH byte-identical
+to upstream (diff-verified against the pinned reference tree). This is the
+first ported module that needed ZERO strict-mypy/ruff deltas — upstream had
+already annotated every signature.
+
+### Consumer trace (exhaustive; brief's guesses checked and refuted)
+
+Grep over the whole upstream tree: the ONLY runtime consumers of
+`is_untrusted`/`wrap_body` are two lazy-import call sites, both in
+not-yet-ported CLI files. The survey's candidate hosts are NOT consumers —
+verified: `core/vault.py`, `models/output.py`, and upstream `cli/_output.py`
+contain zero untrusted references. Upstream deliberately fences at the
+PRESENTATION layer only; vault/db store raw bodies, and the fence must wrap
+what a subagent READS, not what is persisted.
+
+1. `cli/note.py::show` — JSON-with-body branch (`if not meta:` block,
+   upstream lines ~218–222): lazily imports both functions; when
+   `is_untrusted(data.get("source"), data.get("type"))`, sets
+   `data["body"] = wrap_body(body, data["source"])` and
+   `data["untrusted"] = True`, else attaches the body bare. The `--raw`
+   sibling path intentionally prints stored bytes unfenced (raw = file dump).
+2. `cli/search.py::search` — body-bearing results (upstream lines ~189–198),
+   same lazy import; per result with a body:
+   `r["body"] = wrap_body(...)` + `r["untrusted"] = True`. HARD ORDERING
+   CONSTRAINT recorded in upstream's own comment: this MUST run AFTER the
+   token-budget truncation loop so the closing fence can never be severed
+   by the cut. Any future port that reorders these loses the guarantee.
+
+Non-code complements (prompt-side, no imports): `core/hooks.py` documents the
+`<untrusted-source url="...">` contract to subagents at three sites;
+`core/agent_docs.py` describes the fence in generated docs. Both land with
+their own pieces and must keep that wording consistent with this module.
+
+End-to-end fence assertions also live in CLI-owned upstream tests, deferred
+with their owners: `tests/test_cli/test_commands.py::
+test_search_json_wraps_fetched_bodies_as_untrusted`,
+`test_note_show_json_wraps_fetched_body_as_untrusted` (+ the third variant at
+line ~208), and `tests/test_cli/test_oa_fetch.py:156` (banner sits INSIDE the
+fence). The owning pieces backfill these adapted to our fixtures.
+
+### Integration glue disposition: none possible yet, engagement documented
+
+Both runtime hooks belong to later pieces (the `note show` and `search` CLI
+commands), so NOTHING engages at runtime in this commit — there is currently
+no code path in-tree that emits a note body. Per the piece brief this is the
+documented-deferral branch: zero already-ported files were touched, because
+upstream itself touches none — wiring is exclusively the two lazy imports
+inside `cli/note.py` / `cli/search.py`. When each lands it must reproduce
+the call shape above (including `untrusted: true` markers and the
+truncation-before-wrap order) or the fence is cosmetic.
+
+### Upstream weak spots observed (FILED, NOT FIXED — verbatim mandate)
+
+Adversarial read of the verbatim module; listed for the adversaries, not
+patched:
+
+- W1 URL sanitizer strips only C0 + DEL (`[\x00-\x1f\x7f]`); U+0085 /
+  U+2028 / U+2029 survive, and `str.splitlines()` treats those as line
+  breaks — a crafted URL can still start a visual new line inside the
+  attribute region (quoting holds; line-spoofing does not).
+- W2 BODY control characters are never sanitized (only the URL is): ANSI/CSI
+  escapes from an attacker page flow through `wrap_body` verbatim into
+  terminal output and prompts.
+- W3 Fence neutralization is ASCII-literal: homoglyph/fullwidth tag
+  lookalikes and split-forms like `</untrusted-\nsource>` survive verbatim;
+  whether they defeat a reader depends entirely on its tokenizer.
+- W4 `is_untrusted` fails OPEN on storage quirks: a source with leading
+  whitespace (`" https://…"`) or any scheme-stripped/normalized form silently
+  disables fencing.
+- W5 Trusted types are wholesale-trusted: fetched URLs quoted INTO
+  interim/source-analysis/moc/index bodies render unfenced (trust propagates
+  via `note_type` alone).
+- W6 The neutralized tag keeps the visible `untrusted-source-inner` substring
+  (forensics by design); exact-string counters stay correct (tested: exactly
+  one real close tag), but fuzzy matchers may miscount.
+
+Result: 237 passed, 6 skipped (unchanged pre-existing skips), ruff clean,
+`mypy src` strict clean (36 source files).
+
+### Out-of-scope imports discovered (feed later builders)
+
+None new: `core/untrusted.py` is stdlib-only (html/re) and imports nothing
+from the project; nobody in-tree consumes it until the CLI pieces above.
