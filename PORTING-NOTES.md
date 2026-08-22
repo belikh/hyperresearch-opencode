@@ -1387,3 +1387,18 @@ mapping` outside the ProfileError wrapper and the D4 PoC died on
 Result after remediation: **483 passed, 96 skipped** (+34 regressions over the
 449 baseline; skip ledger unchanged), ruff clean, `mypy src` strict clean
 (46 source files).
+
+## P1-8 (part 2): verification/escalation/claims test port
+Ported upstream test_verification.py -> tests/test_core/test_verification.py,
+test_escalation.py, claims half of test_claims_and_embed.py -> test_claims.py
+(embed half already in test_embed.py from P1-2). Skip ledger (each names its activator):
+- Content-gate positives (quote-integrity/retracted-citations named checks; CJK-pass;
+  well-formed-pass; finish-marks-done; finish-blocks-quote; fix-then-done; verify-includes-gates):
+  rule engines live in cli/lint.py -> P1-10. Until then verify_run's ImportError branch
+  fails closed BY DESIGN (upstream-faithful); negatives still prove the gate blocks.
+- TestVerificationLints (whole class), citecheck/claims/run-status CLI methods,
+  TestFetchGateIntegration, TestEscalationCli, TestRunStatusIntegration: typer app verbs -> P1-9/P1-10.
+- TestIndependence: covered by test_independence.py (P1-3).
+- TestCiteCheckerAgentInstall, TestBrowserFetcherAgent: core.hooks installers -> Phase 2 renderer piece.
+NOTE for P1-10 builder: activating the content-gate skips is part of your done-definition;
+AC-4's negative battery depends on them.
