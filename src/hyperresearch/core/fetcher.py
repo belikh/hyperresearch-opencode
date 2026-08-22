@@ -59,8 +59,9 @@ def fetch_and_save(
 
     # Detect login redirects — abort, but escalate to the browser lane
     if result.looks_like_login_wall(url, vault.config.junk):
-        # P1-5+/escalation piece; ignore until that module lands (then remove).
-        from hyperresearch.core.escalation import (  # type: ignore[import-untyped]
+        # P1-8: hyperresearch.core.escalation exists; the P1-4-era
+        # `# type: ignore[import-untyped]` was removed with its piece per plan.
+        from hyperresearch.core.escalation import (
             maybe_enqueue_blocked_fetch,
         )
 

@@ -326,12 +326,11 @@ def render_shims(vault: Vault, vault_tag: str) -> dict[str, Any]:
         path.write_text(shims[role], encoding="utf-8")
         written.append(str(path))
 
-    # Upstream imports lazily here too. Delta vs upstream (P1-7): core.runs
-    # is a later port piece; until it lands this tail raises ImportError AFTER
-    # the shim files are written — its tests (TestRenderCli / TestVerifyGate)
-    # are deferred with it. P1-7+/runs piece; ignore until that module lands
-    # (then remove).
-    from hyperresearch.core.runs import (  # type: ignore[import-untyped]
+    # Upstream imports lazily here too. P1-8: hyperresearch.core.runs exists;
+    # the P1-7-era `# type: ignore[import-untyped]` was removed with its piece
+    # per plan (this tail now records the resolved levers on the manifest and
+    # emits its event for real).
+    from hyperresearch.core.runs import (
         RunError,
         _save,
         load_manifest,
