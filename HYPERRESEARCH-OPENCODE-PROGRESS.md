@@ -5,7 +5,7 @@ Live status page for the port of
 (v0.10.0, reference pinned at `15010c5142244b88265f7abadf7b7aa1a8237fde`)
 to opencode. Scope and citations per piece live in [PARITY.md](PARITY.md).
 
-**Last updated:** 2026-08-22 — P1-3 marked critic-won (blind r1 win with two latent-defect findings, evidence/gauntlet/P1-3-verdict-r1.md); both fixes landed as P1-2 side-deltas. P1-2 built: search fts/filters + embed ported near-verbatim, similarity.py drift re-check clean, gates green as documented in PORTING-NOTES.md §P1-2
+**Last updated:** 2026-08-22 — P1-4 built: web providers/base + core/fetcher ported near-verbatim (+PDF text extraction, junk gates), crawl4ai provider made lazily importable without its extra, gates green as documented in PORTING-NOTES.md §P1-4
 
 ## Legend
 
@@ -36,7 +36,7 @@ evidence pointers fill in at first commit touching the piece.
 | P1-1 | Foundation layer: models + core | critic-won | blind r2 win; 4 latent upstream defects fixed as deltas, 1 filed | evidence/gauntlet/P1-1-verdict-r2.md |
 | P1-2 | Search layer (fts/filters) + embeddings | built | pending review; near-verbatim port incl. deferred test_fts.py; similarity.py drift re-check clean; P1-3 side-fixes (LSH banding guard, linker determinism) landed with regression tests; 166 passed / 2 skipped, ruff+mypy strict clean | PORTING-NOTES.md §P1-2, evidence/gauntlet/P1-3-verdict-r1.md |
 | P1-3 | Graph layer: linker/graphrank/quality/independence (+ similarity) | critic-won | blind r1 win; 2 latent upstream defects found (MEDIUM LSH banding all-pairs, LOW ref_vocab unordered-SQL nondeterminism), both fixed as P1-2 side-deltas with regression tests | evidence/gauntlet/P1-3-verdict-r1.md, PORTING-NOTES.md §P1-2 |
-| P1-4 | — | pending | — | — |
+| P1-4 | Web layer: providers/base + fetcher (+PDF text extraction, junk gates) + tests | built | pending review; near-verbatim port; crawl4ai imports made lazy so the provider module (and its offline PDF/smart-wait helpers) import without the uninstallable-on-3.14 extra — factory ImportError contract unchanged; 211 passed / 6 skipped, ruff+mypy strict clean | PORTING-NOTES.md §P1-4 |
 | P1-5 | — | pending | — | — |
 | P1-6 | — | pending | — | — |
 | P1-7 | — | pending | — | — |

@@ -490,3 +490,154 @@ clean, `mypy src` strict clean (28 source files).
   tests/test_core/test_source_ranking.py alongside TestDoiExtraction (its
   sibling `test_search_cli_ranked_flag` still needs the CLI app).
 
+
+## P1-4 — Web layer: providers/base + fetcher (+PDF text extraction, junk gates)
+
+Ported near-verbatim from upstream v0.10.0. Sources (7 files):
+`web/{__init__,base,builtin,tavily_provider,exa_provider,crawl4ai_provider}.py`
+and `core/fetcher.py`. Tests: all 7 upstream `tests/test_web/` files taken
+(6 test modules + empty `__init__.py`; 7 of those byte-identical, one adapted
+— below). Source-side, `web/__init__.py`, `exa_provider.py` are byte-identical;
+the rest carry only the marked deltas.
+
+### Junk detection: real locations (brief asked to verify by reading)
+
+- **`web/base.py`** — the gates themselves:
+  `is_binary_garbage_char` / `binary_garbage_ratio` / `is_binary_garbage`,
+  `WebResult.looks_like_junk()` (empty content, bot-detection, error pages,
+  search-index pages, raw-PDF-internal markers, binary-garbage ratio,
+  cookie/boilerplate walls) and `WebResult.looks_like_login_wall()`.
+- **Thresholds live in `core/config.py::JunkGates`** (`min_content_chars`,
+  `sample_window`, `binary_garbage_ratio`, cookie/login-wall sizes,
+  `extra_*_signals`) — already in-tree since P1-1's verbatim config port;
+  nothing added here.
+- **`core/patterns.py` contains NO junk patterns** — verified by reading; the
+  survey's guess was wrong. Fetcher merely *consumes* the base.py gates via
+  `vault.config.junk`.
+
+### THE delta: crawl4ai imports made lazy (module importable without the extra)
+
+Upstream `crawl4ai_provider.py` opens with four module-level
+`from crawl4ai import ...` lines. That was safe upstream because crawl4ai was
+a hard core dependency; here it is an opt-in extra that cannot install on
+Python 3.14, so a top-level import would make the whole module — including
+the offline PDF/smart-wait helpers and every test touching them —
+unimportable. The four imports moved into the only two methods that use them
+(`Crawl4AIProvider.__init__`: BrowserConfig/CrawlerRunConfig/
+DefaultMarkdownGenerator + PruningContentFilter; `_make_crawler`:
+AsyncWebCrawler/AsyncPlaywrightCrawlerStrategy/UndetectedAdapter), with a
+TYPE_CHECKING-only binding preserving the `-> AsyncWebCrawler` annotation.
+
+Honesty note on the brief: "upstream already guards imports" is only PARTLY
+true. Verified guards upstream: (a) factory-level — `get_provider` wraps both
+import AND construction of crawl4ai/tavily providers in try/except ImportError
+(preserved byte-identical); (b) two of seven test files use
+`pytest.importorskip` (stealth: on `crawl4ai.browser_adapter`;
+fetch_many_fallback: on the provider module). NOT guarded upstream, because
+absence was impossible there: `test_pdf_diagnostics.py` imports the provider
+module bare at module level, and `test_junk_detection.py::
+test_single_shared_implementation` imports `_looks_like_binary` from it.
+With lazy imports these run unmodified in our tree.
+
+User-facing contract verified unchanged:
+`get_provider("crawl4ai")` still raises
+`ImportError("crawl4ai provider requires: pip install hyperresearch[crawl4ai]")`
+(construction-time instead of import-time; same except-block catches both).
+
+Consequence wins: `test_pdf_diagnostics` (7 tests) and the shared-junk-
+implementation regression now RUN without the extra, and
+`test_fetch_many_fallback`'s importorskip passes so its 2 fake-crawler tests
+run offline instead of skipping (guard kept verbatim; it still skips in an
+environment where even the lazy module fails).
+
+### Test porting decisions
+
+- 7 files byte-identical to upstream (diff-verified): `__init__.py`,
+  `test_junk_detection.py`, `test_pdf_diagnostics.py`,
+  `test_crawl4ai_stealth.py`, `test_fetch_many_fallback.py`,
+  `test_tavily_provider.py`, `test_exa_provider.py`.
+- `test_fetch_settings.py` adapted minimally: module-level importorskip on
+  the provider module kept verbatim (now passes thanks to lazy imports, so
+  TestSmartWaitJs + TestLooksLikeBinary run); the three tests that CONSTRUCT
+  a real Crawl4AIProvider (TestProviderConstruction ×2,
+  TestGetProviderThreading ×1) gained an inline
+  `pytest.importorskip("crawl4ai", ...)` helper — constructing the provider
+  genuinely needs the package, which is not installable here. Skips cleanly.
+
+### No-network audit
+
+Every new test is offline: tavily tests inject a fake SDK module into
+sys.modules; exa tests patch MagicMock clients onto the installed exa_py
+(no HTTP issued); PDF tests stub `httpx.get` with canned responses;
+junk/fetch-settings/smart-wait tests are pure functions; stealth +
+construction tests skip without the package. No live network anywhere.
+
+### PDF extraction path exercised (pymupdf wheel present)
+
+pymupdf 1.28.2 cp314 wheel installed as a core dep, so
+`pytest.importorskip("pymupdf")` passes and `test_pdf_diagnostics` exercises
+REAL extraction offline: builds in-memory PDFs (`pymupdf.open()` →
+`new_page()` → `insert_text()` → `tobytes()`), feeds them through
+`_fetch_pdf` with stubbed httpx, and asserts extracted text plus
+`looks_like_junk() is None` (magic-bytes-beat-content-type round trip);
+the scanned-PDF/no-text-layer OCR diagnostic likewise. The missing-pymupdf
+diagnostics (one-shot warning latch) are exercised by faking ImportError
+via `builtins.__import__` monkeypatching.
+
+### mypy --strict annotation deltas (zero logic changes)
+
+| File | Delta |
+|------|-------|
+| web/base.py | `WebResult.metadata/media/links` bare `dict`/`list[dict]` → `dict[str, Any]`/`list[dict[str, Any]]`; adds `Any` import |
+| web/builtin.py | HTMLParser overrides annotated per typeshed (`tag: str`, `attrs: list[tuple[str, str \| None]]`) + `__init__ -> None`; urllib branch binds `resp: Any` with one `# type: ignore[no-redef]` (same function also binds `resp` from httpx above; typeshed's `IO[Any]` has no `.url`) |
+| web/crawl4ai_provider.py | `cookies: list[dict]` → `list[dict[str, Any]]`; `browser_kwargs: dict[str, Any]`; `links`/`web_results`/`failed_pdf_urls` given explicit annotations; `_import_pymupdf() -> Any` (callers use the returned module directly) |
+| web/tavily_provider.py | one ignore comment on the lazy `from tavily import TavilyClient` (see next section); zero logic/annotation changes |
+| core/fetcher.py | `vault` param → `vault: Vault` (module-level Vault import, no cycle); return `dict` → `dict[str, Any]`; `extra_meta`/`saved_assets` parameterized; `.get(result.raw_content_type or "", "")` (`or ""` for the str key — None maps to "" exactly as upstream's default did) |
+
+### mypy strict vs stub-less optional SDKs: per-line ignores, no config change
+
+The lazy third-party imports (`bs4`, `crawl4ai` + two submodules,
+`crawl4ai.async_crawler_strategy`, `crawl4ai.browser_adapter`,
+`playwright.async_api`, `tavily`) are unresolvable under strict mypy on this
+host (none ship stubs; most aren't installable). A central
+`[[tool.mypy.overrides]] ignore_missing_imports` block would fix it, but this
+piece's file ownership excludes `pyproject.toml`, so each site instead carries
+a `# type: ignore[import-not-found]` with a Delta comment — inside owned files,
+self-cleaning (the ignore reads as unused and FAILS the gate if the module
+ever becomes resolvable, forcing removal). Two mypy behaviors worth recording:
+only the FIRST import of a given missing module errors (later imports of the
+same module are cached and must NOT carry ignores), and exa_py needed nothing
+(it ships py.typed). A later piece that owns pyproject may consolidate these
+into one override block if it prefers.
+
+### Forward references to later pieces (kept verbatim, self-cleaning ignores)
+
+`fetch_and_save` lazily imports three not-yet-ported modules on paths that
+cannot execute until they land: `core.scholar.extract_doi` (**main path** —
+every successful fetch calls it), `core.escalation.maybe_enqueue_blocked_fetch`
+(login-wall / bot-detection branches), `cli.fetch._save_assets` (save_assets
+branch). Each carries `# type: ignore[import-untyped]` marked for removal
+with its piece — strict mode's warn_unused_ignores will FAIL the gate once
+the real module exists, forcing cleanup. Consequence: `fetch_and_save` cannot
+run end-to-end until P1-5 (scholar). Upstream ships NO direct tests for
+fetcher (verified by grep over upstream tests/) so there is nothing to skip
+or defer here; its test window opens when scholar lands (P1-5 backfill).
+
+Result: 211 passed, 6 skipped (2 pre-existing agent-docs skips + 1 module
+skip = stealth file ×3 tests + 3 crawl4ai-construction skips), ruff clean,
+`mypy src` strict clean (35 source files).
+
+### Out-of-scope imports discovered (feed later builders)
+
+- `cli/fetch.py` has its OWN inline fetch pipeline (not this fetcher) plus
+  `_save_assets`, which `core/fetcher.py` imports lazily — the cli/fetch
+  piece owns removing that ignore.
+- `core/escalation.py::maybe_enqueue_blocked_fetch` consumed by fetcher's
+  login-wall/bot branches — escalation piece must provide it (signature used
+  here: `(vault, url, reason, *, vault_tag=None, detail=None) -> item_id`).
+- `core/scholar.extract_doi(url, raw_html, content)` consumed on fetcher's
+  main path — P1-5 backfill should also restore fetcher end-to-end tests.
+- `mcp/server.py` + `serve/server.py` presumably consume `fetch_and_save`
+  (MCP-side entry per brief) — later wiring, untouched here.
+- `web.base.get_provider` future callers: `cli/research.py`,
+  `cli/fetch_batch.py` (surveyed earlier pieces noted them as lazy).

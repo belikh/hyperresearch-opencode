@@ -1,0 +1,525 @@
+"""Crawl4AI web provider — free, open-source, local headless browser, returns clean markdown.
+
+Supports authenticated crawling via crawl4ai browser profiles:
+  1. Run `crwl profiles` or `hyperresearch setup` to create a profile and log in
+  2. Set `profile = "profile-name"` in .hyperresearch/config.toml
+  3. All fetches now use your authenticated session (cookies, localStorage, etc.)
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+import pathlib
+import sys
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
+
+from hyperresearch.core.config import FetchSettings, JunkGates
+from hyperresearch.web.base import WebResult, is_binary_garbage
+
+if TYPE_CHECKING:
+    # Delta vs upstream: type-check-time only binding so the `-> AsyncWebCrawler`
+    # annotation below still resolves once the real module is installed.
+    from crawl4ai import AsyncWebCrawler  # type: ignore[import-not-found]
+
+# Delta vs upstream: the four module-level `from crawl4ai import ...` lines were
+# moved into the two methods that use them (`__init__`, `_make_crawler`). Upstream
+# ships crawl4ai as a hard core dependency so top-level imports could never fail;
+# here it is an opt-in extra that cannot be installed on Python 3.14, and a
+# top-level import would make this whole module (and with it the offline PDF /
+# smart-wait helpers below) unimportable without the extra. The user-facing
+# contract is unchanged: web.base.get_provider already wraps construction in
+# try/except ImportError and re-raises the "pip install hyperresearch[crawl4ai]"
+# message whether the import or the constructor raised.
+
+# Fix Windows encoding before crawl4ai's managed browser tries to log Unicode
+if sys.platform == "win32":
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    os.environ.setdefault("PYTHONUTF8", "1")
+    for _stream in (sys.stdout, sys.stderr):
+        if hasattr(_stream, "reconfigure"):
+            try:
+                _stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+
+def _is_pdf_url(url: str) -> bool:
+    """Check if URL likely points to a PDF."""
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url.lower())
+    path = parsed.path
+    # Direct .pdf links
+    if path.endswith(".pdf"):
+        return True
+    # Common academic PDF patterns
+    if "/pdf/" in path or "/pdfs/" in path:
+        return True
+    # arXiv PDF links
+    return "arxiv.org" in parsed.netloc and ("/pdf/" in path or "/abs/" in path)
+
+
+def _looks_like_binary(text: str, gates: JunkGates | None = None) -> bool:
+    """Check if extracted 'content' is actually binary garbage from a PDF."""
+    if not text:
+        return False
+    gates = gates or JunkGates()
+    sample = text[: gates.sample_window]
+    # PDF internal structure markers — dead giveaway
+    pdf_markers = ("endstream", "endobj", "/Filter", "/FlateDecode", "stream\nx", "%PDF-")
+    if any(m in sample for m in pdf_markers):
+        return True
+    # Shared with WebResult.looks_like_junk() — keep one implementation, since these
+    # two gates drifting apart is what let `ord(c) > 127` survive in base.py and
+    # silently discard every non-English page.
+    return is_binary_garbage(sample, gates)
+
+
+def _smart_wait_js(settings: FetchSettings) -> str:
+    """DOM-stability polling loop shared by the headless and visible paths.
+
+    Waits `wait_initial_ms`, then polls every `poll_interval_ms` until body text
+    length is unchanged for `stable_checks` consecutive polls, giving up after
+    `max_checks` polls.
+    """
+    return (
+        "() => new Promise(r => {"
+        "  setTimeout(() => {"
+        "    let last = document.body.innerText.length;"
+        "    let stable = 0;"
+        "    let checks = 0;"
+        "    const interval = setInterval(() => {"
+        "      const now = document.body.innerText.length;"
+        "      if (now === last) { stable++; } else { stable = 0; }"
+        f"      if (stable >= {settings.stable_checks} || checks > {settings.max_checks}) {{ clearInterval(interval); r(true); }}"
+        "      last = now; checks++;"
+        f"    }}, {settings.poll_interval_ms});"
+        f"  }}, {settings.wait_initial_ms});"
+        "})"
+    )
+
+
+_PYMUPDF_MISSING_LOGGED = False
+
+
+def _pdf_log() -> logging.Logger:
+    return logging.getLogger("hyperresearch.pdf")
+
+
+def _import_pymupdf() -> Any:
+    """Import pymupdf, warning loudly (once) if it is unavailable.
+
+    Without this warning a missing/broken pymupdf is invisible: every PDF falls
+    through to the browser lane, arrives as binary, and is discarded as junk —
+    across every domain at once, with nothing explaining why.
+
+    Delta vs upstream: `-> Any` added for mypy --strict (callers use the returned
+    module directly; typeshed has no stub shape for "the pymupdf module").
+    """
+    global _PYMUPDF_MISSING_LOGGED
+    try:
+        import pymupdf
+
+        return pymupdf
+    except ImportError as exc:
+        if not _PYMUPDF_MISSING_LOGGED:
+            _PYMUPDF_MISSING_LOGGED = True
+            _pdf_log().error(
+                "pymupdf could not be imported (%s) — PDF text extraction is disabled, "
+                "so every PDF will be discarded as junk content. Reinstall it with "
+                "`pip install --force-reinstall pymupdf`.",
+                exc,
+            )
+        return None
+
+
+def _fetch_pdf(url: str, settings: FetchSettings | None = None) -> WebResult | None:
+    """Download a PDF and extract text using pymupdf. Returns None if extraction fails.
+
+    Every failure path logs its reason. A silent None here is indistinguishable
+    from "this URL is not a PDF", which is what made missing-PDF failures so hard
+    to diagnose.
+    """
+    pymupdf = _import_pymupdf()
+    if pymupdf is None:
+        return None
+
+    settings = settings or FetchSettings()
+
+    import httpx
+
+    try:
+        # Convert arXiv abs links to PDF links
+        if "arxiv.org/abs/" in url:
+            url = url.replace("/abs/", "/pdf/")
+            if not url.endswith(".pdf"):
+                url += ".pdf"
+
+        resp = httpx.get(url, follow_redirects=True, timeout=settings.pdf_timeout_s,
+                         verify=settings.pdf_verify_tls, headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Accept": "application/pdf,application/octet-stream;q=0.9,*/*;q=0.8",
+        })
+        if resp.status_code != 200:
+            _pdf_log().warning("PDF fetch for %s returned HTTP %s", url, resp.status_code)
+            return None
+
+        pdf_bytes = resp.content
+        content_type = resp.headers.get("content-type", "")
+
+        # Magic bytes are authoritative. Servers mislabel PDFs as octet-stream,
+        # and plenty of PDF URLs carry no .pdf suffix, so trusting the header or
+        # the URL shape alone silently drops real PDFs.
+        if not pdf_bytes.startswith(b"%PDF-"):
+            _pdf_log().warning(
+                "PDF fetch for %s did not return PDF data (content-type=%r, first bytes=%r)",
+                url, content_type, pdf_bytes[:8],
+            )
+            return None
+
+        if len(pdf_bytes) < settings.min_pdf_bytes:
+            _pdf_log().warning("PDF fetch for %s returned only %d bytes", url, len(pdf_bytes))
+            return None
+
+        doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+
+        # Extract text from all pages
+        pages = []
+        for page in doc:
+            text = page.get_text("text")
+            if text.strip():
+                pages.append(text)
+
+        page_count = doc.page_count
+        doc.close()
+
+        if not pages:
+            _pdf_log().warning(
+                "PDF at %s has %d page(s) but no extractable text layer — "
+                "likely a scanned document requiring OCR.", url, page_count,
+            )
+            return None
+
+        # Build markdown from extracted text
+        full_text = "\n\n---\n\n".join(pages)
+        title = ""
+        # Try to get title from first page (first non-empty line)
+        for line in pages[0].split("\n"):
+            line = line.strip()
+            if len(line) > 10:
+                title = line
+                break
+
+        return WebResult(
+            url=url,
+            title=title or f"PDF: {url.split('/')[-1]}",
+            content=full_text,
+            fetched_at=datetime.now(UTC),
+            metadata={"content_type": "application/pdf", "pages": len(pages)},
+            raw_bytes=pdf_bytes,
+            raw_content_type="application/pdf",
+        )
+
+    except Exception as e:
+        _pdf_log().warning("PDF extraction failed for %s: %s", url, e)
+        return None
+
+
+class Crawl4AIProvider:
+    name = "crawl4ai"
+
+    def __init__(
+        self,
+        headless: bool = True,
+        user_data_dir: str | None = None,
+        profile: str | None = None,
+        cookies: list[dict[str, Any]] | None = None,  # Delta vs upstream: parameterized for --strict
+        magic: bool = False,
+        settings: FetchSettings | None = None,
+        gates: JunkGates | None = None,
+    ):
+        # Delta vs upstream: moved here from module level (see header comment).
+        from crawl4ai import BrowserConfig, CrawlerRunConfig, DefaultMarkdownGenerator
+
+        # Delta vs upstream: ignore for --strict (stub-less optional extra).
+        from crawl4ai.content_filter_strategy import (  # type: ignore[import-not-found]
+            PruningContentFilter,
+        )
+
+        # Resolve profile name to path (crawl4ai stores profiles in ~/.crawl4ai/profiles/)
+        data_dir = user_data_dir
+        if profile and not data_dir:
+            data_dir = str(pathlib.Path.home() / ".crawl4ai" / "profiles" / profile)
+
+        self._data_dir = data_dir
+        self._headless = headless
+        self._cookies = cookies
+        self._settings = settings or FetchSettings()
+        self._gates = gates or JunkGates()
+
+        browser_kwargs: dict[str, Any] = {"headless": headless}  # Delta vs upstream: parameterized
+        if data_dir:
+            browser_kwargs["use_managed_browser"] = True
+            browser_kwargs["user_data_dir"] = data_dir
+        if cookies:
+            browser_kwargs["cookies"] = cookies
+
+        self._browser_config = BrowserConfig(**browser_kwargs)
+
+        # Smart wait: initial delay + poll until content stabilizes
+        self._wait_js = "js:" + _smart_wait_js(self._settings)
+        # Use PruningContentFilter to populate fit_markdown (strips nav/footer chrome)
+        self._md_generator = DefaultMarkdownGenerator(
+            content_filter=PruningContentFilter(),
+        )
+        self._run_config = CrawlerRunConfig(
+            magic=magic,
+            simulate_user=True,
+            screenshot=True,
+            page_timeout=self._settings.page_timeout_ms,
+            wait_for=self._wait_js,
+            markdown_generator=self._md_generator,
+        )
+
+    def _make_crawler(self) -> AsyncWebCrawler:
+        """Build an AsyncWebCrawler wired with the stealth (patchright) adapter.
+
+        crawl4ai's AsyncWebCrawler defaults to PlaywrightAdapter (plain
+        playwright); patchright/stealth only engages when an UndetectedAdapter is
+        passed via an explicit AsyncPlaywrightCrawlerStrategy. Without this the
+        provider's anti-bot behavior is only simulate_user + smart-wait. The
+        adapter's use_undetected flag is threaded through every BrowserManager
+        launch branch (default, persistent-context, and managed-browser/CDP), so
+        this is compatible with the authenticated-profile (user_data_dir) path.
+        """
+        # Delta vs upstream: moved here from module level (see header comment);
+        # ignores for --strict (stub-less optional extra). Note: the bare
+        # `crawl4ai` module error is already reported once at the TYPE_CHECKING
+        # import above, so only the submodule imports carry per-line ignores.
+        from crawl4ai import AsyncWebCrawler
+        from crawl4ai.async_crawler_strategy import (  # type: ignore[import-not-found]
+            AsyncPlaywrightCrawlerStrategy,
+        )
+        from crawl4ai.browser_adapter import UndetectedAdapter  # type: ignore[import-not-found]
+
+        strategy = AsyncPlaywrightCrawlerStrategy(
+            browser_config=self._browser_config,
+            browser_adapter=UndetectedAdapter(),
+        )
+        return AsyncWebCrawler(crawler_strategy=strategy, config=self._browser_config)
+
+    def fetch(self, url: str) -> WebResult:
+        # PDF detection: fetch directly with httpx, extract text with pymupdf
+        if _is_pdf_url(url):
+            result = _fetch_pdf(url, self._settings)
+            if result is not None:
+                return result
+            # Fallback to browser if PDF fetch failed (might be a landing page, not actual PDF)
+
+        # When visible + profile: use Playwright directly (crawl4ai managed browser ignores headless=False)
+        if not self._headless and self._data_dir:
+            return asyncio.run(self._fetch_visible(url))
+
+        result = asyncio.run(self._fetch_async(url))
+
+        # Post-fetch PDF detection: if the browser got binary garbage (PDF served
+        # inline without proper content-type handling), re-fetch as a direct PDF download.
+        if result.content and _looks_like_binary(result.content, self._gates):
+            pdf_result = _fetch_pdf(url, self._settings)
+            if pdf_result is not None:
+                return pdf_result
+
+        return result
+
+    async def _fetch_visible(self, url: str) -> WebResult:
+        """Fetch using Playwright directly with a visible browser window.
+
+        crawl4ai's managed browser always forces headless. For sites like LinkedIn
+        that detect headless mode and kill sessions, we need a truly visible browser.
+        """
+        # Delta vs upstream: ignore for --strict (playwright is crawl4ai's own
+        # dependency, absent on this host; this visible-browser path cannot run
+        # without the extra anyway).
+        from playwright.async_api import async_playwright  # type: ignore[import-not-found]
+
+        async with async_playwright() as pw:
+            context = await pw.chromium.launch_persistent_context(
+                user_data_dir=self._data_dir,
+                headless=False,
+                viewport={"width": 1280, "height": 900},
+                ignore_https_errors=True,
+            )
+            page = context.pages[0] if context.pages else await context.new_page()
+            await page.goto(url, wait_until="domcontentloaded", timeout=self._settings.page_timeout_ms)
+
+            # Smart wait — same logic (and same builder) as the headless config
+            await page.evaluate(_smart_wait_js(self._settings))
+
+            html = await page.content()
+            title = await page.title()
+            screenshot_bytes = await page.screenshot(type="png")
+            final_url = page.url
+
+            await context.close()
+
+        # Convert HTML to markdown using crawl4ai's markdown generator
+        # Prefer fit_markdown (main content, no nav/footer chrome) over raw_markdown.
+        md_result = self._md_generator.generate_markdown(html, base_url=final_url)
+        content = ""
+        if md_result and hasattr(md_result, "fit_markdown"):
+            content = md_result.fit_markdown or md_result.raw_markdown or ""
+        elif md_result and hasattr(md_result, "raw_markdown"):
+            content = md_result.raw_markdown or ""
+        elif isinstance(md_result, str):
+            content = md_result
+
+        return WebResult(
+            url=final_url,
+            title=title,
+            content=content,
+            raw_html=html,
+            fetched_at=datetime.now(UTC),
+            metadata={"title": title},
+            screenshot=screenshot_bytes,
+        )
+
+    async def _fetch_async(self, url: str) -> WebResult:
+        async with self._make_crawler() as crawler:
+            result = await crawler.arun(url=url, config=self._run_config)
+            metadata = result.metadata or {}
+
+            # result.markdown is a MarkdownGenerationResult with .raw_markdown,
+            # .fit_markdown, .markdown_with_citations, etc.
+            # Prefer fit_markdown (main content, no nav/footer chrome) over raw_markdown.
+            md = result.markdown
+            if md and hasattr(md, "fit_markdown"):
+                content = md.fit_markdown or md.raw_markdown or ""
+            elif md and hasattr(md, "raw_markdown"):
+                content = md.raw_markdown or ""
+            elif isinstance(md, str):
+                content = md
+            else:
+                content = ""
+
+            # Extract media (images) — crawl4ai returns dict with 'images' key
+            media_raw = result.media or {}
+            media = media_raw.get("images", []) if isinstance(media_raw, dict) else []
+
+            # Extract links — crawl4ai returns dict with 'internal'/'external' keys
+            links_raw = result.links or {}
+            links: list[dict[str, Any]] = []  # Delta vs upstream: annotated for --strict
+            if isinstance(links_raw, dict):
+                for link in links_raw.get("internal", []):
+                    links.append({**link, "type": "internal"})
+                for link in links_raw.get("external", []):
+                    links.append({**link, "type": "external"})
+
+            # Decode screenshot from base64 if present
+            screenshot_bytes = None
+            if result.screenshot:
+                import base64
+
+                try:
+                    screenshot_bytes = base64.b64decode(result.screenshot)
+                except Exception:
+                    pass
+
+            return WebResult(
+                url=result.url or url,
+                title=metadata.get("title", ""),
+                content=content,
+                raw_html=result.html,
+                fetched_at=datetime.now(UTC),
+                metadata=metadata,
+                media=media,
+                links=links,
+                screenshot=screenshot_bytes,
+            )
+
+    def fetch_many(self, urls: list[str]) -> list[WebResult]:
+        """Fetch multiple URLs concurrently using crawl4ai's arun_many."""
+        return asyncio.run(self._fetch_many_async(urls))
+
+    async def _fetch_many_async(self, urls: list[str]) -> list[WebResult]:
+        # Split: PDFs go direct, rest go through browser
+        pdf_urls = [u for u in urls if _is_pdf_url(u)]
+        html_urls = [u for u in urls if not _is_pdf_url(u)]
+
+        web_results: list[WebResult] = []  # Delta vs upstream: annotated for --strict
+
+        # Fetch PDFs directly (no browser needed). When _fetch_pdf returns
+        # None (parser failure, non-PDF body served at a .pdf URL) we fall
+        # back to the browser path — mirrors the single-fetch behaviour in
+        # fetch() so batch callers don't silently lose academic PDFs that
+        # need JS-rendered landing pages.
+        failed_pdf_urls: list[str] = []  # Delta vs upstream: annotated for --strict
+        for url in pdf_urls:
+            pdf_result = _fetch_pdf(url, self._settings)
+            if pdf_result is not None:
+                web_results.append(pdf_result)
+            else:
+                failed_pdf_urls.append(url)
+
+        browser_urls = html_urls + failed_pdf_urls
+
+        # Fetch HTML pages with browser
+        if browser_urls:
+            async with self._make_crawler() as crawler:
+                results = await crawler.arun_many(urls=browser_urls, config=self._run_config)
+                for cr, url in zip(results, browser_urls, strict=False):
+                    if not cr.success:
+                        continue
+                    metadata = cr.metadata or {}
+                    md = cr.markdown
+                    if md and hasattr(md, "fit_markdown"):
+                        content = md.fit_markdown or md.raw_markdown or ""
+                    elif md and hasattr(md, "raw_markdown"):
+                        content = md.raw_markdown or ""
+                    elif isinstance(md, str):
+                        content = md
+                    else:
+                        content = ""
+
+                    # Post-fetch binary check — browser may have fetched a PDF inline
+                    if content and _looks_like_binary(content, self._gates):
+                        pdf_result = _fetch_pdf(url, self._settings)
+                        if pdf_result is not None:
+                            web_results.append(pdf_result)
+                            continue
+
+                    media_raw = cr.media or {}
+                    media = media_raw.get("images", []) if isinstance(media_raw, dict) else []
+
+                    screenshot_bytes = None
+                    if cr.screenshot:
+                        import base64
+
+                        try:
+                            screenshot_bytes = base64.b64decode(cr.screenshot)
+                        except Exception:
+                            pass
+
+                    web_results.append(WebResult(
+                        url=cr.url or url,
+                        title=metadata.get("title", ""),
+                        content=content,
+                        raw_html=cr.html,
+                        fetched_at=datetime.now(UTC),
+                        metadata=metadata,
+                        media=media,
+                        screenshot=screenshot_bytes,
+                    ))
+        return web_results
+
+    def search(self, query: str, max_results: int = 5) -> list[WebResult]:
+        raise NotImplementedError(
+            "crawl4ai does not support web search. "
+            "Use your agent's built-in search, then pipe URLs into 'hyperresearch fetch'."
+        )
+
