@@ -220,9 +220,6 @@ class TestWorkspaceIsolation:
         paths = [str(p) for p in plan.to_add]
         assert not any("runs" in p for p in paths)
 
-    @pytest.mark.skip(
-        reason="needs cli/vault_tag._existing_tags — lands with the vault-tag CLI piece"
-    )
     def test_vault_tag_collision_includes_run_dirs(self, tmp_vault):
         from hyperresearch.cli.vault_tag import _existing_tags
 

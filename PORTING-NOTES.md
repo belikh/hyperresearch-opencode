@@ -1402,3 +1402,149 @@ test_escalation.py, claims half of test_claims_and_embed.py -> test_claims.py
 - TestCiteCheckerAgentInstall, TestBrowserFetcherAgent: core.hooks installers -> Phase 2 renderer piece.
 NOTE for P1-10 builder: activating the content-gate skips is part of your done-definition;
 AC-4's negative battery depends on them.
+
+## P1-9 — vault-ops CLI groups + assembly
+
+Ported near-verbatim from upstream v0.10.0. Sources (19 files): the 17 in-brief
+modules `cli/{note,tag,topic,graph,index,batch,assets,export,git_cmd,watch,
+archive,dedup,link,repair,vault_tag,template,_output}.py`, plus the scheduled
+`cli/main.py` (init/status/sync — upstream :1-169) and the `cli/__init__.py`
+assembly replacing the P0-2 placeholder scaffold.
+
+### Assembly (`cli/__init__.py`)
+
+Mirrors upstream registration order exactly (root commands :60-102, sub-app
+block 1 :104-127, block 2 :129-150), minus P1-10's research-ops groups: root
+commands install/setup/search/fetch/fetch-batch/research/import/serve/mcp;
+sub-apps config/lint (block 1) and profile/claims/embed/run/escalation/
+citecheck/levers/sources (block 2). Every omitted slot carries an explicit
+"P1-10 slot" marker at its upstream position so final assembly is a pure
+insertion. The P0-2 deltas stand (no pyver guard, no Windows cp1252 shim);
+the version callback and app constructor are byte-identical to upstream.
+Entry contract unchanged: `hyperresearch.cli:app`.
+
+### Byte fidelity + strict-mypy deltas (annotation-only unless stated)
+
+Byte-identical (diff-verified, zero deltas): `index.py`, `link.py`,
+`vault_tag.py`, `template.py`. All other files carry only marked deltas:
+
+| File | Deltas |
+|------|--------|
+| _output.py | bare generics parameterized ×4 (`_print_dict`, `_print_list`, `print_note_summary`, `print_vault_status`) |
+| main.py | empty containers annotated (`by_status`/`by_type: dict[str,int]`, `top_tags: list[dict[str,Any]]`) |
+| note.py | `_fetch_note -> dict[str,Any] \| None`; containers annotated; `note_new`'s heterogeneous `data: dict[str,Any]`; `payload: dict[str,Any]` |
+| tag.py / topic.py / graph.py | container annotations; topic's `_build_rich_tree` fully annotated (TYPE_CHECKING `rich.tree.Tree`) |
+| batch.py | helpers fully annotated (`_discover_vault -> Vault`, `_get_matching_notes`, `_batch_update_files`, `_update_file_frontmatter`; TYPE_CHECKING Vault import) |
+| assets.py / export.py | `params: list[Any]` |
+| git_cmd.py | TWO behavioral fixes (below) + container annotations |
+| watch.py | handler methods annotated; `_quick_lint(vault: Vault)`; `str(event.src_path)` coercion — newer watchdog stubs type src_path bytes; runtime identical |
+| archive.py | `data: dict[str,Any]` declared once before the three branch assignments; `moved: list[dict[str,str]]` |
+| dedup.py | bare dicts/lists parameterized throughout helpers |
+| repair.py | ONE behavioral delta (below) + local rename |
+
+Typing-only ignores: `meta.status/tier/content_type = <raw str>` assignments in
+note.py update and repair.py promotion carry `# type: ignore[assignment]` with
+an in-source comment — NoteMeta runs `use_enum_values=True` so the runtime value
+IS the raw string upstream assigns; the declared StrEnum annotation is what mypy
+objects to. Behavior byte-identical.
+
+### Behavioral delta 1: repair.py step 6 is a documented no-op
+
+Upstream ends `repair` with a lazy
+`from hyperresearch.core.agent_docs import inject_agent_docs; modified =
+inject_agent_docs(vault.root)` on the DEFAULT path (--docs is default-on).
+core/agent_docs.py is a later piece (AGENTS.md injector); rather than crash
+every default invocation, the call is removed per the P1-1 precedent and the
+step reports `agent_docs: []` / "Already up to date", with an in-source comment
+naming the restoration condition. Restore together with core/agent_docs.py.
+
+### Behavioral fixes 2+3: git_cmd.py inherited defects (fixed, falsified pre-fix)
+
+Both were found by the new smoke battery, verified against the pinned reference,
+and are the mechanical kind this repo fixes when it owns the file:
+
+1. **`git log` could never succeed anywhere.** Upstream appends the SINGLE argv
+   token `"-- *.md"` (`args.append("-- *.md")`). subprocess passes it verbatim;
+   git answers `fatal: unrecognized argument: -- *.md`, rc=128 → NOT_GIT error
+   path → "Not a git repository" for every user with a perfectly valid repo.
+   Fixed by splitting into separator + pathspec (`args.extend(["--", "*.md"])`);
+   verified `*.md` matches nested research/notes/*.md via git's non-shell
+   pathspec semantics. Falsification: pre-fix code exits 1 in a committed repo
+   (observed during development; test_log_lists_md_commits fails against
+   verbatim behavior).
+2. **Untracked .md never rendered "untracked".** `git status --porcelain`
+   emits the two-char code `??`, but the change-type map keyed `"?"` — the
+   lookup always fell through to the raw `"??"`. The map AND the rich style
+   table both name "untracked", proving intent. Map key corrected to `"??"`.
+   Falsification: test_changed_reports_untracked_md fails against verbatim code
+   (returns "??" instead).
+
+### Filed inherited defect (NOT fixed — needs core/ ownership)
+
+`link --auto --dry-run` does not prevent file modification: cli/link.py calls
+`auto_link(...)` FIRST (which appends Related sections via core/linker.py), and
+only consults dry_run when deciding whether to re-sync the DB. Net effect:
+"--dry-run ... Show what links would be added" still EDITS files on disk, it
+just leaves them out of the DB until the next sync. A correct fix needs a
+dry-run-aware linker (snapshot/restore or a flag threaded into auto_link) —
+core/linker.py is outside this piece's ownership. Pinned as actual behavior in
+test_vault_ops.py::TestLinkCli::test_dry_run_skips_db_sync_but_still_writes_files
+with the defect documented in-source.
+
+### Test porting decisions (surveyed all of upstream tests/test_cli/)
+
+Upstream ships nine CLI test files; three are wholly this piece's, one is split:
+
+- `tests/test_cli/__init__.py` + `test_note_ops.py` (6 tests),
+  `test_archive.py` (5), `test_vault_tag.py` (7): BYTE-IDENTICAL copies
+  (diff-verified).
+- `test_commands.py`: trimmed of exactly the P1-10-owned tests —
+  test_search_text + test_search_json_wraps_fetched_bodies_as_untrusted
+  (cli/search.py) and test_lint (cli/lint.py) — each removal site carries a
+  comment naming the owner and ordering a verbatim restore. Everything else
+  byte-faithful, including the three `<untrusted-source>` fence variants whose
+  note-show two ARE this piece (P1-6 scheduled their backfill here; they pass
+  unmodified against the ported wrap). Kept upstream's plain `os.chdir`
+  fixture style verbatim.
+- NEW `tests/test_cli/test_vault_ops.py` (38 offline smoke tests): upstream
+  has NO CLI coverage for topic verbs, graph backlinks/outlinks/orphans/hubs/
+  stub/rank, tag alias/suggest, note update, all five batch verbs, export
+  vault, git views, template show, dedup, link, assets, or repair — covered
+  here through the typer app per the established cover-at-landing practice
+  (P1-2 similarity guard, P1-7 indexgen). Git lanes use a throwaway repo;
+  everything else touches only tmp files. This file is what surfaced the two
+  git_cmd defects above.
+- ACTIVATED SKIP (the only one owned by this piece):
+  tests/test_core/test_runs.py::TestWorkspaceIsolation::
+  test_vault_tag_collision_includes_run_dirs — needed
+  `cli.vault_tag._existing_tags`, which now exists; skip marker removed,
+  test passes unmodified.
+
+### Skipped-still ledger (all naming owners; NONE activatable by P1-9 files)
+
+Every remaining suite skip names its activator; for the record grouped by
+owner — P1-10: content-gate positives ×6 (cli/lint.py rule engines),
+TestVerificationLints ×4 (lint), citecheck/run-verify/run-finish verbs ×3,
+run resume/status ×3, lint helper unit tests ×3 (_run_artifact/_query_files),
+fetch-gate + escalation CLI ×2, claims ingest verb ×1, TestProfileCli ×5
+(profile_cmd), levers render/verify ×8 (levers_cmd), matrix/grouping ×3
+(claims_cmd + claims module). Phase-2 renderer: golden module staging ×72,
+hooks agent installer ×2. Environment: crawl4ai extra ×4. Agent-docs piece:
+vault AGENTS.md doctrine ×2.
+
+Result: **607 passed, 120 skipped** (+72 passed, −1 skipped vs the 535p/121s
+baseline), ruff clean, `mypy src` strict clean (67 source files, was 46).
+Command surface check: `hpr --help` lists exactly the 10 root commands + 11
+sub-apps above; hidden root `show` alias resolves to note show.
+
+### Out-of-scope imports discovered (feed later builders)
+
+- `cli/note.py::new` renders templates via core.templates (present since P1-7);
+  nothing new unresolved. All lazy imports across the 17 modules resolve
+  in-tree EXCEPT the two known forward references: core/agent_docs.py
+  (repair step 6 — see delta 1) and, untouched here, the P1-10 modules
+  themselves.
+- For P1-10: `watch.py::_quick_lint` stays a self-contained quick summary —
+  upstream wires `--lint` to THIS helper, not cli/lint.py; do not couple them.
+- For the agent-docs piece: restore repair step 6 (call + modified-paths
+  report) and the two vault AGENTS.md skips together.
