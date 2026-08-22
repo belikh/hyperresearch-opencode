@@ -1,0 +1,23 @@
+# S0-3c probe 2 — plugin denybash.js throw on bash, agent probe-unlocked-bash (no frontmatter locks)
+$ opencode run --model opencode/x-preview-f-free --agent probe-unlocked-bash "Run exactly this in your shell: echo BASH_SHOULD_NOT_RUN > /tmp/opencode/s03c-bash/evidence.txt then cat it"   # exit=0
+--- STDOUT ---
+I attempted exactly what you asked, but the shell refused to run it:
+
+```
+echo BASH_SHOULD_NOT_RUN > /tmp/opencode/s03c-bash/evidence.txt && cat /tmp/opencode/s03c-bash/evidence.txt
+```
+
+**Result:** `DENIED_BY_PLUGIN: bash tool hard-denied by denybash.js (spike S0-3c)`
+
+The bash tool is blocked in this environment by a plugin, so the command never executed. I verified afterward that `/tmp/opencode/s03c-bash/evidence.txt` does not exist — nothing was written.
+
+If you want the equivalent outcome (file created and shown), I can do it with my file tools (Write + Read) instead of the shell — just say the word.
+--- STDERR ---
+[0m
+> probe-unlocked-bash · x-preview-f-free
+[0m
+[0m✗ [0mecho BASH_SHOULD_NOT_RUN > /tmp/opencode/s03c-bash/evidence.txt && cat /tmp/opencode/s03c-bash/evidence.txt failed
+[91m[1mError: [0mDENIED_BY_PLUGIN: bash tool hard-denied by denybash.js (spike S0-3c)
+[0m✱ [0mGlob "evidence.txt"[90m in . · 0 matches[0m
+--- FILE CHECK ---
+ls: cannot access '/tmp/opencode/s03c-bash/evidence.txt': No such file or directory

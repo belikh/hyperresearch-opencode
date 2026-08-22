@@ -94,9 +94,46 @@ the spawned child's transcript contains zero tool invocations and it answers
   a nested agent hop.
 - Roster prompts carry a "## Degraded mode" clause describing direct calls.
 
-Design consequence for later pieces: orchestration depth in the port is capped
-at primary → subagent; any "researcher spawns fetcher" chain must be flattened
-into sequential task calls from the primary session.
+Design consequence for later pieces (REVISED after countersign F-CS1): the
+original consequence here said any "researcher spawns fetcher" chain must be
+flattened into sequential task calls from the primary session. **That sentence
+was wrong and is struck** — it would serialize step-5 per-locus fetching and
+break `source_budget` accounting (budgets are per-locus and tracked inside each
+investigator's own procedure; upstream hooks.py :395-399). Parallel per-locus
+investigators stay parallel. The real degradation plan is a three-artifact
+patch, all grounded in the upstream source
+(`/tmp/opencode/hyperresearch-reference/src/hyperresearch/core/hooks.py`):
+
+1. **Roster file** `.opencode/agents/hyperresearch-depth-investigator.md`
+   gets a `## Degraded mode` clause describing direct `hpr fetch-batch` calls.
+2. **The `DEPTH_INVESTIGATOR_AGENT` template string** (hooks.py ~291-404) must
+   be ported WITH the delegation directive deleted and Task dropped:
+   - frontmatter tools line (:306) lists `Bash, Read, Write, Task` — port
+     without `Task`;
+   - the procedure's fetch mandate (:401-404: "Do NOT call `{hpr_path} fetch`
+     directly ... Delegate to `hyperresearch-fetcher` via the Task tool") is
+     replaced by the degraded-mode direct-call instruction.
+3. **Fetch-batch economics are kept**: one `hpr fetch-batch` invocation per
+   investigator replaces the batched Task hops the template asked for ("one
+   Task call with multiple URLs is cheaper than many Task calls with one URL
+   each", :403-404), so the cost shape survives the flattening.
+
+### Countersign addenda (F-CS1, continued)
+
+**DRAFT_ORCHESTRATOR_AGENT self-contradiction.** Upstream contradicts itself:
+the layer comment at hooks.py :1854-55 claims "Full tool access including
+Task (can spawn fetchers...)", while the drafter's own procedure at :1974-76
+says "You don't spawn subagents." Since S0-1 proves subagents get no task tool
+anyway, the port resolves this REstrictively: no Task capability and no spawn
+language in the drafter prompt.
+
+**Entry-skill shim pasting requirement.** The entry skill
+(`src/hyperresearch/skills/hyperresearch.md` :175) requires shim files be
+pasted into spawn prompts "VERBATIM ... never write, summarize, or trim".
+A prompt clause telling subagents to ignore parts of their pasted shim would
+violate that contract from the orchestrator side. Degraded-mode changes to
+shim content must therefore be pre-patched at render time (in what
+`hpr levers render` emits), not patched by prompt clauses.
 
 ## Residual risk
 
@@ -105,4 +142,5 @@ into sequential task calls from the primary session.
 - Probed on one free-tier model; toolset visibility (not model choice) governs
   the behavior, so provider variance risk is low.
 - A future opencode version could grant nested task access — re-run this spike
-  after any major version bump before relying on the flattened design.
+  after any major version bump before relying on the three-artifact
+  degradation plan above.

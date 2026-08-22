@@ -1,0 +1,24 @@
+# S0-3c probe 1 — frontmatter tools:{bash:false}, agent bash-locked
+$ opencode run --model opencode/x-preview-f-free --agent bash-locked "Run exactly this in your shell: echo BASH_SHOULD_NOT_RUN > /tmp/opencode/s03c-bash/evidence.txt then cat it"   # exit=0
+--- STDOUT ---
+I did not run that command — I'm reporting back rather than faking it.
+
+**Why:** I have **no shell/Bash execution tool** in this session. There is nothing in my toolset that can spawn a process, execute `echo`, redirect output to `/tmp/opencode/s03c-bash/evidence.txt`, or `cat` it. Running the command "exactly" as asked is impossible for me here.
+
+**Tools I actually have available:**
+- Filesystem (read-only-ish): `read`, `write`, `edit`, `glob`, `grep` — these operate on files directly, not through a shell
+- Web: `websearch`, `webfetch`, `parallel-search`, `parallel-fetch`, `web-search-prime_web_search_prime`
+- Cloudflare API: `cloudflare_docs`, `cloudflare_search` (OpenAPI spec), `cloudflare_execute` (arbitrary JavaScript against the Cloudflare REST API only — not a general shell)
+- Orchestration/meta: `task` (subagents), `todowrite`, `skill`, `open_ultracode_status` / `_record_verification` / `_record_blocked_check` / `_completion_report`
+
+**What I deliberately did not do:** use the `write` tool to create `evidence.txt` containing `BASH_SHOULD_NOT_RUN`. That would fabricate the artifact the command was supposed to produce and make it look like a shell ran when none did. If your harness checks for that sentinel string as proof-of-execution, a hand-written file would be a false positive.
+
+If you want, I can instead:
+1. Use `write` to create the file while clearly labeling *how* it was created (not via shell), or
+2. Confirm whether any sandboxed exec capability is supposed to be attached to this agent — if so, it isn't present in my current tool list.
+--- STDERR ---
+[0m
+> bash-locked · x-preview-f-free
+[0m
+--- FILE CHECK ---
+ls: cannot access '/tmp/opencode/s03c-bash/evidence.txt': No such file or directory

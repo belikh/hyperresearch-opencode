@@ -5,7 +5,7 @@ Live status page for the port of
 (v0.10.0, reference pinned at `15010c5142244b88265f7abadf7b7aa1a8237fde`)
 to opencode. Scope and citations per piece live in [PARITY.md](PARITY.md).
 
-**Last updated:** 2026-08-22 — P0-3 spikes landed: S0-1 REFUTED (no nested subagents → flat orchestration + degraded mode), S0-2/S0-3/S0-4/S0-6 CONFIRMED; tool-lock belt-and-braces adopted; mypy policy aligned to 3.11 (F3 fix) with mypy/ruff/pytest green
+**Last updated:** 2026-08-22 — P0-3 spikes countersigned (evidence/gauntlet/P0-3-countersign.md); amendments landed: S0-1 three-artifact degradation plan replaces flattened-chain consequence, S0-3 corrected deny-sets + S0-3c bash probes CONFIRMED, S0-6 `[all]` upgraded to real-install proof in clean venv
 
 ## Legend
 
@@ -27,12 +27,12 @@ evidence pointers fill in at first commit touching the piece.
 |---|---|---|---|---|
 | P0-1 | Parity pack: PARITY.md inventory + this progress page | in-progress | — | `PARITY.md`, `HYPERRESEARCH-OPENCODE-PROGRESS.md` (this commit) |
 | P0-2 | — | critic-won | blind critic chose ours; split-brain finding accepted->fix assigned | evidence/gauntlet/P0-2-verdict-r1.md |
-| P0-3 | Spikes S0-1..S0-6 + toolchain policy alignment | built | — | docs/spikes/, evidence/spikes/, PORTING-NOTES.md §P0-3 |
-| S0-1 | Nested subagents (RISK R1) | built | REFUTED: child session export shows zero tool calls; level-1 delegation works (NESTED_OK round-trip) | docs/spikes/S0-1-nested-subagents.md, evidence/spikes/S0-1-* |
-| S0-2 | Agents dir naming (`agent` vs `agents`) | built | CONFIRMED: both dirs in one listing; cold-init miss seen once (coordinator), not reproduced; installer retry rule | docs/spikes/S0-2-agents-dir-naming.md, evidence/spikes/S0-2-agent-list-names.txt |
-| S0-3 | Tool-lock mechanisms (RISK R2) | built | CONFIRMED: frontmatter write/edit locks + plugin `tool.execute.before` throw all denied on live transcripts; belt-and-braces adopted; bash gap documented | docs/spikes/S0-3-tool-lock.md, evidence/spikes/S0-3* |
-| S0-4 | Skill-load freshness (static) | built | CONFIRMED(static)-DYNAMIC-DEFERRED to P3 E2E: both SKILL.md path patterns proven via `opencode debug skill` locations | docs/spikes/S0-4-skill-load.md, evidence/spikes/S0-4-debug-skill-project-and-global.txt |
-| S0-6 | Packaging on Python 3.14 | built | CONFIRMED tiered: pymupdf wheel works (round-trip), `[all]` resolves w/o crawl4ai, Crawl4AI real install FAILS at lxml build (dry-run-only false pass recorded) | docs/spikes/S0-6-packaging.md, evidence/spikes/S0-6-* |
+| P0-3 | Spikes S0-1..S0-6 + toolchain policy alignment | built | countersigned (FIX-FIRST findings accepted, amendments landed same commit) | docs/spikes/, evidence/spikes/, evidence/gauntlet/P0-3-countersign.md, PORTING-NOTES.md §P0-3 |
+| S0-1 | Nested subagents (RISK R1) | built | REFUTED: child session export shows zero tool calls; level-1 delegation works (NESTED_OK round-trip). Countersigned; amendments landed — flattened-chain consequence struck, replaced by three-artifact degradation plan + DRAFT_ORCHESTRATOR restrictive resolution + render-time shim patching | docs/spikes/S0-1-nested-subagents.md, evidence/spikes/S0-1-*, evidence/gauntlet/P0-3-countersign.md |
+| S0-2 | Agents dir naming (`agent` vs `agents`) | built | CONFIRMED: both dirs in one listing; cold-init miss seen once (coordinator), not reproduced; installer retry rule. Countersigned; no amendments required | docs/spikes/S0-2-agents-dir-naming.md, evidence/spikes/S0-2-agent-list-names.txt, evidence/gauntlet/P0-3-countersign.md |
+| S0-3 | Tool-lock mechanisms (RISK R2) | built | CONFIRMED: frontmatter write/edit locks + plugin `tool.execute.before` throw all denied on live transcripts. Countersigned; amendments landed — deny-sets corrected per upstream locks (edit KEPT for patcher/polish-auditor; synthesizer {edit,bash} denied), bogus bash-builds rationale deleted, S0-3c bash probes both CONFIRMED (frontmatter removes tool; plugin throws) | docs/spikes/S0-3-tool-lock.md, evidence/spikes/S0-3*, evidence/gauntlet/P0-3-countersign.md |
+| S0-4 | Skill-load freshness (static) | built | CONFIRMED(static)-DYNAMIC-DEFERRED to P3 E2E: both SKILL.md path patterns proven via `opencode debug skill` locations. Countersigned; no amendments required | docs/spikes/S0-4-skill-load.md, evidence/spikes/S0-4-debug-skill-project-and-global.txt, evidence/gauntlet/P0-3-countersign.md |
+| S0-6 | Packaging on Python 3.14 | built | CONFIRMED tiered: pymupdf wheel works (round-trip), Crawl4AI real install FAILS at lxml build (dry-run-only false pass recorded). Countersigned; amendment landed — `[all]` row upgraded to REAL-install proof in clean venv /tmp/opencode/s06-clean (exit=0, no crawl4ai, hpr CLI OK) | docs/spikes/S0-6-packaging.md, evidence/spikes/S0-6-*, evidence/gauntlet/P0-3-countersign.md |
 | P1-1 | — | pending | — | — |
 | P1-2 | — | pending | — | — |
 | P1-3 | — | pending | — | — |

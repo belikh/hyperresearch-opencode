@@ -18,6 +18,30 @@ Four checks, escalating:
 4. `pip install "Crawl4AI==0.7.3" --dry-run`, then (because of what the dry-run
    showed) a REAL install into a throwaway venv `/tmp/opencode/s06-c4-venv`.
 
+Round 2 (post-countersign F-CS3): a REAL install of this repo with `[all]`
+into a CLEAN venv `/tmp/opencode/s06-clean` (`python3 -m venv`, no shared
+site-packages, pip cache bypassed via `--no-cache-dir`), upgrading row 2 of
+the verdict table from dry-run-only to real-install proof:
+
+```
+$ python3 -m venv /tmp/opencode/s06-clean
+$ /tmp/opencode/s06-clean/bin/pip install --no-cache-dir \
+    "/home/io/Projects/hyperresearch-opencode[all]"        # exit=0
+...
+Building wheel for hyperresearch (pyproject.toml): finished with status 'done'
+Successfully built hyperresearch
+Successfully installed ... hyperresearch-0.10.0.post1 ... pymupdf-1.28.2 ...
+# note: NO crawl4ai anywhere in the installed set
+
+## Sanity check on the same clean venv
+Python 3.14.7
+pymupdf 1.28.2 | hyperresearch import OK
+hpr CLI: OK (exit=0)
+WARNING: Package(s) not found: crawl4ai
+```
+
+Raw file: `evidence/spikes/S0-6-clean-venv-install.txt`.
+
 ## Transcript
 
 ```
@@ -69,9 +93,13 @@ sdist and the build dies on cpython-3.14. Upstream's stated blocker
 | Claim | Tier | Evidence |
 |---|---|---|
 | pymupdf installs as cp314 wheel AND works (render→text round trip) | CONFIRMED | import 1.28.2 + smoke exit=0 |
-| `[all]` extra resolves on 3.14 without crawl4ai | CONFIRMED | dry-run exit=0, crawl4ai absent from set |
+| `[all]` extra resolves on 3.14 without crawl4ai | CONFIRMED (real install) | CLEAN venv `/tmp/opencode/s06-clean` real install exit=0; crawl4ai absent from installed set (`pip show crawl4ai` → not found); `hpr` CLI + `import hyperresearch` OK on the same venv |
 | Crawl4AI 0.7.3 installable on host 3.14 | REFUTED | real-install exit=1 at lxml wheel build |
 | Demoting crawl4ai to opt-in extra was correct policy | CONFIRMED | rows above combined |
+
+Row 2 was upgraded from dry-run-only to real-install proof after countersign
+finding F-CS3, which correctly noted that F-METADATA below makes a dry-run
+insufficient for any installability claim.
 
 ## Fallback if refuted
 
@@ -83,8 +111,13 @@ pin, re-run this spike before reconsidering.
 
 ## Residual risk
 
-- Dry-run green ≠ installable: recorded as finding F-METADATA; future
+- ~~Dry-run green ≠ installable~~: recorded as finding F-METADATA; the `[all]`
+  claim now carries real-install proof in a clean venv (round 2), and future
   packaging spikes must do real installs for any claim stronger than
-  "metadata resolves".
+  "metadata resolves". Remaining caveat: the clean-venv proof is one host, one
+  Python (3.14.7); a fresh `pip install` can still drift with new upstream
+  releases of core deps.
 - Crawl4AI status can change upstream (new lxml or Crawl4AI releases); the
-  extra keeps it available to ≤3.13 users regardless.
+  extra keeps it available to ≤3.13 users regardless. The clean-venv install
+  deliberately did NOT request the `crawl4ai` extra — that lane remains
+  refuted on 3.14 per row 3.
