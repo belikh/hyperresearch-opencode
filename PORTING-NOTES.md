@@ -1643,3 +1643,109 @@ dangling pair recorded.
 - TestLiteratureMatrix's pure-core tests stay class-skipped until P1-10
   (skipif is class-granular); splitting classes would deviate from the
   upstream test structure beyond this wave's mandate.
+
+### Wave 2 (untrusted U1-U5)
+
+A fresh blind critic re-audited core/untrusted.py (P1-6 surface), confirmed
+the upstream deltas, and named five residual gaps. All five closed in
+core/untrusted.py alone (single consumer cli/note.py::show untouched — same
+signatures, benign-output byte-compatible). Every behavioral fix falsified
+pre-fix via git stash round: tests committed first against HEAD source (17
+FAILs recorded below), then against `git stash push --
+src/hyperresearch/core/untrusted.py` (same 17 FAILs + 1 helper ImportError),
+then after pop: file green. Gates at close: pytest 640 passed / 120 skipped
+(baseline 617/120; +23 tests), ruff clean, mypy --strict clean (67 files).
+ReDoS probe on the new matcher: linear, worst shape 57ms @ 100KB adversarial
+input (possessive quantifiers; see U-1).
+
+U-1 (HIGH) — Unicode-confusable forged closers bypassed _FENCE_TAG_RE:
+`<\u200b/untrusted-source>`, `</untru\u00adsted-source>`,
+`</\ufeffuntrusted-source>` and bidi-overlay variants survived neutralization
+verbatim, so a downstream Cf-normalizing consumer could reassemble a LIVE
+closing fence inside "inert" data. Fix (fail-CLOSED): fence candidates are
+now matched on a Cf-stripped skeleton — every tag-name letter tolerates runs
+of Unicode format chars (category Cf), plus Cf in the structural slots around
+`/`. Anything whose skeleton matches is forged and renames to the canonical
+sentinel. Implementation notes: (a) the Cf set is a HARDCODED 21-range table
+(Unicode 16.0, 170 codepoints) — computing it from unicodedata at import was
+measured at ~641ms/process on the `note show` path; drift guard
+test_cf_table_covers_running_unicode fails CLOSED if a running interpreter's
+Unicode DB knows a Cf codepoint the table lacks. (b) Separator runs use
+possessive quantifiers (*+, py3.11+): separator classes are disjoint from the
+surrounding literals so semantics are unchanged, but catastrophic backtracking
+on adversarial input ("<" * 50k, Cf floods) is foreclosed — benchmarked
+linear. (c) Scope rule: only candidates whose Cf-stripped SKELETON equals the
+fence-tag pattern are treated as forged. A letter-SUBSTITUTING overlay
+(`</untr\u202ested-source>` → skeleton `untrsted-source`) does NOT match and
+is left inert-by-construction (not reassemblable into the canonical closer by
+Cf normalization); the additive embedding `</untr\u202eusted-source>`
+(skeleton = exact closer) IS neutralized. Both probed in tests.
+Falsification: 5× test_wrap_body_neutralizes_unicode_confusable_fences[*]
+→ pre-fix `assert forged not in wrapped` failed with the payload surviving
+byte-verbatim into wrapped output (e.g. '<\u200b/untrusted-source>' is
+contained here: …); post-fix all PASS with forensic
+`</untrusted-source-inner>` emitted. Pins: benign Cf prose
+(test_benign_format_characters_pass_through_unmangled) and the pre-existing
+byte-exact round-trip prove no wholesale Cf mangling.
+
+U-2 (MED) — C1 controls unhandled: sanitization covered C0+DEL only; the C1
+range U+0080-U+009F passed through. Now _C0_C1_CONTROL_RE (renamed from
+_C0_CONTROL_RE) includes \x80-\x9f, and _ESCAPE_SEQ_RE gained an 8-bit CSI
+alternative `\x9b[0-?]*[ -/]*[@-~]` so lone-byte CSI dies WHOLE
+(`\x9b2J` consumed exactly like `\x1b[2J`, no param/final debris); non-CSI C1
+initiators (NEL/DCS/ST/OSC single-byte forms) die as stray controls. C0/OSC
+behavior byte-compatible with the F-02 battery, untouched and green.
+Falsification: test_wrap_body_neutralizes_lone_byte_csi_sequence +
+4× test_wrap_body_strips_stray_c1_controls[*] → pre-fix '\x9b'/'\x85'/
+'\x90'/'\x9c'/'\x9d' survived in wrapped output.
+
+U-3 (LOW-MED) — control-prefixed source classification fail-open:
+is_untrusted stripped whitespace only, so "\x00https://attacker.example/"
+classified not-fetched and rendered UNFENCED. Fix: _SOURCE_NOISE_RE strips
+C0/space/DEL/C1/Cf GLOBALLY before the scheme check (not edge-only: a spliced
+scheme "ht\x00tps://…" must classify too; stripping can only ever create a
+scheme prefix that wasn't visible — fail-closed direction). Guards pinned:
+trusted types still win, blank/non-http sources still False.
+Falsification: 4× test_control_padded_http_source_still_untrusted[\x00|\x1b|
+\u200b-prefix, ht\x00tps-splice] → pre-fix returned False (fail-OPEN);
+post-fix True.
+
+U-4 (MED) — replacement tag not fixpoint-stable: the emitted
+<untrusted-source-inner> sentinel itself matched _FENCE_TAG_RE ('\b' fires
+before '-'), so RE-wrapping degraded tags (-inner-inner…) forever. Fix
+(normalize-to-canonical flavor): the matcher consumes any existing
+obscured '-inner' run and the replacement re-emits ONE canonical suffix —
+sanitize(sanitize(x)) == sanitize(x) over the adversarial corpus
+(test_sanitization_is_a_fixpoint, incl. stealth-obscured inner suffixes,
+'-inner-inner', ambiguous '-innerness' residue which is stable-unmatched).
+Honest scope note: wrap∘wrap cannot be literally equal (each wrap adds an
+envelope by contract); the guaranteed-and-tested properties are: '-inner-
+inner' never appears at ANY wrap depth, the sentinel inventory is stable from
+the first wrap on, and exactly one live closer exists at the tail. To make
+the property directly testable, the line-86 pipeline was extracted into
+_sanitize_body(body) — structure-only refactor, zero behavior change of its
+own. Attacker-preseeded sentinels fold to canonical rather than stacking.
+Falsification: test_rewrap_does_not_degrade_sentinel_tags +
+test_attacker_supplied_inner_suffixes_fold_to_canonical → pre-fix
+'-inner-inner' present in twice-wrapped output; post-fix absent at depth 3.
+test_sanitization_is_a_fixpoint → ImportError against pre-helper revisions
+(behavioral degradation covered by the two black-box tests above).
+
+U-5 (LOW) — html.escape mangled query URLs in provenance: output is plain
+prompt text, NOT HTML, so '&'-to-'&amp;' corrupted the one provenance field
+shown to the reader while adding zero safety. Replaced wholesale with
+deletion-based _URL_NOISE_RE: <, >, ", ' deleted outright (no new tag can
+start, the attribute cannot be closed early) plus the same control set as
+before, extended to C1/Cf for parity with U-2/U-3. Legitimate query URLs now
+survive copy-paste intact. Falsification:
+test_query_url_survives_verbatim_in_provenance_attribute → pre-fix attribute
+read '…&amp;hl=en&amp;num=20'; post-fix byte-equal to input URL. Companion
+test proves breakout is still dead (zero quotes/'<' inside attribute
+content); the pre-existing test_wrap_body_escapes_url_attribute passes
+UNMODIFIED against the new mechanism.
+
+Wave pins (both sides green): test_cf_table_covers_running_unicode,
+test_benign_format_characters_pass_through_unmangled,
+test_control_padded_source_still_respects_trusted_types,
+test_control_padding_does_not_create_classification,
+test_url_defusal_without_html_escape_still_blocks_breakout.
