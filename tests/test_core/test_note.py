@@ -1,0 +1,242 @@
+"""Tests for note read/write operations."""
+
+import unicodedata
+
+from hyperresearch.core.note import read_note, strip_markdown, write_note
+from hyperresearch.models.note import slugify
+
+
+def test_slugify_basic():
+    assert slugify("Hello World") == "hello-world"
+    assert slugify("Python 3.12 Features!") == "python-312-features"
+    assert slugify("  spaces  ") == "spaces"
+    assert slugify("CamelCase") == "camelcase"
+    assert slugify("dashes--double") == "dashes-double"
+
+
+# --- Non-Latin titles must produce meaningful ids ----------------------------
+# `flags=re.ASCII` stripped every non-Latin character, so a vault of Japanese
+# sources degenerated into wikipedia, wikipedia-2, wikipedia-3 — ids that carry
+# no information and make [[wikilink]] citations useless.
+
+
+def test_slugify_preserves_cjk():
+    assert slugify("バックライト - Wikipedia") == "バックライト-wikipedia"
+    assert slugify("液晶ディスプレイ - Wikipedia") == "液晶ディスプレイ-wikipedia"
+    assert slugify("导光板 - 维基百科") == "导光板-维基百科"
+
+
+def test_slugify_preserves_other_scripts():
+    assert slugify("Диффузор (оптика)") == "диффузор-оптика"
+    assert slugify("Évolution des systèmes") == "évolution-des-systèmes"
+
+
+def test_distinct_cjk_titles_get_distinct_slugs():
+    """The actual bug: different Japanese pages must not collide."""
+    assert slugify("バックライト - Wikipedia") != slugify("液晶ディスプレイ - Wikipedia")
+
+
+def test_slugify_ascii_behaviour_is_unchanged():
+    """Existing vaults must keep resolving — ASCII slugs must not shift."""
+    for title in ("Diffuser (optics) - Wikipedia", "Python 3.12 Features!", "CamelCase"):
+        assert slugify(title).isascii()
+
+
+def test_slugify_symbol_only_title_falls_back_to_hash():
+    result = slugify("!!! ??? ***")
+    assert result.startswith("note-")
+
+
+def test_slugify_respects_filesystem_byte_limit():
+    """One CJK char is 3 UTF-8 bytes; most filesystems cap a name at 255 bytes."""
+    result = slugify("光" * 200)
+    assert len(result.encode("utf-8")) <= 200
+    assert result == unicodedata.normalize("NFC", result), "must not split a character"
+
+
+def test_slugify_normalises_equivalent_unicode():
+    """Composed and decomposed forms of the same title must agree."""
+    composed = "café"          # é as U+00E9
+    decomposed = "café"  # e + combining acute
+    assert slugify(composed) == slugify(decomposed)
+
+
+def test_write_and_read_roundtrip(tmp_vault):
+    path = write_note(
+        tmp_vault.notes_dir,
+        "Roundtrip Test",
+        body="# Content\n\nSome text here.\n",
+        tags=["test", "roundtrip"],
+        status="evergreen",
+    )
+    assert path.exists()
+
+    note = read_note(path, tmp_vault.root)
+    assert note.meta.title == "Roundtrip Test"
+    assert note.meta.id == "roundtrip-test"
+    assert note.meta.tags == ["test", "roundtrip"]
+    assert note.meta.status == "evergreen"
+    assert "# Content" in note.body
+    assert note.word_count > 0
+
+
+def test_write_source_analysis_note_roundtrip(tmp_vault):
+    """A source-analysis note (new v8 NoteType) round-trips through write +
+    read with its type preserved in frontmatter. Body breadcrumb
+    `*Suggested by [[source-id]]*` surfaces as an outgoing link that the
+    sync layer will store as a backlink."""
+    path = write_note(
+        tmp_vault.notes_dir,
+        "Source Analysis — Test Paper",
+        body="*Suggested by [[test-paper-source]]*\n\n## Thesis\nThe paper argues X.",
+        note_type="source-analysis",
+        tags=["source-analysis", "test-run"],
+        summary="Multi-paragraph summary.\n\nSecond paragraph with specific numbers: 42 pct.",
+    )
+    assert path.exists()
+
+    note = read_note(path, tmp_vault.root)
+    assert note.meta.type == "source-analysis"
+    assert "test-paper-source" in note.outgoing_links
+    # Multi-line summary preserved through YAML frontmatter serialization
+    assert "Multi-paragraph summary" in note.meta.summary
+    assert "42 pct" in note.meta.summary
+
+
+def test_write_avoids_collision(tmp_vault):
+    p1 = write_note(tmp_vault.notes_dir, "Same Title")
+    p2 = write_note(tmp_vault.notes_dir, "Same Title")
+    assert p1 != p2
+    assert p1.exists()
+    assert p2.exists()
+
+
+# --- Collision ids must survive the frontmatter re-parse ---------------------
+# slugify() caps ids at 80 chars / 200 bytes. Appending "-2" to a capped slug
+# used to produce an over-cap id that the next parse chopped back to the base
+# id: sync refused the duplicate, the sources insert failed its foreign key,
+# and the .md file was left orphaned (verbumetecclesia fetches, 2026-07-23).
+
+
+def test_write_collision_id_survives_reslugify(tmp_vault):
+    long_title = "x" * 120  # slug hits the 80-char cap
+    p1 = write_note(tmp_vault.notes_dir, long_title)
+    p2 = write_note(tmp_vault.notes_dir, long_title)
+    n1 = read_note(p1, tmp_vault.root)
+    n2 = read_note(p2, tmp_vault.root)
+    assert p1.stem == n1.meta.id
+    assert p2.stem == n2.meta.id  # used to collapse back to the base id
+    assert n1.meta.id != n2.meta.id
+    assert slugify(n2.meta.id) == n2.meta.id
+    assert len(p2.stem) <= 80
+
+
+def test_write_collision_id_survives_reslugify_bytecap(tmp_vault):
+    long_cjk = "液" * 90  # 3 UTF-8 bytes per char: the 200-byte cap bites
+    write_note(tmp_vault.notes_dir, long_cjk)
+    p2 = write_note(tmp_vault.notes_dir, long_cjk)
+    n2 = read_note(p2, tmp_vault.root)
+    assert p2.stem == n2.meta.id
+    assert slugify(n2.meta.id) == n2.meta.id
+    assert len(p2.stem.encode("utf-8")) <= 200
+
+
+def test_write_with_parent(tmp_vault):
+    """`parent:` is frontmatter metadata (DB-indexed), NOT a filesystem dir."""
+    path = write_note(
+        tmp_vault.notes_dir,
+        "Child Note",
+        parent="parent-topic",
+    )
+    # Flat layout: note lives directly under notes_dir, not in a parent-slug subdir.
+    assert path.parent == tmp_vault.notes_dir
+    assert path.name == "child-note.md"
+    # parent still appears in the YAML frontmatter for DB filtering.
+    assert "parent: parent-topic" in path.read_text(encoding="utf-8")
+
+
+def test_read_extracts_links(tmp_vault):
+    path = write_note(
+        tmp_vault.notes_dir,
+        "Linking Note",
+        body="See [[note-a]] and [[note-b|display text]].\n",
+    )
+    note = read_note(path, tmp_vault.root)
+    assert "note-a" in note.outgoing_links
+    assert "note-b" in note.outgoing_links
+
+
+def test_read_ignores_code_links(tmp_vault):
+    path = write_note(
+        tmp_vault.notes_dir,
+        "Code Note",
+        body="Real: [[real-link]]\n\n```python\nfake: [[fake-link]]\n```\n\nAlso `[[inline-fake]]`\n",
+    )
+    note = read_note(path, tmp_vault.root)
+    assert "real-link" in note.outgoing_links
+    assert "fake-link" not in note.outgoing_links
+    assert "inline-fake" not in note.outgoing_links
+
+
+def test_strip_markdown():
+    md = "# Header\n\n**Bold** and *italic*. See [[link|display]] and [url](http://example.com).\n\n```python\ncode\n```\n"
+    plain = strip_markdown(md)
+    assert "Header" in plain
+    assert "Bold" in plain
+    assert "display" in plain
+    assert "url" in plain
+    assert "```" not in plain
+    assert "**" not in plain
+    assert "[[" not in plain
+
+
+def test_raw_file_persists_on_roundtrip(tmp_vault):
+    """raw_file must survive parse + re-serialize (regression test for wipe bug).
+
+    Before Batch 1.2 fix: raw_file was injected into frontmatter as a string
+    AFTER write_note; NoteMeta.model_config = {"extra": "ignore"} silently
+    dropped the field on the next parse, and any re-serialization (repair,
+    note update) wiped it from disk.
+    """
+    from hyperresearch.core.frontmatter import parse_frontmatter, render_note
+
+    path = write_note(
+        tmp_vault.notes_dir,
+        "PDF Note",
+        body="# PDF content\n",
+        extra_frontmatter={"raw_file": "raw/pdf-note.pdf"},
+    )
+    # First read — does NoteMeta capture the field?
+    note = read_note(path, tmp_vault.root)
+    assert note.meta.raw_file == "raw/pdf-note.pdf"
+
+    # Re-serialize (simulates repair.py enrichment or note update).
+    text = path.read_text(encoding="utf-8")
+    meta, body = parse_frontmatter(text)
+    path.write_text(render_note(meta, body), encoding="utf-8")
+
+    # Second read — raw_file must still be present.
+    note2 = read_note(path, tmp_vault.root)
+    assert note2.meta.raw_file == "raw/pdf-note.pdf", (
+        "raw_file was wiped on re-serialize — Batch 1.2 regression"
+    )
+
+
+def test_read_utf8_content(tmp_vault):
+    path = write_note(
+        tmp_vault.notes_dir,
+        "Unicode Note",
+        body="# Umlaute: Aaou. CJK: . Emoji: .\n",
+    )
+    note = read_note(path, tmp_vault.root)
+    assert "Aaou" in note.body
+
+
+def test_read_empty_body(tmp_vault):
+    path = tmp_vault.notes_dir / "empty.md"
+    path.parent.mkdir(exist_ok=True)
+    path.write_text("---\ntitle: Empty\nid: empty\nstatus: draft\ntype: note\n---\n", encoding="utf-8")
+
+    note = read_note(path, tmp_vault.root)
+    assert note.meta.title == "Empty"
+    assert note.body.strip() == ""

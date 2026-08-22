@@ -1,0 +1,256 @@
+"""SQLite database management — schema, connection, migrations."""
+
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+
+SCHEMA_VERSION = 12
+
+SCHEMA_SQL = """
+PRAGMA journal_mode=WAL;
+PRAGMA foreign_keys=ON;
+
+CREATE TABLE IF NOT EXISTS _meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS notes (
+    id           TEXT PRIMARY KEY,
+    title        TEXT NOT NULL,
+    path         TEXT NOT NULL UNIQUE,
+    status       TEXT NOT NULL DEFAULT 'draft'
+                     CHECK (status IN ('draft','review','evergreen','stale','deprecated','archive')),
+    type         TEXT NOT NULL DEFAULT 'note'
+                     CHECK (type IN ('note','raw','index','moc','interim','source-analysis')),
+    tier         TEXT
+                     CHECK (tier IS NULL OR tier IN ('ground_truth','institutional','practitioner','commentary','unknown')),
+    content_type TEXT
+                     CHECK (content_type IS NULL OR content_type IN ('paper','docs','article','blog','forum','dataset','policy','code','book','transcript','review','unknown')),
+    source       TEXT,
+    parent       TEXT,
+    deprecated   INTEGER NOT NULL DEFAULT 0,
+    reviewed     TEXT,
+    expires      TEXT,
+    word_count   INTEGER NOT NULL DEFAULT 0,
+    summary      TEXT,
+    created      TEXT NOT NULL,
+    updated      TEXT,
+    file_mtime   REAL NOT NULL,
+    content_hash TEXT NOT NULL,
+    synced_at    TEXT NOT NULL,
+    -- Source-ranking columns (v9). Frontmatter-mirrored: doi, utility_score,
+    -- citation_count, venue, is_retracted. Derived (DB-cache only, recomputed):
+    -- authority_score, centrality_score, independence, quality_score.
+    doi              TEXT,
+    utility_score    REAL,
+    authority_score  REAL,
+    centrality_score REAL,
+    independence     REAL,
+    citation_count   INTEGER,
+    venue            TEXT,
+    is_retracted     INTEGER NOT NULL DEFAULT 0,
+    quality_score    REAL,
+    -- Open-access recovery (v11). When oa_url is set, the note BODY came from
+    -- there and NOT from `source` — see core/oa.py. Frontmatter-mirrored.
+    oa_url           TEXT,
+    oa_source        TEXT,
+    oa_version       TEXT,
+    oa_license       TEXT,
+    -- v12. substituted = a thin page was replaced; rescued = the source was
+    -- never read at all and the whole note is the open-access copy.
+    oa_recovery_kind TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_notes_status ON notes(status);
+CREATE INDEX IF NOT EXISTS idx_notes_type ON notes(type);
+CREATE INDEX IF NOT EXISTS idx_notes_parent ON notes(parent);
+CREATE INDEX IF NOT EXISTS idx_notes_created ON notes(created);
+CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(updated);
+CREATE INDEX IF NOT EXISTS idx_notes_word_count ON notes(word_count);
+CREATE INDEX IF NOT EXISTS idx_notes_status_type ON notes(status, type);
+CREATE INDEX IF NOT EXISTS idx_notes_parent_status ON notes(parent, status);
+
+CREATE TABLE IF NOT EXISTS note_content (
+    note_id    TEXT PRIMARY KEY REFERENCES notes(id) ON DELETE CASCADE,
+    body       TEXT NOT NULL,
+    body_plain TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tags (
+    note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    tag     TEXT NOT NULL,
+    PRIMARY KEY (note_id, tag)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags(tag);
+
+CREATE TABLE IF NOT EXISTS aliases (
+    note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    alias   TEXT NOT NULL,
+    PRIMARY KEY (note_id, alias)
+);
+
+CREATE INDEX IF NOT EXISTS idx_aliases_alias ON aliases(alias COLLATE NOCASE);
+
+CREATE TABLE IF NOT EXISTS links (
+    source_id   TEXT NOT NULL,
+    target_ref  TEXT NOT NULL,
+    target_id   TEXT,
+    line_number INTEGER NOT NULL DEFAULT 0,
+    context     TEXT,
+    PRIMARY KEY (source_id, target_ref, line_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_links_target ON links(target_id);
+CREATE INDEX IF NOT EXISTS idx_links_source ON links(source_id);
+
+CREATE TABLE IF NOT EXISTS embeddings (
+    note_id    TEXT PRIMARY KEY REFERENCES notes(id) ON DELETE CASCADE,
+    model      TEXT NOT NULL,
+    dimensions INTEGER NOT NULL,
+    vector     BLOB NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS claims (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_id        TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    claim          TEXT NOT NULL,
+    claim_hash     TEXT NOT NULL,
+    quoted_support TEXT,
+    numbers        TEXT,
+    confidence     TEXT,
+    evidence_type  TEXT,
+    stance_target  TEXT,
+    stance         TEXT,
+    vault_tag      TEXT,
+    ingested_at    TEXT NOT NULL,
+    UNIQUE (note_id, claim_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_claims_note ON claims(note_id);
+CREATE INDEX IF NOT EXISTS idx_claims_vault_tag ON claims(vault_tag);
+CREATE INDEX IF NOT EXISTS idx_claims_stance_target ON claims(stance_target);
+
+CREATE TABLE IF NOT EXISTS api_cache (
+    url        TEXT PRIMARY KEY,
+    body       TEXT NOT NULL,
+    fetched_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS escalations (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    url           TEXT NOT NULL,
+    reason        TEXT NOT NULL
+                      CHECK (reason IN ('login_wall','bot_block','captcha','fetch_failed','interactive_needed','scholar_search')),
+    requested_by  TEXT,
+    suggested_by  TEXT,
+    utility_score REAL,
+    vault_tag     TEXT,
+    status        TEXT NOT NULL DEFAULT 'queued'
+                      CHECK (status IN ('queued','in_progress','fetched','needs_human','abandoned')),
+    attempts      INTEGER NOT NULL DEFAULT 0,
+    note_id       TEXT,
+    claimed_by    TEXT,
+    detail        TEXT,
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL,
+    UNIQUE (url, vault_tag)
+);
+
+CREATE INDEX IF NOT EXISTS idx_escalations_status ON escalations(status);
+CREATE INDEX IF NOT EXISTS idx_escalations_tag ON escalations(vault_tag);
+
+CREATE TABLE IF NOT EXISTS tag_aliases (
+    alias     TEXT PRIMARY KEY,
+    canonical TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sources (
+    url          TEXT PRIMARY KEY,
+    note_id      TEXT REFERENCES notes(id) ON DELETE SET NULL,
+    domain       TEXT,
+    fetched_at   TEXT,
+    provider     TEXT,
+    content_hash TEXT,
+    status       TEXT NOT NULL DEFAULT 'active'
+                     CHECK (status IN ('active', 'dead', 'redirected'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sources_domain ON sources(domain);
+CREATE INDEX IF NOT EXISTS idx_sources_note ON sources(note_id);
+
+CREATE TABLE IF NOT EXISTS assets (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_id      TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    type         TEXT NOT NULL CHECK (type IN ('image', 'screenshot', 'pdf', 'other')),
+    filename     TEXT NOT NULL,
+    url          TEXT,
+    alt_text     TEXT,
+    content_type TEXT,
+    size_bytes   INTEGER,
+    created_at   TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_assets_note ON assets(note_id);
+CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(type);
+
+"""
+
+FTS_SQL = """
+CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
+    id UNINDEXED,
+    title,
+    body_plain,
+    tags,
+    aliases,
+    tokenize='porter unicode61'
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS claims_fts USING fts5(
+    claim_id UNINDEXED,
+    claim,
+    quoted_support,
+    tokenize='porter unicode61'
+);
+"""
+
+# Indexes on columns added by migrations — must run AFTER migrate() so that
+# existing DBs have had the columns added by ALTER TABLE before we index them.
+POST_MIGRATE_INDEXES_SQL = """
+CREATE INDEX IF NOT EXISTS idx_notes_tier ON notes(tier);
+CREATE INDEX IF NOT EXISTS idx_notes_content_type ON notes(content_type);
+CREATE INDEX IF NOT EXISTS idx_notes_doi ON notes(doi);
+CREATE INDEX IF NOT EXISTS idx_notes_quality ON notes(quality_score);
+"""
+
+
+def get_connection(db_path: Path) -> sqlite3.Connection:
+    """Open a SQLite connection with WAL mode and FK enforcement."""
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
+def init_schema(conn: sqlite3.Connection) -> None:
+    """Create all tables if they don't exist, then run pending migrations."""
+    conn.executescript(SCHEMA_SQL)
+    conn.executescript(FTS_SQL)
+    conn.execute(
+        "INSERT OR IGNORE INTO _meta (key, value) VALUES ('schema_version', ?)",
+        (str(SCHEMA_VERSION),),
+    )
+    conn.commit()
+
+    # Run any pending migrations (may ALTER TABLE to add new columns)
+    from hyperresearch.core.migrations import migrate
+    migrate(conn, SCHEMA_VERSION)
+
+    # Indexes that depend on migration-added columns run last
+    conn.executescript(POST_MIGRATE_INDEXES_SQL)
+    conn.commit()

@@ -164,3 +164,95 @@ in one pass: `.venv/bin/mypy src` → "Success: no issues found in 4 source
 files"; `.venv/bin/ruff check .` → "All checks passed!"; `.venv/bin/pytest
 -q` → exit 0 (1 passed). Raw outputs: `evidence/spikes/postfix-{mypy,ruff,
 pytest}.txt`. This supersedes the P0-2 entry above that moved it to 3.14.
+
+## P1-1 — Foundation layer: models + core (frontmatter/note/vault/db/migrations/sync/patterns)
+
+Ported near-verbatim from upstream v0.10.0. Sources (14 files, 13 listed in the
+piece brief + `core/config.py`): `models/{__init__,note,graph,output,search}.py`
+and `core/{__init__,frontmatter,note,patterns,config,vault,db,migrations,sync}.py`.
+
+### Transitive scope addition: `core/config.py`
+
+`core/vault.py` (in-brief) imports `VaultConfig` from `core/config.py` at module
+level — a hard dependency, not a lazy one. Rather than stub it (forbidden), the
+whole file was ported verbatim. It is stdlib-only (tomllib/dataclasses/pathlib)
+so it drags nothing else in. Its dedicated test `test_core/test_config_sections.py`
+came along for the parts whose imports resolve within P1-1 (see skipped list).
+Note: upstream has NO `tests/test_core/test_db*.py` or
+`tests/test_core/test_migrations*.py` — db/migrations behavior is covered
+indirectly by `test_vault.py` (init → init_schema → migrate) and `test_sync.py`.
+
+### Behavioral adaptation (the only one): `Vault.init` no longer injects agent docs
+
+Upstream ended `Vault.init()` with a lazy
+`from hyperresearch.core.agent_docs import inject_agent_docs; inject_agent_docs(root)`
+— Claude-Code-specific CLAUDE.md injection, and `core/agent_docs.py` is outside
+P1-1 scope. The call was removed and replaced with a comment pointing at the
+future agent-docs piece; `Vault.init` now writes no agent docs at all. Two
+upstream tests that assert CLAUDE.md creation are kept in place but marked
+`pytest.mark.skip` with reasons (`test_agent_docs_created`,
+`test_init_only_creates_claude_md`) so the future piece can restore them adapted
+to AGENTS.md.
+
+Kept verbatim despite mentioning Claude (documentation-only, no code path):
+- `config.py` `ChromeSettings` docstring ("Claude-in-Chrome" lane) — describes
+  the `[chrome]` section semantics that later pieces (escalation) will re-home;
+  rewriting it here would desync config docs from the escalation design.
+- `config.py` `exclude_patterns` entry `"CLAUDE.md"` — harmless sync exclusion,
+  already alongside `"AGENTS.md"` upstream.
+
+### mypy --strict annotation deltas (zero logic changes)
+
+Upstream targets non-strict mypy; our gate is strict. Every delta below is an
+added type annotation or type-parameter, each marked with a "Delta vs upstream"
+comment in-source:
+
+| File | Delta |
+|------|-------|
+| models/search.py | `SearchResponse.filters: dict` → `dict[str, Any]` |
+| core/note.py | `write_note.extra_frontmatter: dict \| None` → `dict[str, Any] \| None`; local `kwargs: dict` → `dict[str, Any]` |
+| core/sync.py | `SyncResult.errors: list[dict]` → `list[dict[str, Any]]`; added parameter annotations `vault: Vault`, `note: Note`, `conn: sqlite3.Connection` on `compute_sync_plan`, `execute_sync`, `_upsert_note_to_db`, `_delete_note_from_db`, `_resolve_links_incremental`, `_resolve_null_links` (adds module-level `from hyperresearch.core.vault import Vault` — safe, vault imports sync only lazily inside `auto_sync`) |
+| core/vault.py | `__exit__(self, *args)` → `*args: object` |
+| core/config.py | `_build_section` given a TypeVar signature `(type[_SettingsT], dict[str, Any]) -> _SettingsT`; `_toml_array(items: Iterable[str])`, `_toml_value(value: Any)`, `_section_lines(section: Any)`; `profile_overlays: dict` → `dict[str, Any]`. One narrow `# type: ignore[arg-type]` on the `fields(section_cls)` line: stdlib stub requires `DataclassInstance`, which a TypeVar'd `type[T]` does not satisfy (mypy limitation, not a lib-without-types case) |
+
+No third-party per-module mypy overrides were needed (pydantic ships types).
+
+### Python 3.14 drift
+
+None encountered. Upstream already uses `datetime.now(UTC)`, stdlib `tomllib`,
+and `StrEnum`; all 90 tests passed unmodified on 3.14.5 on first run.
+
+### Test fixtures / tests delta summary
+
+- `tests/conftest.py`: autouse `_reset_render_state` fixture guarded with
+  try/except ImportError around `from hyperresearch.core import hooks`
+  (core/hooks is a later piece). Fixture docstring kept verbatim; once hooks
+  lands the guard resumes resetting automatically. All other fixtures
+  (`tmp_vault`, `seeded_vault`) byte-identical.
+- `tests/test_core/test_config_sections.py`: trimmed of out-of-scope pieces —
+  removed `TestGateThreading` entirely (every test builds
+  `hyperresearch.web.base.WebResult`); removed
+  `TestProfileOverlayRoundtrip.test_builtin_override_survives_save` and the
+  `resolve_profile` tail of `test_overlays_survive_save` (both need
+  `core.profiles`). Config-level round-trip assertions of the latter retained.
+- Everything else byte-identical to upstream: test_core/{__init__,test_note,
+  test_frontmatter,test_vault,test_sync,test_patterns}.py,
+  test_graph/{__init__,test_links}.py.
+
+Result: 90 passed, 2 skipped (both skips = agent-docs-dependent vault tests);
+ruff clean; `mypy src` strict clean (18 source files).
+
+### Out-of-scope imports discovered (feed later builders)
+
+- `core/db.py` ↔ `search/fts.py`: schema defines FTS5 tables `notes_fts` /
+  `claims_fts`; sync writes into `notes_fts` directly. The search package
+  (`search/filters.py`, `search/fts.py`) plus its test `test_search/test_fts.py`
+  must land before any CLI search command.
+- `core/vault.py` → `core/agent_docs.py` (`inject_agent_docs`): must return as
+  the AGENTS.md-installing piece; restore the two skipped vault tests then.
+- `core/config.py` → nothing beyond stdlib, BUT `profile_overlays` exists to be
+  consumed by `core/profiles.py` (`resolve_profile`); profiles piece should take
+  `test_config_sections.py`'s removed profile assertions back.
+- `models/graph.py` consumers live in `cli/graph.py` / graph package (later);
+  `models/output.py` Envelope is the CLI-wide JSON output contract for P1-9/10;
+  `models/search.py` SearchResult/SearchResponse pair with search/filters+fts.
