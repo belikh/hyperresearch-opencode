@@ -5,7 +5,7 @@ Live status page for the port of
 (v0.10.0, reference pinned at `15010c5142244b88265f7abadf7b7aa1a8237fde`)
 to opencode. Scope and citations per piece live in [PARITY.md](PARITY.md).
 
-**Last updated:** 2026-08-22 00:38 UTC (P0-1 in progress)
+**Last updated:** 2026-08-22 00:55 UTC — gauntlet r1: P0-2 critic-won; P0-1 lost round 1, 5+1 findings fixed, awaiting round 2
 
 ## Legend
 
@@ -26,7 +26,7 @@ evidence pointers fill in at first commit touching the piece.
 | Piece ID | Title | State | Critic verdict summary | Evidence pointer |
 |---|---|---|---|---|
 | P0-1 | Parity pack: PARITY.md inventory + this progress page | in-progress | — | `PARITY.md`, `HYPERRESEARCH-OPENCODE-PROGRESS.md` (this commit) |
-| P0-2 | — | pending | — | — |
+| P0-2 | — | critic-won | blind critic chose ours; split-brain finding accepted->fix assigned | evidence/gauntlet/P0-2-verdict-r1.md |
 | P0-3 | — | pending | — | — |
 | S0-1 | — | pending | — | — |
 | S0-2 | — | pending | — | — |
