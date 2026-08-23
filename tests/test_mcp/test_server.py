@@ -204,6 +204,158 @@ class TestUntrustedFencing:
         assert "untrusted" not in local
 
 
+def _seed_fetched_linking_note(vault: Any) -> str:
+    """Add a web-fetched note whose body links [[python-async-patterns]].
+
+    Gives get_backlinks a context snippet sourced from an untrusted note
+    (links.context is the stripped source line of the SOURCE note's body).
+    """
+    from hyperresearch.core.note import write_note
+    from hyperresearch.core.sync import compute_sync_plan, execute_sync
+
+    write_note(
+        vault.notes_dir,
+        "Fetched Linking Article",
+        body="Read this [[python-async-patterns]] link.\n",
+        tags=["web"],
+        status="draft",
+        source="https://example.com/articles/linking",
+        summary="Fetched note that links into trusted content",
+    )
+    plan = compute_sync_plan(vault, force=True)
+    execute_sync(vault, plan)
+    return "fetched-linking-article"
+
+
+class TestUntrustedFencingSearchAndBacklinks:
+    """P1-11 remediation (critic findings M-1/M-2): search_notes returned raw
+    bodies and get_backlinks returned raw context snippets — both bypassed the
+    fence that read_note/read_many already apply. These tests falsify against
+    the pre-fix module: bodies/snippets from web-fetched notes came back RAW."""
+
+    def test_search_notes_wraps_untrusted_body_and_sets_flag(
+        self, seeded_vault, monkeypatch
+    ):
+        _bind(seeded_vault, monkeypatch)
+        note_id = _seed_fetched_note(seeded_vault)
+        results = json.loads(server_module.search_notes("attacker", limit=10))
+        assert results, "seeded fetched note should match 'attacker'"
+        hit = next(r for r in results if r["id"] == note_id)
+        assert hit["body"].startswith(
+            '<untrusted-source url="https://example.com/articles/fenced">'
+        )
+        assert hit.get("untrusted") is True
+        # Forged inner closer neutralized; exactly one live closer at the tail.
+        assert "</untrusted-source-inner>" in hit["body"]
+        assert hit["body"].count("</untrusted-source>") == 1
+
+    def test_search_notes_leaves_trusted_bodies_raw_and_unflagged(
+        self, seeded_vault, monkeypatch
+    ):
+        _bind(seeded_vault, monkeypatch)
+        results = json.loads(server_module.search_notes("ownership", limit=5))
+        assert results
+        for r in results:
+            assert r.get("untrusted") is None
+            assert not r["body"].startswith("<untrusted-source")
+        assert results[0]["body"].startswith("# Rust Ownership")
+
+    def test_get_backlinks_wraps_context_from_untrusted_source_note(
+        self, seeded_vault, monkeypatch
+    ):
+        _bind(seeded_vault, monkeypatch)
+        fetched_id = _seed_fetched_linking_note(seeded_vault)
+        data = json.loads(server_module.get_backlinks("python-async-patterns"))
+        by_source = {b["source_id"]: b for b in data["backlinks"]}
+        fenced = by_source[fetched_id]
+        assert fenced["context"].startswith("<untrusted-source ")
+        assert fenced.get("untrusted") is True
+        # Trusted-source backlink entries stay unwrapped and unflagged.
+        trusted_ids = {"rust-ownership", "concurrency"}
+        for sid in trusted_ids:
+            entry = by_source[sid]
+            assert "untrusted" not in entry
+            assert not entry["context"].startswith("<untrusted-source")
+
+
+class TestUpdateNoteInputGuards:
+    """P1-11 remediation (critic findings M-3/M-4): update_note accepted any
+    caller-supplied status string (poisoning frontmatter filters past the
+    NoteMeta/db CHECK set) and joined vault.root / row['path'] with no
+    containment recheck before writing."""
+
+    def test_invalid_status_rejected_with_invalid_status_code(
+        self, seeded_vault, monkeypatch
+    ):
+        _bind(seeded_vault, monkeypatch)
+        data = json.loads(server_module.update_note("orphan-note", status="published"))
+        assert data["ok"] is False
+        assert data["error_code"] == "INVALID_STATUS"
+        assert "published" in data["error"]
+        readback = json.loads(server_module.read_note("orphan-note"))
+        assert readback["status"] == "draft"  # frontmatter left untouched
+
+    def test_every_enumerated_status_is_accepted(self, seeded_vault, monkeypatch):
+        from hyperresearch.models.note import NoteStatus
+
+        _bind(seeded_vault, monkeypatch)
+        for status in NoteStatus:
+            data = json.loads(server_module.update_note("orphan-note", status=status.value))
+            assert data["ok"] is True
+            assert f"status={status.value}" in data["data"]["changes"]
+
+    def test_db_path_escaping_the_vault_is_rejected_before_write(
+        self, seeded_vault, monkeypatch
+    ):
+        _bind(seeded_vault, monkeypatch)
+        # Simulate a drifted notes.path cache row: sync derives paths from
+        # disk, but the write path must not TRUST that cache. auto_sync would
+        # repair the drift before the handler reads the row, so freeze it —
+        # this probes exactly the stale-cache containment recheck.
+        monkeypatch.setattr(type(seeded_vault), "auto_sync", lambda self: None)
+        seeded_vault.db.execute(
+            "UPDATE notes SET path = '../../escaped-via-db' WHERE id = 'orphan-note'"
+        )
+        outside = seeded_vault.root.parent / "escaped-via-db"
+        assert not outside.exists()
+        data = json.loads(server_module.update_note("orphan-note", summary="x"))
+        assert data["ok"] is False
+        assert data["error_code"] == "INVALID_PATH"
+        assert not outside.exists()  # nothing written outside the vault
+
+    def test_absolute_db_path_outside_the_vault_is_rejected(
+        self, seeded_vault, tmp_path, monkeypatch
+    ):
+        _bind(seeded_vault, monkeypatch)
+        monkeypatch.setattr(type(seeded_vault), "auto_sync", lambda self: None)
+        target = tmp_path / "abs-escape-probe.md"
+        seeded_vault.db.execute(
+            "UPDATE notes SET path = ? WHERE id = 'orphan-note'", (str(target),)
+        )
+        data = json.loads(server_module.update_note("orphan-note", summary="x"))
+        assert data["ok"] is False
+        assert data["error_code"] == "INVALID_PATH"
+        assert not target.exists()
+
+
+class TestSurfaceContractText:
+    """P1-11 remediation (critic finding M-5): the module docstring claimed
+    'Exposes 8 tools ... Read-only by design' against the actual 13-tool,
+    write-capable surface. The prose must describe the real contract."""
+
+    def test_docstring_names_thirteen_tools_and_drops_read_only_claim(self):
+        doc = server_module.__doc__ or ""
+        assert "13 tools" in doc
+        for name in sorted(EXPECTED_TOOLS):
+            assert name in doc, f"docstring omits tool {name}"
+        assert "Read-only by design" not in doc
+
+    def test_instructions_name_the_write_capable_tools(self):
+        instructions = server_module.server.instructions or ""
+        for name in ("create_note", "update_note", "fetch_url"):
+            assert name in instructions
+
+
 class TestWritePathGuards:
     def test_update_note_unknown_id_rejected_with_not_found(
         self, seeded_vault, monkeypatch

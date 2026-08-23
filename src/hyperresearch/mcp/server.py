@@ -1,8 +1,17 @@
 """hyperresearch MCP server — thin protocol layer over existing hyperresearch functions.
 
-Exposes 8 tools for agents: search, read, read_many, list, backlinks, hubs, status, lint.
-Read-only by design — agents create/edit notes via file operations, hyperresearch auto-syncs.
+Exposes 13 tools for agents: search_notes, read_note, read_many, list_notes,
+get_backlinks, get_hubs, vault_status, lint_vault, check_source, list_sources,
+fetch_url, create_note, update_note. Mostly-read navigation plus three
+write-capable tools (fetch_url, create_note, update_note) that mutate the
+vault directly.
 """
+
+# Delta vs upstream (P1-11 remediation M-5): the module docstring and the
+# FastMCP instructions said "Exposes 8 tools ... Read-only by design" — stale
+# against this module's own registration (13 @server.tool() functions, three
+# of them mutating the vault). Corrected faithfully above/below; supersedes
+# the PARITY survey note 2 "kept verbatim" decision (PORTING-NOTES.md §P1-11).
 
 from __future__ import annotations
 
@@ -21,8 +30,9 @@ if TYPE_CHECKING:
 server = FastMCP("hyperresearch", instructions=(
     "hyperresearch is an agent-driven research knowledge base. Use these tools to search, read, "
     "and navigate research notes with wiki-links, tags, and summaries. Notes live in the research/ "
-    "directory as markdown files with YAML frontmatter. To create or edit notes, write "
-    "files directly and they will be auto-indexed."
+    "directory as markdown files with YAML frontmatter. Create or edit notes with create_note / "
+    "update_note, and save web sources as notes with fetch_url; files written directly are still "
+    "indexed by the next auto-sync."
 ))
 
 # Delta vs upstream: `_vault = None` → annotated (strict mypy: Vault | None).
@@ -51,6 +61,10 @@ def search_notes(query: str, tag: str = "", status: str = "", parent: str = "", 
     """
     vault = _get_vault()
     vault.auto_sync()
+    # Delta vs upstream (P1-11 remediation M-1): untrusted fencing import,
+    # hoisted to handler top per M-5 (was per-loop in read_many upstream-style
+    # deltas; every body-emitting tool now imports once at its top).
+    from hyperresearch.core.untrusted import is_untrusted, wrap_body
     from hyperresearch.search.filters import SearchFilters
     from hyperresearch.search.fts import SearchQueryError, search_fts
     tags = [t.strip() for t in tag.split(",") if t.strip()] or None
@@ -69,8 +83,20 @@ def search_notes(query: str, tag: str = "", status: str = "", parent: str = "", 
     except SearchQueryError as e:
         return f"Invalid search query: {e}"
     for r in results:
-        row = vault.db.execute("SELECT body FROM note_content WHERE note_id = ?", (r["id"],)).fetchone()
+        # Delta vs upstream (P1-11 remediation M-1): join n.source alongside
+        # the body (same shape as cli/search.py's body attach) so untrusted
+        # provenance is classifiable. Pre-fix this loop emitted stored bodies
+        # RAW — the one body-emitting tool that bypassed the fence.
+        row = vault.db.execute(
+            "SELECT nc.body, n.source FROM note_content nc "
+            "JOIN notes n ON n.id = nc.note_id WHERE nc.note_id = ?",
+            (r["id"],),
+        ).fetchone()
         r["body"] = row["body"] if row else ""
+        source = row["source"] if row else None
+        if r["body"] and is_untrusted(source, r["type"]):
+            r["body"] = wrap_body(r["body"], str(source))
+            r["untrusted"] = True
     return json.dumps(results, default=str)
 
 
@@ -81,6 +107,12 @@ def read_note(note_id: str) -> str:
     Args:
         note_id: The note's slug ID (e.g. "transformer-architecture")
     """
+    # Delta vs upstream (P1-11 remediation M-5): untrusted import hoisted from
+    # mid-handler to handler top (lazy discipline unchanged — still not a
+    # module-level import, so bare `import hyperresearch.mcp.server` still
+    # needs nothing but the mcp package).
+    from hyperresearch.core.untrusted import is_untrusted, wrap_body
+
     vault = _get_vault()
     vault.auto_sync()
     row = vault.db.execute(
@@ -95,7 +127,6 @@ def read_note(note_id: str) -> str:
     # core.untrusted before leaving the server, mirroring the other
     # body-emitting consumers (cli/note.py::show, cli/search.py). Upstream
     # returns stored bodies raw here; see PORTING-NOTES.md §P1-11.
-    from hyperresearch.core.untrusted import is_untrusted, wrap_body
 
     data = {
         "id": row["id"], "title": row["title"], "path": row["path"],
@@ -117,6 +148,10 @@ def read_many(note_ids: str) -> str:
     Args:
         note_ids: Comma-separated note IDs (e.g. "auth-flow,session-mgmt,jwt-tokens")
     """
+    # Delta vs upstream (P1-11 remediation M-5): untrusted import hoisted from
+    # inside the per-note loop to handler top.
+    from hyperresearch.core.untrusted import is_untrusted, wrap_body
+
     vault = _get_vault()
     vault.auto_sync()
     ids = [nid.strip() for nid in note_ids.split(",") if nid.strip()]
@@ -132,8 +167,6 @@ def read_many(note_ids: str) -> str:
             tags = tag_row["tl"].split(",") if tag_row and tag_row["tl"] else []
             # Delta vs upstream (P1-11): per-note untrusted fencing, same
             # policy as cli/search.py's body-bearing results — see §P1-11.
-            from hyperresearch.core.untrusted import is_untrusted, wrap_body
-
             note: dict[str, Any] = {
                 "id": row["id"], "title": row["title"], "status": row["status"],
                 "tags": tags, "word_count": row["word_count"], "summary": row["summary"], "body": row["body"],
@@ -197,12 +230,28 @@ def get_backlinks(note_id: str) -> str:
     vault = _get_vault()
     vault.auto_sync()
     rows = vault.db.execute(
-        "SELECT l.source_id, n.title, l.line_number, l.context "
+        "SELECT l.source_id, n.title, l.line_number, l.context, n.source, n.type "
         "FROM links l JOIN notes n ON l.source_id = n.id WHERE l.target_id = ? ORDER BY n.title",
         (note_id,),
     ).fetchall()
-    backlinks = [{"source_id": r["source_id"], "title": r["title"],
-                  "line": r["line_number"], "context": r["context"]} for r in rows]
+    # Delta vs upstream (P1-11 remediation M-2): a link's context line is
+    # verbatim text lifted from the SOURCE note's body (sync.py stores
+    # line.strip()[:200]), so a backlink from a web-fetched note smuggles
+    # attacker-controlled text into the payload unfenced. Same policy shape
+    # as the body tools — wrap + flag per entry (chosen over omitting the
+    # snippet: wrapping IS the established policy; nothing is lost).
+    from hyperresearch.core.untrusted import is_untrusted, wrap_body
+
+    backlinks: list[dict[str, Any]] = []
+    for r in rows:
+        entry: dict[str, Any] = {
+            "source_id": r["source_id"], "title": r["title"],
+            "line": r["line_number"], "context": r["context"],
+        }
+        if entry["context"] and is_untrusted(r["source"], r["type"]):
+            entry["context"] = wrap_body(entry["context"], str(r["source"]))
+            entry["untrusted"] = True
+        backlinks.append(entry)
     return json.dumps({"note_id": note_id, "backlinks": backlinks, "count": len(backlinks)})
 
 
@@ -402,6 +451,25 @@ def update_note(note_id: str, status: str = "", add_tags: str = "", remove_tags:
     """
     from hyperresearch.core.frontmatter import parse_frontmatter, serialize_frontmatter
     from hyperresearch.core.sync import compute_sync_plan, execute_sync
+    from hyperresearch.models.note import NoteStatus
+
+    # Delta vs upstream (P1-11 remediation M-3): NoteMeta has use_enum_values
+    # but no validate_assignment, so any caller-supplied status string stuck
+    # in frontmatter verbatim — poisoning status filters downstream, and
+    # tripping the notes-table CHECK (core/db.py) as an unhandled
+    # IntegrityError at sync time. Validate against the exact enumerated set
+    # that CHECK enforces (== NoteStatus), before touching the vault at all;
+    # invalid input never reaches discovery/auto-sync.
+    valid_statuses = {s.value for s in NoteStatus}
+    if status and status not in valid_statuses:
+        return json.dumps({
+            "ok": False,
+            "error": (
+                f"Invalid status: {status!r} "
+                f"(must be one of: {', '.join(sorted(valid_statuses))})"
+            ),
+            "error_code": "INVALID_STATUS",
+        })
 
     vault = _get_vault()
     vault.auto_sync()
@@ -411,6 +479,16 @@ def update_note(note_id: str, status: str = "", add_tags: str = "", remove_tags:
         return json.dumps({"ok": False, "error": f"Note not found: {note_id}", "error_code": "NOT_FOUND"})
 
     file_path = vault.root / row["path"]
+    # Delta vs upstream (P1-11 remediation M-4): mirror cli/note.py mv's
+    # containment recheck (P1-9 hardening H-5). notes.path is derived cache;
+    # a drifted row must not steer a write outside the vault root. Resolve
+    # and confine BEFORE any file access.
+    if not file_path.resolve().is_relative_to(vault.root):
+        return json.dumps({
+            "ok": False,
+            "error": f"Note path escapes the vault: {row['path']}",
+            "error_code": "INVALID_PATH",
+        })
     content = file_path.read_text(encoding="utf-8-sig")
     meta, body = parse_frontmatter(content)
 
