@@ -223,3 +223,16 @@ denied, the plugin alone would have carried the policy.
   the hook signature after opencode major bumps.
 - Countersign amendments landed in the same commit as
   `evidence/gauntlet/P0-3-countersign.md` (F-CS2).
+
+## Amendment — 2026-08-23 (P2-13 countersign remediation X-3)
+
+The revised table above prescribes `tools: {write: false, bash: false}` for
+patcher/polish-auditor. The SHIPPED P2-13 artifact narrows this to
+`tools: {write: false}` EXACTLY (edit intentionally kept ENABLED; no `bash`
+denial): the P2-13 mission locked the deny-set to "EXACTLY" the F-CS2-amended
+S0-3 verdict, whose corrected history keeps Edit for roles whose whole job is
+surgical Edit hunks, and the spike's extra `bash: false` for these two roles
+was dropped by that narrowing (synthesizer's `{edit: false, bash: false}` is
+unaffected and ships as prescribed here). The spike text above is retained
+verbatim as history; see PORTING-NOTES.md §P2-13 ("Roster (15)" deny-set row
+and the "Deny-sets" decision bullet) for the authoritative shipped policy.
