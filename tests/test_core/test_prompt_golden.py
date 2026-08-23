@@ -97,9 +97,13 @@ this port's render output, induced by the decided [models] empty-inherit
 ModelMap default (see PORTING-NOTES.md §P1-7). Verified empirically: all 8
 upstream skill sources render through THIS port's engine byte-identical to
 their goldens; all 10 agent constants match after that one line. This
-module stays skipped until core.hooks + the skills package land with their
-own piece (PARITY sections 13-14); landing them activates it unchanged,
-and any further fixture drift must map to a documented golden delta.
+module stays skipped for one half only: core.hooks — the Claude installer
+these tests exercise — never lands, superseded wholesale by the opencode
+renderer (P2-14). The skills half HAS landed: its goldens are re-pinned
+active by tests/test_core/test_opencode_skills.py (P2-14 item (c)/(d)).
+These goldens stay staged until the install verb (P2-16) wires them into
+end-to-end rendering; any further fixture drift must map to a documented
+golden delta.
 """
 
 from __future__ import annotations
@@ -111,10 +115,13 @@ import pytest
 
 from hyperresearch.core.render import build_render_context, render_prompt
 
-# Delta vs upstream (P1-7): core.hooks is a later port piece; every test
-# below renders its template constants or reads its skill sources, so the
-# whole module stages as skipped until that piece lands. Removing the skip
-# is then automatic — no other edit needed.
+# Delta vs upstream (P1-7): every test below renders core.hooks template
+# constants or calls its installer, so the whole module stages as skipped
+# while that import fails. Only the hooks half is genuinely missing (the
+# skills package landed in P2-14 and is asserted there); hooks itself is a
+# superseded Claude-installer target, so this stays staged until the P2-16
+# install verb — if a hooks-compatible shim ships then, removing the skip
+# is automatic: no other edit needed.
 try:
     from hyperresearch.core.hooks import _read_skill_source
 
@@ -127,8 +134,10 @@ except ImportError:
 pytestmark = pytest.mark.skipif(
     not _HOOKS_AVAILABLE,
     reason=(
-        "core.hooks + the skills package land with their own piece "
-        "(PARITY sections 13-14); golden fixtures were frozen in P1-7"
+        "core.hooks (the Claude installer these tests exercise) is superseded "
+        "by the opencode renderer — its skills goldens are re-pinned active by "
+        "test_opencode_skills.py (P2-14); staged until the install verb (P2-16) "
+        "wires end-to-end rendering"
     ),
 )
 
