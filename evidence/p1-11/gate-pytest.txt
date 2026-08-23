@@ -1,0 +1,41 @@
+........................................................................ [  7%]
+........................................................................ [ 14%]
+........................................................................ [ 21%]
+......................................s................................. [ 29%]
+........................................................................ [ 36%]
+........................................................................ [ 43%]
+........................................................................ [ 51%]
+..................................ssssssssssssssssssssssssssssssssssssss [ 58%]
+sssssssssssssssssssssssssssssssssssssss................................. [ 65%]
+........................................................................ [ 73%]
+.........................................................ss............. [ 80%]
+..sss................s.................................................. [ 87%]
+.................................................sss.................... [ 94%]
+..................................................                       [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_web/test_crawl4ai_stealth.py:15: could not import 'crawl4ai.browser_adapter': No module named 'crawl4ai'
+SKIPPED [1] tests/test_core/test_escalation.py: core.hooks agent installer lands with the Phase-2 agent renderer piece; browser-fetcher lane itself is a documented non-goal (escalation queue IS ported)
+SKIPPED [5] tests/test_core/test_profiles.py: hpr profile CLI lands with the CLI piece (PARITY §15); restore these five tests verbatim then
+SKIPPED [8] tests/test_core/test_prompt_golden.py:167: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [10] tests/test_core/test_prompt_golden.py:180: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [8] tests/test_core/test_prompt_golden.py:191: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:197: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [8] tests/test_core/test_prompt_golden.py:206: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:223: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:245: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:294: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:309: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:326: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:366: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [16] tests/test_core/test_prompt_golden.py:373: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [11] tests/test_core/test_prompt_golden.py:400: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:408: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:422: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:434: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:440: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_vault.py:59: Depends on core.agent_docs (out of scope until the agent-docs piece); upstream asserted CLAUDE.md injection, opencode port will assert AGENTS.md
+SKIPPED [1] tests/test_core/test_vault.py:67: Claude Code-only doctrine test; depends on core.agent_docs (out of scope). Revisit when the opencode agent-docs piece lands
+SKIPPED [3] tests/test_core/test_verification.py: covered by tests/test_core/test_independence.py ported in P1-3
+SKIPPED [1] tests/test_core/test_verification.py: core.hooks agent installer lands with the Phase-2 agent renderer piece
+SKIPPED [3] tests/test_web/test_fetch_settings.py:23: crawl4ai extra not installed
+899 passed, 88 skipped in 65.16s (0:01:05)

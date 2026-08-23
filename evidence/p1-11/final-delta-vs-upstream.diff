@@ -1,0 +1,138 @@
+--- /tmp/opencode/hyperresearch-reference/src/hyperresearch/mcp/server.py	2026-08-22 10:02:57.089004558 +1000
++++ src/hyperresearch/mcp/server.py	2026-08-23 10:53:49.921211362 +1000
+@@ -7,9 +7,17 @@
+ from __future__ import annotations
+ 
+ import json
++from typing import TYPE_CHECKING, Any
+ 
+ from mcp.server.fastmcp import FastMCP
+ 
++if TYPE_CHECKING:
++    # Delta vs upstream: annotation-only import for strict-mypy signatures.
++    # Runtime imports stay lazy exactly as upstream (vault is only touched on
++    # first tool call), so importing this module still requires nothing but
++    # the `mcp` package.
++    from hyperresearch.core.vault import Vault
++
+ server = FastMCP("hyperresearch", instructions=(
+     "hyperresearch is an agent-driven research knowledge base. Use these tools to search, read, "
+     "and navigate research notes with wiki-links, tags, and summaries. Notes live in the research/ "
+@@ -17,10 +25,11 @@
+     "files directly and they will be auto-indexed."
+ ))
+ 
+-_vault = None
++# Delta vs upstream: `_vault = None` → annotated (strict mypy: Vault | None).
++_vault: Vault | None = None
+ 
+ 
+-def _get_vault():
++def _get_vault() -> Vault:
+     global _vault
+     if _vault is None:
+         from hyperresearch.core.vault import Vault
+@@ -82,13 +91,23 @@
+         return json.dumps({"error": f"Note not found: {note_id}"})
+     tag_row = vault.db.execute("SELECT GROUP_CONCAT(tag, ',') as tl FROM tags WHERE note_id = ?", (note_id,)).fetchone()
+     tags = tag_row["tl"].split(",") if tag_row and tag_row["tl"] else []
+-    return json.dumps({
++    # Delta vs upstream (P1-11): external-source bodies are fenced through
++    # core.untrusted before leaving the server, mirroring the other
++    # body-emitting consumers (cli/note.py::show, cli/search.py). Upstream
++    # returns stored bodies raw here; see PORTING-NOTES.md §P1-11.
++    from hyperresearch.core.untrusted import is_untrusted, wrap_body
++
++    data = {
+         "id": row["id"], "title": row["title"], "path": row["path"],
+         "status": row["status"], "type": row["type"], "tags": tags,
+         "created": row["created"], "updated": row["updated"],
+         "word_count": row["word_count"], "summary": row["summary"],
+         "source": row["source"], "parent": row["parent"], "body": row["body"],
+-    }, default=str)
++    }
++    if is_untrusted(data.get("source"), data.get("type")):
++        data["body"] = wrap_body(data["body"], str(data["source"]))
++        data["untrusted"] = True
++    return json.dumps(data, default=str)
+ 
+ 
+ @server.tool()
+@@ -101,7 +120,9 @@
+     vault = _get_vault()
+     vault.auto_sync()
+     ids = [nid.strip() for nid in note_ids.split(",") if nid.strip()]
+-    notes, not_found = [], []
++    # Delta vs upstream: bare lists annotated for strict mypy.
++    notes: list[dict[str, Any]] = []
++    not_found: list[str] = []
+     for nid in ids:
+         row = vault.db.execute(
+             "SELECT n.*, nc.body FROM notes n JOIN note_content nc ON n.id = nc.note_id WHERE n.id = ?", (nid,)
+@@ -109,8 +130,18 @@
+         if row:
+             tag_row = vault.db.execute("SELECT GROUP_CONCAT(tag, ',') as tl FROM tags WHERE note_id = ?", (nid,)).fetchone()
+             tags = tag_row["tl"].split(",") if tag_row and tag_row["tl"] else []
+-            notes.append({"id": row["id"], "title": row["title"], "status": row["status"],
+-                          "tags": tags, "word_count": row["word_count"], "summary": row["summary"], "body": row["body"]})
++            # Delta vs upstream (P1-11): per-note untrusted fencing, same
++            # policy as cli/search.py's body-bearing results — see §P1-11.
++            from hyperresearch.core.untrusted import is_untrusted, wrap_body
++
++            note: dict[str, Any] = {
++                "id": row["id"], "title": row["title"], "status": row["status"],
++                "tags": tags, "word_count": row["word_count"], "summary": row["summary"], "body": row["body"],
++            }
++            if note["body"] and is_untrusted(row["source"], row["type"]):
++                note["body"] = wrap_body(note["body"], str(row["source"]))
++                note["untrusted"] = True
++            notes.append(note)
+         else:
+             not_found.append(nid)
+     return json.dumps({"notes": notes, "not_found": not_found}, default=str)
+@@ -129,7 +160,9 @@
+     """
+     vault = _get_vault()
+     vault.auto_sync()
+-    clauses, params = ["n.type NOT IN ('index')"], []
++    # Delta vs upstream: bare containers annotated for strict mypy.
++    clauses: list[str] = ["n.type NOT IN ('index')"]
++    params: list[Any] = []
+     if status:
+         clauses.append("n.status = ?")
+         params.append(status)
+@@ -221,7 +254,8 @@
+     vault = _get_vault()
+     vault.auto_sync()
+     conn = vault.db
+-    issues: list[dict] = []
++    # Delta vs upstream: `list[dict]` → `list[dict[str, Any]]` for strict mypy.
++    issues: list[dict[str, Any]] = []
+     rules = [rule] if rule else ["missing-tags", "missing-summary", "broken-links", "orphaned-notes"]
+     if "missing-tags" in rules:
+         for r in conn.execute("SELECT id FROM notes WHERE type NOT IN ('index','raw') AND id NOT IN (SELECT DISTINCT note_id FROM tags)"):
+@@ -325,7 +359,8 @@
+     vault.auto_sync()
+     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+ 
+-    extra = {}
++    # Delta vs upstream: bare dict annotated for strict mypy.
++    extra: dict[str, str] = {}
+     if source:
+         extra["source"] = source
+ 
+@@ -379,9 +414,12 @@
+     content = file_path.read_text(encoding="utf-8-sig")
+     meta, body = parse_frontmatter(content)
+ 
+-    changed = []
++    changed: list[str] = []
+     if status:
+-        meta.status = status
++        # Delta vs upstream: `# type: ignore[assignment]` — NoteMeta runs
++        # use_enum_values=True so the runtime value IS the raw string; the
++        # StrEnum annotation is what mypy objects to (P1-9 precedent).
++        meta.status = status  # type: ignore[assignment]
+         changed.append(f"status={status}")
+     for t in [t.strip() for t in add_tags.split(",") if t.strip()]:
+         if t.lower() not in meta.tags:
