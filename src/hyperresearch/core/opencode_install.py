@@ -3612,13 +3612,21 @@ def _model_for(model_map: ModelMap, role: str | None) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _atomic_write(path: Path, content: str) -> None:
-    """Write via temp file + os.replace so readers never see a torn file."""
+def _atomic_write(path: Path, content: str, *, mode: int = 0o600) -> None:
+    """Write via temp file + os.replace so readers never see a torn file.
+
+    mkstemp creates the temp owner-only; ``mode`` is applied to the temp
+    BEFORE the rename, so the destination never observably exists with any
+    other mode. Default 0600 preserves the historical outcome for every
+    existing caller; team-shared docs pass their own (AGENTS.md -> 0644,
+    countersign Z-2).
+    """
     fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
     tmp = Path(tmp_name)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(content)
+        os.chmod(tmp, mode)
         os.replace(tmp, path)
     except BaseException:
         tmp.unlink(missing_ok=True)

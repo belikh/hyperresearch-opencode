@@ -202,7 +202,10 @@ def run_resume(
             console.print(f"[green]{tag}[/] — all profile steps complete.")
         else:
             console.print(f"[green]{tag}[/] — resume at step {position['next_step']}")
-            console.print(f"  Skill(skill: \"{data['skill_to_invoke']}\")")
+            # opencode native skill-tool invocation form — same shape the
+            # renderer's D1a conversion emits (core/opencode_skills.py); the
+            # old Claude-style spelling is banned repo-wide by test.
+            console.print(f"  skill({{ name: \"{data['skill_to_invoke']}\" }})")
 
 
 @app.command("abort")

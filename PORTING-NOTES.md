@@ -2654,3 +2654,725 @@ Gates after r2: `.venv/bin/python -m pytest` → **1013 passed, 88 skipped,
 files". Falsification (pre-fix, same suite): **9 failed, 13 passed** —
 8× image-ordering failures (`!<a href="…">pic</a>` instead of `<img …>`)
 + 1× status breakout failure (raw `" onload="` + live `<script>` in page).
+
+## P2-14 — opencode skill/command renderer + AGENTS.md injection (`core/opencode_skills.py`)
+
+Ports the upstream Claude Code skill installers (hooks.py
+`_install_hyperresearch_skill` :4076-4094 + `_install_hyperresearch_step_skills`
+:4119-4178) to the S0-4-proven opencode layout
+`.opencode/skills/<name>/SKILL.md`, plus the `/hyperresearch` custom command at
+`.opencode/commands/hyperresearch.md` and the ops-blurb injection into
+`AGENTS.md`. Pipeline per file mirrors upstream `_render_installed` (:42-49):
+profile-render → **opencode deltas** (new; upstream has none) → degraded-mode
+clause (new) → provenance header after frontmatter. Bodies are otherwise
+byte-faithful to the bundled sources, which are byte-identical to the pinned
+reference `src/hyperresearch/skills/*.md` (verified by directory diff at piece
+close).
+
+### Inventory reconciliation (plan said "exactly 18")
+
+Upstream ships **19** skill markdowns = the entry ROUTER `hyperresearch` +
+**18 step files** (16 integer steps + hyphenated half-steps
+`hyperresearch-1-5-chapter-partition` and `hyperresearch-14-5-cite-check`).
+The plan's 18 matches the STEP count with the router counted separately; this
+renderer ships all 19 rather than inventing an exclusion. Names all satisfy
+`^[a-z0-9]+(-[a-z0-9]+)*$`; render order is hooks.py :4097-4116 verbatim
+(router first). PARITY.md §12 records the same 19-file split.
+
+### Frontmatter delta: NONE (count = 0)
+
+Upstream skills already emit exactly `name` + `description` — precisely the
+fields opencode recognizes as meaningful for skills (S0-4 probe +
+opencode's own customize skill captured in
+`evidence/spikes/S0-4-debug-skill-project-and-global.txt`: name required and
+must match its folder; description effectively required; optional
+license/compatibility/metadata; unknown fields ignored). Tests pin
+`set(meta) ⊆ {name, description, license, compatibility, metadata}` on all 19,
+falsifying any future frontmatter "enrichment".
+
+### Body deltas — every changed line (58 − / 58 + across 19 files)
+
+(Countersign R-2 correction: the header previously said "57 across 18
+files". The 18 was the step-file count with the ROUTER excluded out of
+habit — mechanically all 19 rendered skills carry ≥1 delta, the router's
+15 pairs included, the same split as the inventory reconciliation above.
+Pair total refreshed for the countersign R-1 fix below: the new :31 pair,
+and the :87 pair's + side gained the invoke conversion within the same
+changed line.)
+
+Mechanical rules (exact-string replacements + one regex), applied AFTER the
+profile render. An independent replay of just these rules over the rendered
+sources reproduces the renderer's output byte-for-byte for all 19 skills
+(audit run at piece close) — i.e. **no undocumented mutation exists**.
+Occurrence census:
+
+| Rule | Old → New | Files hit (×count) |
+|---|---|---|
+| D1 regex | ``Skill(skill: "X")`` → ``skill({ name: "X" })`` | 18 files ×25 total (router×5, 10-triple-draft×3, 2-width-sweep×2, rest ×1; none in 16-readability-audit) — post-R1-fix census (was ×23, router×3) |
+| D1b | `Skill tool` → `skill tool` | 16 step files ×1 each (every step except hyperresearch-3-contradiction-graph and hyperresearch-12-critics) |
+| D1c | `` `Skill` tool `` → `` `skill` tool `` | router ×3 |
+| D1d | `invoke a Skill,` → `invoke a skill,` | router ×1 |
+| D2a | `every Task call` → `every task tool call` | router ×1 |
+| D2b | `a Task prompt` → `a task prompt` | router ×1 |
+| D2c | `Task result` → `task result` | 14-patcher ×2 |
+| D2d | `both Task calls` → `both task tool calls` | 4-loci-analysis ×1 |
+| D2e | `all Task calls` → `all task tool calls` | 5-depth-investigation ×1 |
+| D3 | `TodoWrite` → `todowrite` | router ×2 |
+| D4a | `-p` mode / `end_turn` sentence | 2-width-sweep ×1 |
+| D4b | long-form `-p`/`end_turn` sentence | router ×1 |
+| D4c | `non-interactive (`-p`) runs` | 2-width-sweep ×1 |
+| D5 | `.claude/skills/hyperresearch-1-decompose/SKILL.md` → `.opencode/...` | router ×1 |
+| D6a | Claude-in-Chrome unavailability note → deferred-lane statement | 2-width-sweep ×1 |
+| D6b | "you drive ... Chrome" → would-drive + NOT-installed clause | 2-width-sweep ×1 |
+| D6c | Step 2.8 drain sentence → queue-accumulates reality | router ×1 |
+
+The complete machine-generated line-level diff (every −/+ pair with source
+line numbers, 57 pairs) is reproduced below verbatim from the audit run:
+
+<details><summary>hyperresearch</summary>
+
+```text
+    19 - `3. Invoke each step skill in sequence via the `Skill` tool.`
+    19 + `3. Invoke each step skill in sequence via the `skill` tool.`
+    31 - `Skill(skill: "hyperresearch-N-stepname")`
+    31 + `skill({ name: "hyperresearch-N-stepname" })`
+    34 - `When you invoke a Skill, that skill's full procedure is loaded into your context **fresh**. You then execute that step's procedure, hit its exit criterion, and return to the entry skill (this file) to invoke the next step.`
+    34 + `When you invoke a skill, that skill's full procedure is loaded into your context **fresh**. You then execute that step's procedure, hit its exit criterion, and return to the entry skill (this file) to invoke the next step.`
+    87 - `   - **Step-skills check.** If `.claude/skills/hyperresearch-1-decompose/SKILL.md` doesn't exist relative to the working directory, run `hyperresearch install --steps-only . --json`. Installs the 16 step skill files needed by `Skill(skill: "hyperresearch-N-...")` calls in later steps.`
+    87 + `   - **Step-skills check.** If `.opencode/skills/hyperresearch-1-decompose/SKILL.md` doesn't exist relative to the working directory, run `hyperresearch install --steps-only . --json`. Installs the 16 step skill files needed by `skill({ name: "hyperresearch-N-..." })` calls in later steps.`
+   133 - `6. **Seed the TodoWrite list.** Create todos for all 16 step skill invocations using the integer step numbers, e.g.:`
+   133 + `6. **Seed the todowrite list.** Create todos for all 16 step skill invocations using the integer step numbers, e.g.:`
+   140 - `7. **Invoke step 1:** `Skill(skill: "hyperresearch-1-decompose")`.`
+   140 + `7. **Invoke step 1:** `skill({ name: "hyperresearch-1-decompose" })`.`
+   148 - `1. **NEVER EMIT BARE TEXT WHILE TASKS ARE RUNNING.** In non-interactive (`-p`) mode, a text-only response (no tool call) triggers `end_turn` — the process exits and the pipeline dies. Every response while subagent tasks are in flight MUST include a tool call. The best one is appending analytical thoughts to `research/runs/<vault_tag>/temp/orchestrator-notes.md`. Vault count checks at most once per minute.`
+   148 + `1. **NEVER EMIT BARE TEXT WHILE TASKS ARE RUNNING.** In non-interactive (`opencode run`) mode, a text-only response (no tool call) ends the session — the process exits and the pipeline dies. Every response while subagent tasks are in flight MUST include a tool call. The best one is appending analytical thoughts to `research/runs/<vault_tag>/temp/orchestrator-notes.md`. Vault count checks at most once per minute.`
+   160 - `Blocked fetches (login walls, bot walls, captchas) are queued, not lost: `$HPR escalation list --status queued --tag <vault_tag> -j`. Step 2.8 drains the queue via ONE `hyperresearch-browser-fetcher` subagent driving the user's real Chrome browser. Two standing rules:`
+   160 + `Blocked fetches (login walls, bot walls, captchas) are queued, not lost: `$HPR escalation list --status queued --tag <vault_tag> -j`. Step 2.8 drains the queue via ONE `hyperresearch-browser-fetcher` subagent driving the user's real Chrome browser. In this opencode port that agent is NOT installed (deferred lane): the queue accumulates instead of draining, and the fallback rule below is the standing behavior. Two standing rules:`
+   165 - `## Subagent spawn contract (applies to every Task call)`
+   165 + `## Subagent spawn contract (applies to every task tool call)`
+   177 - `Skipping any of these in a Task prompt is a process violation.`
+   177 + `Skipping any of these in a task prompt is a process violation.`
+   186 - `1. **Check the TodoWrite list.** It carries integer step numbers and survives compaction.`
+   186 + `1. **Check the todowrite list.** It carries integer step numbers and survives compaction.`
+   205 - `4. **Re-invoke this entry skill** if you've lost track entirely: `Skill(skill: "hyperresearch")`. It loads fresh.`
+   205 + `4. **Re-invoke this entry skill** if you've lost track entirely: `skill({ name: "hyperresearch" })`. It loads fresh.`
+   273 - `V8 makes re-reading structural. Each step skill is loaded fresh via the `Skill` tool at the moment it's needed. The procedure is in context exactly when it matters. Compaction can evict an old step's procedure — that's fine, the orchestrator never needs it again because each step is self-contained and reads its inputs from disk.`
+   273 + `V8 makes re-reading structural. Each step skill is loaded fresh via the `skill` tool at the moment it's needed. The procedure is in context exactly when it matters. Compaction can evict an old step's procedure — that's fine, the orchestrator never needs it again because each step is self-contained and reads its inputs from disk.`
+   275 - `The trade: 16 skill files instead of 1, plus 16 invocations of the `Skill` tool over the run. The cost is negligible; the reliability gain is the difference between Q57 (55.9, full pipeline) and Q9 (52.6, single-draft fallback).`
+   275 + `The trade: 16 skill files instead of 1, plus 16 invocations of the `skill` tool over the run. The cost is negligible; the reliability gain is the difference between Q57 (55.9, full pipeline) and Q9 (52.6, single-draft fallback).`
+   284 - `Skill(skill: "hyperresearch-1-decompose")`
+   284 + `skill({ name: "hyperresearch-1-decompose" })`
+```
+</details>
+
+<details><summary>hyperresearch-1-decompose</summary>
+
+```text
+     9 - `  Skill tool from the entry skill (hyperresearch).`
+      9 + `  skill tool from the entry skill (hyperresearch).`
+   208 - `Skill(skill: "hyperresearch-2-width-sweep")`
+   208 + `skill({ name: "hyperresearch-2-width-sweep" })`
+```
+</details>
+
+<details><summary>hyperresearch-1-5-chapter-partition</summary>
+
+```text
+    10 - `  is (0, 0). Invoked via Skill tool from the entry skill.`
+    10 + `  is (0, 0). Invoked via skill tool from the entry skill.`
+    93 - `Return to the entry skill and begin the chapter execution loop at step 2 for the first chapter(s): `Skill(skill: "hyperresearch-2-width-sweep")`.`
+    93 + `Return to the entry skill and begin the chapter execution loop at step 2 for the first chapter(s): `skill({ name: "hyperresearch-2-width-sweep" })`.`
+```
+</details>
+
+<details><summary>hyperresearch-2-width-sweep</summary>
+
+```text
+     8 - `  and source count gating. Invoked via Skill tool from the entry skill`
+     8 + `  and source count gating. Invoked via skill tool from the entry skill`
+   159 - `**CRITICAL: never emit bare text while waiting.** In `-p` mode, a text-only response triggers `end_turn`.`
+   159 + `**CRITICAL: never emit bare text while waiting.** In non-interactive (`opencode run`) mode, a text-only response ends the run.`
+   261 - `  you drive the user's real Chrome browser to fetch them. After you`
+   261 + `  you would drive the user's real Chrome browser to fetch them. In this opencode port the browser-fetcher agent is NOT installed (deferred lane), so this spawn never fires — the queue drains per the fallback rule below. After you`
+   276 - `2. In non-interactive (`-p`) runs where no user can answer: record `$HPR run block <vault_tag> --on human-challenges -j` and CONTINUE the pipeline with everything else — the queue drains on the next `hpr run resume`.`
+   276 + `2. In non-interactive (`opencode run`) sessions where no user can answer: record `$HPR run block <vault_tag> --on human-challenges -j` and CONTINUE the pipeline with everything else — the queue drains on the next `hpr run resume`.`
+   279 - `**If the Claude-in-Chrome extension is unavailable**, the queue simply accumulates — report the queued count in your wave summary and move on. Abandoned/queued items are exactly the pre-4.0 status quo (lost sources), never worse.`
+   279 + `**If the browser-fetcher lane is unavailable (it always is in this opencode port — the Claude-in-Chrome automation stack was deferred)**, the queue simply accumulates — report the queued count in your wave summary and move on. Abandoned/queued items are exactly the pre-4.0 status quo (lost sources), never worse.`
+   343 - `- **light tier:** Skip directly to step 10 — invoke `Skill(skill: "hyperresearch-10-triple-draft")` (light tier writes a single draft, not the ensemble)`
+   343 + `- **light tier:** Skip directly to step 10 — invoke `skill({ name: "hyperresearch-10-triple-draft" })` (light tier writes a single draft, not the ensemble)`
+   344 - `- **full tier:** Invoke `Skill(skill: "hyperresearch-3-contradiction-graph")``
+   344 + `- **full tier:** Invoke `skill({ name: "hyperresearch-3-contradiction-graph" })``
+```
+</details>
+
+<details><summary>hyperresearch-3-contradiction-graph</summary>
+
+```text
+    73 - `- **full tier:** Invoke `Skill(skill: "hyperresearch-4-loci-analysis")``
+    73 + `- **full tier:** Invoke `skill({ name: "hyperresearch-4-loci-analysis" })``
+```
+</details>
+
+<details><summary>hyperresearch-4-loci-analysis</summary>
+
+```text
+     8 - `  then allocates source budgets dynamically. Invoked via Skill tool from`
+     8 + `  then allocates source budgets dynamically. Invoked via skill tool from`
+    34 - `1. **Spawn 2 `hyperresearch-loci-analyst` subagents in parallel** (ONE message, both Task calls). Both read the same width corpus but return independently.`
+    34 + `1. **Spawn 2 `hyperresearch-loci-analyst` subagents in parallel** (ONE message, both task tool calls). Both read the same width corpus but return independently.`
+   133 - `Skill(skill: "hyperresearch-5-depth-investigation")`
+   133 + `skill({ name: "hyperresearch-5-depth-investigation" })`
+```
+</details>
+
+<details><summary>hyperresearch-5-depth-investigation</summary>
+
+```text
+     8 - `  within their source_budget. Invoked via Skill tool from the entry`
+     8 + `  within their source_budget. Invoked via skill tool from the entry`
+    32 - `1. **Spawn K `hyperresearch-depth-investigator` subagents in parallel** (ONE message, all Task calls). One per locus with `source_budget > 0`, capped at 6.`
+    32 + `1. **Spawn K `hyperresearch-depth-investigator` subagents in parallel** (ONE message, all task tool calls). One per locus with `source_budget > 0`, capped at 6.`
+   110 - `Skill(skill: "hyperresearch-6-cross-locus-reconcile")`
+   110 + `skill({ name: "hyperresearch-6-cross-locus-reconcile" })`
+```
+</details>
+
+<details><summary>hyperresearch-6-cross-locus-reconcile</summary>
+
+```text
+     8 - `  Invoked via Skill tool from the entry skill (full tier only).`
+     8 + `  Invoked via skill tool from the entry skill (full tier only).`
+    81 - `Skill(skill: "hyperresearch-7-source-tensions")`
+    81 + `skill({ name: "hyperresearch-7-source-tensions" })`
+```
+</details>
+
+<details><summary>hyperresearch-7-source-tensions</summary>
+
+```text
+     9 - `  highest-leverage move for insight scores. Invoked via Skill tool from`
+     9 + `  highest-leverage move for insight scores. Invoked via skill tool from`
+   100 - `Skill(skill: "hyperresearch-8-corpus-critic")`
+   100 + `skill({ name: "hyperresearch-8-corpus-critic" })`
+```
+</details>
+
+<details><summary>hyperresearch-8-corpus-critic</summary>
+
+```text
+     9 - `  Invoked via Skill tool from the entry skill (full tier only).`
+     9 + `  Invoked via skill tool from the entry skill (full tier only).`
+   139 - `Skill(skill: "hyperresearch-9-evidence-digest")`
+   139 + `skill({ name: "hyperresearch-9-evidence-digest" })`
+```
+</details>
+
+<details><summary>hyperresearch-9-evidence-digest</summary>
+
+```text
+     8 - `  fidelity than fetcher summaries). Invoked via Skill tool from the`
+     8 + `  fidelity than fetcher summaries). Invoked via skill tool from the`
+    80 - `Skill(skill: "hyperresearch-10-triple-draft")`
+    80 + `skill({ name: "hyperresearch-10-triple-draft" })`
+```
+</details>
+
+<details><summary>hyperresearch-10-triple-draft</summary>
+
+```text
+    11 - `  skips ahead to step 15 (polish). Invoked via Skill tool.`
+    11 + `  skips ahead to step 15 (polish). Invoked via skill tool.`
+    76 - `5. **Exit and route.** Once `research/notes/final_report_<vault_tag>.md` is written, return to the entry skill and invoke `Skill(skill: "hyperresearch-15-polish")`. Light tier skips steps 11–14 entirely.`
+    76 + `5. **Exit and route.** Once `research/notes/final_report_<vault_tag>.md` is written, return to the entry skill and invoke `skill({ name: "hyperresearch-15-polish" })`. Light tier skips steps 11–14 entirely.`
+   225 - `- **light tier:** You already wrote `research/notes/final_report_<vault_tag>.md` directly. Skip steps 11-14 (no synthesis, no critics, no patcher) and invoke `Skill(skill: "hyperresearch-15-polish")`.`
+   225 + `- **light tier:** You already wrote `research/notes/final_report_<vault_tag>.md` directly. Skip steps 11-14 (no synthesis, no critics, no patcher) and invoke `skill({ name: "hyperresearch-15-polish" })`.`
+   226 - `- **full tier:** Invoke `Skill(skill: "hyperresearch-11-synthesize")`.`
+   226 + `- **full tier:** Invoke `skill({ name: "hyperresearch-11-synthesize" })`.`
+```
+</details>
+
+<details><summary>hyperresearch-11-synthesize</summary>
+
+```text
+    10 - `  via Skill tool from the entry skill (full tier).`
+    10 + `  via skill tool from the entry skill (full tier).`
+   260 - `Skill(skill: "hyperresearch-12-critics")`
+   260 + `skill({ name: "hyperresearch-12-critics" })`
+```
+</details>
+
+<details><summary>hyperresearch-12-critics</summary>
+
+```text
+    78 - `Skill(skill: "hyperresearch-13-gap-fetch")`
+    78 + `skill({ name: "hyperresearch-13-gap-fetch" })`
+```
+</details>
+
+<details><summary>hyperresearch-13-gap-fetch</summary>
+
+```text
+     8 - `  patcher has ammunition. Capped at 5 gaps. Invoked via Skill tool from`
+     8 + `  patcher has ammunition. Capped at 5 gaps. Invoked via skill tool from`
+    93 - `Skill(skill: "hyperresearch-14-patcher")`
+    93 + `skill({ name: "hyperresearch-14-patcher" })`
+```
+</details>
+
+<details><summary>hyperresearch-14-patcher</summary>
+
+```text
+     9 - `  via Skill tool from the entry skill (full tier).`
+     9 + `  via skill tool from the entry skill (full tier).`
+   118 - `- **Is the patch log still the empty stub?** If yes, the patcher failed to log — its Task result will contain the real log inline. Read the Task result, parse out the JSON, and write it to `research/runs/<vault_tag>/patch-log.json` yourself via Bash so downstream lint rules see it.`
+   118 + `- **Is the patch log still the empty stub?** If yes, the patcher failed to log — its task result will contain the real log inline. Read the task result, parse out the JSON, and write it to `research/runs/<vault_tag>/patch-log.json` yourself via Bash so downstream lint rules see it.`
+   157 - `Skill(skill: "hyperresearch-14-5-cite-check")`
+   157 + `skill({ name: "hyperresearch-14-5-cite-check" })`
+```
+</details>
+
+<details><summary>hyperresearch-14-5-cite-check</summary>
+
+```text
+    10 - `  15 (polish sees the corrected text). Invoked via Skill tool.`
+    10 + `  15 (polish sees the corrected text). Invoked via skill tool.`
+    97 - `Return to the entry skill and invoke `Skill(skill: "hyperresearch-15-polish")`.`
+    97 + `Return to the entry skill and invoke `skill({ name: "hyperresearch-15-polish" })`.`
+```
+</details>
+
+<details><summary>hyperresearch-15-polish</summary>
+
+```text
+     9 - `  Invoked via Skill tool from the entry skill. Followed by step 16`
+     9 + `  Invoked via skill tool from the entry skill. Followed by step 16`
+   163 - `Skill(skill: "hyperresearch-16-readability-audit")`
+   163 + `skill({ name: "hyperresearch-16-readability-audit" })`
+```
+</details>
+
+<details><summary>hyperresearch-16-readability-audit</summary>
+
+```text
+    12 - `  Invoked via Skill tool from the entry skill.`
+    12 + `  Invoked via skill tool from the entry skill.`
+```
+</details>
+
+Beyond the delta pass, installed bytes differ from raw upstream bodies ONLY by
+the provenance header stamped after frontmatter (same P2-13 mechanic, mirrors
+upstream `_render_installed`). Frontmatter passes through untouched.
+
+### Degraded mode (spike S0-1 semantics)
+
+S0-1 REFUTED nested delegation in opencode: a spawned subagent gets NO task
+tool, so any second-hop spawn in a spawned role's procedure cannot fire. The
+accurate level-1-only semantics are carried by an explicit `## Degraded mode`
+clause appended to every skill whose UPSTREAM text instructs spawning
+(mechanical detector: source contains `subagent_type:` or `spawn a subagent`;
+exactly **13** = router + 12 step files). The clause states: level-1 spawns
+into `.opencode/agents/` work as written; the depth-investigator →
+fetcher hop degrades to investigators calling `$HPR fetch-batch` directly,
+preserving batch economics and honoring per-locus `source_budget`.
+Adversarial sweep of the six NON-spawning skills (1-decompose,
+1-5-chapter-partition, 3-contradiction-graph, 6-cross-locus-reconcile,
+7-source-tensions, 9-evidence-digest) found only DESCRIPTIVE mentions of other
+steps' spawns — no clause there, pinned by negative-arm tests.
+
+### Replicated upstream quirks
+
+- Upstream's skill installer never substitutes `{hpr_path}`, so installed
+  skills carry the literal string (hyperresearch-8-corpus-critic.md:39).
+  Replicated byte-exactly; test pins it.
+- Router prose says "the 16 step skills"/"Installs the 16 step skill files"
+  while installing 18 (stale docstring, hooks.py :4080/:4120). Replicated
+  verbatim.
+
+### Command file
+
+`.opencode/commands/hyperresearch.md` (COMMAND_NAME `hyperresearch`):
+frontmatter `description`, body invokes the router via
+`skill({ name: "hyperresearch" })` and passes the query through `$ARGUMENTS`.
+Format per opencode's documented command loader (markdown named after the
+command; body = template with `$ARGUMENTS` replaced by everything typed after
+the command) — evidenced in the captured customize-opencode skill inside the
+S0-4 transcript.
+
+### AGENTS.md injection
+
+Port of upstream agent_docs.py `inject_agent_docs`/`_inject_into_file`
+(CLAUDE.md variant) retargeted at AGENTS.md. The blurb constant is upstream's
+HYPERRESEARCH_BLURB **byte-identical** (verified against the reference module
+at piece close); markers `<!-- hyperresearch:start -->` /
+`<!-- hyperresearch:end -->`. The ONLY prose changes are five exact-string
+edits applied at injection time (each raises if its target disappears):
+
+- E1: `.claude/skills/hyperresearch/SKILL.md` → `.opencode/skills/...`
+- E2: "via the `Skill` tool" → "via opencode's native `skill` tool"
+- E3: browser-fetcher drain sentence → escalation queue waits (lane not
+  installed in this port)
+- E4: roster enumeration drops browser-fetcher ("the browser-fetcher lane is
+  deferred in this port")
+- E5: spawn-contract noun "every Task call" → "every task tool call"
+
+Semantics: missing file → created (`# AGENTS.md` header + section); no marker
+→ appended preserving all existing bytes; marker present → section replaced in
+place; returns True iff bytes changed, so re-running an up-to-date injection
+is a no-op diff (False). Unpaired markers raise. All mission-required sections
+(untrusted-content policy, OA-substitution disclosure, academic-APIs-first,
+curation doctrine) survive verbatim and are pinned by tests.
+
+### API surface for P2-16
+
+`render_skills(target_dir/skills, profile) -> SkillManifest(written, unchanged)`
+· `render_command(target_dir/commands) -> Path` ·
+`inject_agents_md(path, hpr_path="hyperresearch") -> bool changed`.
+Deterministic bytes (proven cross-tree); per-file atomic writes via the shared
+P2-13 temp+`os.replace` plumbing; re-runs rewrite nothing when byte-identical.
+No CLI wiring here (P2-16 owns the install verb); profiles.py untouched.
+
+### Tests
+
+`tests/test_core/test_opencode_skills.py` (~40 tests): inventory count/order/
+name-shape/bundled-set (a); frontmatter allowed-fields matrix ×19 (b); P1-7
+raw-render goldens ×8 re-pinned against `golden_prompts/skills/` (c); frozen
+installed-file goldens ×19 byte-compared vs `tests/fixtures/skill_goldens/`
+(captured ONCE from this renderer over the byte-verbatim bundled sources)
++ inventory guard + `{hpr_path}` quirk pin (d); determinism/idempotence/
+atomicity probes (mid-write failure leaves only complete files, no temp
+droppings, converges on re-run); degraded set == 13 + presence/absence ×19 +
+fallback-name + budget-tail + literal-heading pins (e); command shape +
+idempotent no-rewrite tripwire (f); AGENTS.md create/append/replace/preserve/
+unpaired-marker/custom-hpr + idempotency (g). Countersign remediation added
+group (h) — invoke-syntax conversion ×22 (unit + chain-wide + census); see
+"### Countersign remediation" below.
+
+Falsification record (fresh probes at piece close, module perturbed then
+byte-restored each time):
+
+- Golden fixture perturbed (+1 trailing line) →
+  `test_installed_file_byte_matches_frozen_skill_golden[hyperresearch]` FAILS
+  (byte-compare bites).
+- Undocumented mutation injected into the delta pass (regex replacement
+  extended) → 17 parametrized golden tests FAIL (no room for undocumented
+  edits).
+- `$HPR fetch-batch` removed from the clause → degraded-clause tests FAIL
+  across all 13 spawning skills.
+- Clause heading renamed (`## Degraded mode` → `## Degraded fallback`) →
+  originally GREEN — a real hole (test compared against the imported constant
+  itself); CLOSED by adding a literal `"## Degraded mode"` pin, after which
+  the same perturbation FAILS. This was the one falsification-found defect of
+  the piece, fixed test-side.
+- Historical: the suite was written before the module existed; first run died
+  at collection (ImportError), recorded in the test-module docstring.
+
+### Gates at close of piece
+
+- pytest (full suite): **1114 passed, 106 skipped, 0 failed**
+- ruff check .: All checks passed!
+- mypy --strict src: Success, no issues found in 94 source files
+
+### Countersign remediation (three LOW findings closed)
+
+**R-1 — `_SKILL_INVOKE_RE` left the router's placeholder references as
+literal Claude syntax.** The frozen charclass
+`Skill\(skill: "([a-z0-9-]+)"\)` converted all 23 concrete invocations but
+NOT the two uppercase-`N` placeholder forms in the ROUTER: hyphens were
+never the problem — the uppercase `N` and the dots of `...` fall outside
+`[a-z0-9-]`. Falsified pre-fix by rendering the whole chain through the real
+pipeline (`render_prompt` → `_apply_deltas`): sources carry 25
+`Skill(skill:` occurrences; exactly 2 survived unconverted, both in
+`hyperresearch.md` —
+
+```text
+hyperresearch.md L31: Skill(skill: "hyperresearch-N-stepname")
+hyperresearch.md L87: ... needed by `Skill(skill: "hyperresearch-N-...")` calls in later steps.
+```
+
+Fix: payload widened to `([^"]+)` — every well-formed quoted reference
+converts regardless of shape; `[^"]+` ends at the closing quote and
+requires the trailing `")`, so it cannot over-match. Post-fix census:
+0 Claude-syntax occurrences across all 19 rendered skills; 25 conversions
+(router ×5). Regression tests added to `test_opencode_skills.py` group (h):
+unit arm enumerating placeholder + concrete + future-shaped refs against
+`_apply_deltas`; ×19 parametrized no-Claude-syntax-survives +
+target-is-chain-member check; exact verbatim pins for both router
+placeholders; whole-chain census pinned at 25 with the terminal
+16-readability-audit pinned invoke-free.
+
+Golden regeneration: `tests/fixtures/skill_goldens/hyperresearch.md` ONLY —
+two lines (:31 and :87 above) now carry opencode syntax. Regeneration
+reason: renderer output changed by design via the widened D1 rule; all 18
+other goldens verified byte-identical under the new pattern before
+regenerating (mechanical diff), and the regeneration itself is
+byte-idempotent on re-render.
+
+**R-2 — delta-table header undercounted files ("across 18 files").**
+Corrected to **19**: mechanically every one of the 19 rendered skills
+carries ≥1 body delta — the details blocks in this section already showed
+19 summaries; "18" was the step-file count habitually excluding the ROUTER,
+the same split as the inventory reconciliation above. Header pair total
+refreshed for R-1 while there: 57 → 58 line-pairs (router 14 → 15 — the new
+:31 pair; :87's existing pair absorbed the conversion on its + side); D1
+occurrence census 23 → 25.
+
+**R-3 — skip reason named a half that already landed.** `test_prompt_golden.py`'s
+module skip said "until core.hooks + the skills package land", but the
+skills half HAS landed — its goldens are re-pinned active by
+`test_opencode_skills.py` items (c)/(d). Reworded to name only the genuinely
+missing half: core.hooks is the Claude installer superseded wholesale by
+this opencode renderer; the module stays staged until the P2-16 install
+verb wires these goldens into end-to-end rendering. Skip STATE unchanged
+(still gated on the `core.hooks` import probe); wording only.
+
+Remediation gates (post-fix, full suite):
+
+- pytest (full suite): **1153 passed, 106 skipped, 0 failed** (= this tree's
+  pre-wave baseline 1131 + exactly the 22 new group-(h) tests; skip count
+  unchanged — no skip state flipped)
+- ruff check .: All checks passed!
+- mypy --strict src: Success, no issues found
+
+Post-close addendum (two countersign micro-findings):
+
+- Z-1: `cli/run_cmd.py` printed the dead Claude invocation form as `run
+  resume` guidance; converted to the opencode form (`skill({ name: ... })`),
+  and the zero-Claude-syntax boundary is EXTENDED repo-wide — enforced by
+  `test_no_claude_invoke_syntax_anywhere_outside_the_converter` over all of
+  `src/hyperresearch`, with only the `skills/` source templates (converted at
+  render time) and the converter module itself sanctioned to carry it.
+- Z-2: injected AGENTS.md lands world-readable (0644) via an opt-in `mode=`
+  parameter on `_atomic_write` (chmod-before-rename); every other atomic
+  write keeps the historical owner-only 0600.
+
+## P2-17 — Smoke gear profile overlay (mechanics-proving E2E runs, ~10 min)
+
+Port-only addition to `core/profiles.py`; no CLI/installer changes. Mission:
+a first-class "smoke" GEAR whose numbers make one full pass over the pipeline
+mechanics in ~10 minutes — source_target (8, 12), planned_searches (6, 12),
+loci_max 2, draft_count 3, word envelope (800, 1500).
+
+### Upstream reconciliation
+
+Upstream v0.10.0 ships NO smoke-like profile (grep across upstream
+`core/profiles.py` + tests: nothing). Its lightest built-in, `light`, is a
+run-time TIER — upstream's own `GEAR_PROFILES` comment excludes it from gear
+duty because installing it would bake tier numbers into the flat pipeline.
+So there was no upstream naming to preserve; `smoke` follows the pipeline's
+plain-English scale vocabulary. Construction is upstream's own built-in
+pattern applied exactly:
+
+1. `_SMOKE = {**_FULL, ...}` spread-and-override, identical mechanics to
+   upstream's `_LIGHT`/`_PREMIER` definitions.
+2. Registered in `BUILTIN_PROFILES` in ascending scale order (first entry),
+   so `list_profiles()` → ["smoke", "light", "full", "premier",
+   "dissertation"] and `hpr profile list` ordering stays scale-ascending.
+3. Added to `GEAR_PROFILES = ("smoke", "full", "premier")`: smoke IS a gear —
+   its entire job is baking toy numbers into rendered prompts. This makes it
+   legal for `hpr profile use smoke` with zero CLI edits (profile_cmd only
+   hard-rejects the two tiers by name) and selectable via
+   `hpr run --profile smoke`.
+4. Merge/validation semantics are untouched upstream machinery: built-in name
+   resolves base := BUILTIN_PROFILES[name], then user `[profile.smoke]` keys
+   win per key; user profiles may `extends = "smoke"` (extends accepts any
+   BUILTIN_PROFILES member); every value passes the same Profile validators
+   (`_range_ordered`, `_dict_ranges_ordered`, `_knobs_non_negative`,
+   `_steps_valid`) that gate overlays.
+
+### Values (pinned by mission; rest scaled coherently)
+
+Pinned exactly: source_target (8, 12), planned_searches (6, 12), loci_max 2,
+draft_count 3, word_targets {short/structured/argumentative: all (800, 1500)}.
+Everything else follows premier's coherence rule inverted (shrinking only the
+fetch targets would strand candidates, claims, and word counts at full scale):
+width funnel (source_min 5, candidate_urls (12, 18), deduped_urls (10, 15),
+batch_size (4, 6), batch_count (1, 2), waves (1, 2), wave1_fetchers (2, 3),
+wave2/3 (1, 2), adversarial_searches_min 2, fetcher_chase (1, 2)/cap 2,
+source_analyst_cap 3); depth (loci_analysts 1, depth_budget_total 6, brackets
+((30,3),(20,2),(10,1),(0,1)), investigator_max 2, depth_default_budget 2);
+tensions/critic (all (1,2)-ish, tension_survey (4, 6)); evidence funnel
+(claims_cap (12, 20), claims_min 5, single_draft_reads (3, 5), must_read
+(3–5)/(4–6)/(5–8), citation_totals uniform (16, 30) — consistent with the
+inherited citation_density_min 2.0 at 800–1500 words; char_targets_no_word_
+boundary uniform (2400, 4500), keeping _FULL's ~3x CJK editorial ratio);
+critics/gap-fetch/readability (caps 4/4/3/5, gap_fetch_cap 2,
+readability_rec_cap 10); pacing (vault_check_interval_s 30,
+time_estimate "~10 min").
+
+Deliberate non-deltas vs the light tier (documented in-source): steps stay
+1–16 (E2E means every mechanic runs once; light routes (1, 2, 10, 15, 16));
+utility_scoring stays ON (light turns it off only because its tier never
+reaches score-consuming steps; smoke reaches all of them). chapters stays
+(0, 0) unchaptered; models stays empty-inherit.
+
+### Selection plumbing, proven end-to-end
+
+The chain exercised by
+`TestSmokeGear.test_selection_plumbing_end_to_end` (offline, tmp vault):
+
+    config.toml ([profile.smoke] overlay) ─┐
+    "smoke" as selected name ──────────────┴→ runs.init_run(profile="smoke")
+      → resolve_profile(name, vault.config_path) → manifest{profile,
+        profile_steps=1..16} + validated knobs (user overlay wins per key)
+    AND build_render_context(config_path, primary="smoke")
+      → render_prompt(RESEARCHER_AGENT)  [the REAL bundled agent template]
+      → "select the **1-2 most" / "**2 additional primary sources**" baked
+        into the prompt body; full's "select the **3-8 most" absent; the same
+        template under primary="full" renders full's numbers.
+
+So one test proves both consumption paths from the module docstring: run-time
+resolution (init_run/manifest) and install-time prompt templating.
+
+### Tests
+
+`tests/test_core/test_profiles.py`: new `TestSmokeGear` (7 tests): exact
+overlay values; raw-table validation through the same Profile model;
+inverted-range rejection on a smoke overlay (validators not vacuous at toy
+scale); merge precedence (user keys beat smoke defaults, untouched keys keep
+smoke values); `extends = "smoke"` micro-profiles; lighter-than-light scale
+comparison (with the two honest overlaps: pinned planned_searches (6, 12)
+overlaps light's (8, 20) ceiling-wise, wave1_fetchers high equals light's low
+— assertions pin ceilings/lows accordingly); plus the integration test above.
+Two registry pins updated for the new builtin: `test_list_builtins` and
+`test_gear_profiles_are_valid_builtins` (now ("smoke", "full", "premier")).
+
+Falsification record (fresh probes at piece close; module perturbed then
+byte-restored each time, sha256 re-verified):
+
+- `_SMOKE["source_target"]` perturbed (8, 12) → (8, 13) → 4 TestSmokeGear
+  tests FAIL (exact-values, raw-validation, merge-precedence untouched-key
+  assert, integration leg) — exact-value pins bite.
+- `"smoke"` removed from `GEAR_PROFILES` →
+  `test_gear_profiles_are_valid_builtins` FAILS — gear registration pin bites.
+- `_SMOKE["fetcher_chase"]` perturbed (1, 2) → (3, 8) → integration test
+  FAILS on `assert "select the **1-2 most" in smoke_prompt` — the render leg
+  genuinely tracks profile content, not template text.
+
+Known-stale prose left for later pieces (out of P2-17 scope, no functional
+effect): `core/agent_docs.py` gear prose and the `hpr profile use` help text
+still say "<full|premier>" — they predate smoke and live outside this piece's
+file scope; the skipped `TestProfileCli` block restores verbatim with PARITY
+§15 and needs no edit for smoke (its assertions check membership, not
+exhaustiveness).
+
+### Gates at close of piece
+
+- pytest (full suite): **1121 passed, 106 skipped, 0 failed** (baseline 1114
+  passed + the 7 new TestSmokeGear tests)
+- ruff check .: All checks passed!
+- mypy --strict src: Success, no issues found in 94 source files
+
+## P2-15 — opencode lockdown plugin, layer 2 of the tool-lock belt-and-braces (`core/opencode_plugin.py`)
+
+Ships the canonical JavaScript opencode plugin that HARD-denies (throws in
+`tool.execute.before`) the tools each locked roster agent must never reach,
+even when layer 1 (the P2-13 frontmatter locks) is absent or regressed.
+S0-3 proved both mechanisms produce real denials on this opencode (1.18.21);
+this piece productizes the second belt as a data-driven template in the
+Python package so P2-16's installer can materialize it.
+
+### Deny matrix (single source: `PLUGIN_DENY_MATRIX`, mirrored into the JS as strict JSON)
+
+| Agent | Denied tools | Open by design |
+|---|---|---|
+| hyperresearch-patcher | write | edit + bash (they run `hpr` commands; edit hunks are the job) |
+| hyperresearch-polish-auditor | write | edit + bash |
+| hyperresearch-synthesizer | edit + bash | write (fresh-write mandate) |
+
+Exactly `AGENT_SPECS[*].tools_deny` (P2-13, F-CS2-amended S0-3 verdict).
+Unknown agents are untouched by design — targeted backstop, not a sandbox.
+The Python mirror is pinned against AGENT_SPECS-derived expectations AND
+against the emitted JS table parsed back out of `PLUGIN_SOURCE`
+(json.loads over the `Object.freeze({...})` literal) — string-grep pins rot,
+parse pins don't.
+
+### Mechanism (the hook input has NO agent field)
+
+The bundled type package (`@opencode-ai/plugin/dist/index.d.ts`) gives
+`tool.execute.before` only `{tool, sessionID, callID}`. The plugin therefore
+records every `chat.params` input (`{sessionID, agent, ...}` — fired for each
+LLM request) into a sessionID→agent map and consults it at deny time. This
+works for primary sessions AND task-spawned child sessions — proven live:
+all matrix denials below fired inside CHILD sessions spawned via the task
+tool from a relay driver, with the error naming the child agent.
+
+### Directory spelling — BOTH load; installer standardizes on PLURAL
+
+Probed live with two sibling scratch projects identical except for the
+plugin dir (agent files at the S0-2-proven `.opencode/agents/` in both):
+
+- `.opencode/plugins/hyperresearch-lockdown.js` → denial FIRED
+  (`evidence/p2-15/p215-dirspell-plural.txt`: `✗ Write out.txt failed`,
+  `DENIED_BY_PLUGIN …`, file absent);
+- `.opencode/plugin/hyperresearch-lockdown.js` → denial ALSO FIRED
+  (`evidence/p2-15/p215-dirspell-singular.txt`, same shape; each tree held
+  ONLY its own copy).
+
+Verdict: on 1.18.21 dropped files load from EITHER spelling. The installer
+(P2-16) uses `.opencode/plugins/` (plural): consistent with the S0-2 roster
+standardization and the S0-3b precedent; `PLUGIN_SUBDIR = "plugins"` records
+it. Side observation: opencode materialized `.opencode/node_modules/` in the
+probe project when loading the dropped plugin (harmless; not replicated).
+
+### LIVE matrix probe — acceptance standard met (8/8 cells)
+
+Production-real path per cell: `opencode run --agent p215-driver` → task-tool
+spawn → `mode: subagent`+`hidden: true` stand-in named exactly like the roster
+agent, carrying NO frontmatter locks (the plugin is the only belt under test)
+— one file per probe under `evidence/p2-15/`, each with command, exit,
+stdout/stderr, filesystem ground truth, mechanical verdict line:
+
+| Cell (transcript `p215-matrix-<cell>.txt`) | Attempt | Verdict |
+|---|---|---|
+| patcher-write | write → out.txt | **DENIED** — `✗ Write out.txt failed`, DENIED_BY_PLUGIN, file absent |
+| patcher-edit | edit alpha→bravo | **ALLOWED** — pre.txt == bravo |
+| patcher-bash | bash echo sentinel | **ALLOWED** — sentinel contains BASH_RAN |
+| polish-write | write → out.txt | **DENIED** — DENIED_BY_PLUGIN, file absent |
+| polish-edit | edit alpha→bravo | **ALLOWED** — pre.txt == bravo |
+| synth-edit | edit alpha→bravo | **DENIED** — DENIED_BY_PLUGIN tool 'edit', pre.txt unchanged |
+| synth-bash | bash echo sentinel | **DENIED** — DENIED_BY_PLUGIN tool 'bash', sentinel absent |
+| synth-write | write → out.txt | **ALLOWED** — out.txt == hello |
+
+Every DENIED cell's throw names agent + tool (`DENIED_BY_PLUGIN: tool '<t>'
+is hard-denied for agent '<a>' by hyperresearch-lockdown.js (layer 2)`), so
+layer-2 evidence greps uniquely vs layer-1 structural absences. Harness +
+runner archived at `evidence/p2-15/harness/`. Honest flakes encountered and
+resolved (both were HARNESS bugs / model flakes, never plugin failures):
+(1) runner v1 checked wrong fs paths and pre-created no run dirs — one bash
+cell "failed" because shell redirection hit a missing dir (which itself
+proves patcher's bash EXECUTED); (2) an empty pre.txt from a `tee >a >b`
+redirect mistake made polish-edit fail honestly ("Could not find oldString");
+(3) one driver flake answered without invoking the task tool — caught by fs
+ground truth (file untouched), retried with a MANDATORY-task-first prompt and
+denied correctly. Falsification record for tests: suite run before the module
+existed fails at collection with ModuleNotFoundError
+(`evidence/p2-15/falsification-pre-module.txt`).
+
+### API (for P2-16)
+
+`write_plugin(plugins_dir: Path) -> PluginManifest` installs
+`PLUGIN_FILENAME = "hyperresearch-lockdown.js"` atomically (temp + os.replace,
+reusing `_atomic_write`), skipping byte-identical files (written/unchanged
+manifest). `render_plugin() -> str` returns the deterministic bytes;
+`PLUGIN_SOURCE` is the frozen constant; `PLUGIN_SUBDIR = "plugins"` records
+the proven spelling. No timestamps, no environment reads.
+
+### Residual risk
+
+- Mechanism depends on `chat.params` carrying the active agent name — pinned
+  by observation on 1.18.21; re-probe after any opencode major bump (same
+  caveat as S0-3's hook-shape pin).
+- A session that somehow issues a tool call before its first chat.params
+  would bypass the map lookup (no known path: params precede every LLM
+  request, and tools are only callable after one).
+- Plugin throws surface to the model as errors it could narrate around; that
+  is exactly the layer-1 gap layer 2 closes for MISCONFIGURED agents, while
+  correct installs never reach these tools at all (S0-3 a1/c1 shape).
+
+### Gates at close of piece
+
+- pytest (full suite): **1131 passed, 106 skipped, 0 failed** (baseline 1121
+  passed + the 10 new test_opencode_plugin tests)
+- ruff check .: All checks passed!
+- mypy --strict src: Success, no issues found in 95 source files
+  (94 + this module)

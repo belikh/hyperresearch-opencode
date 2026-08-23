@@ -460,7 +460,10 @@ def inject_agents_md(path: Path, *, hpr_path: str = "hyperresearch") -> bool:
 
     Raises :class:`OpencodeInstallError` on unpaired markers (start without
     end or vice versa) — that is corruption, and silently appending a second
-    section would multiply it. Writes are atomic.
+    section would multiply it. Writes are atomic and land the file
+    world-readable (0644): agent docs are team-shared, so mkstemp's
+    owner-only default would make them awkward to collaborate on
+    (countersign Z-2).
     """
     blurb = _agents_md_blurb(hpr_path)
 
@@ -473,7 +476,7 @@ def inject_agents_md(path: Path, *, hpr_path: str = "hyperresearch") -> bool:
         # full name is the natural title (this branch is port-original:
         # upstream never created AGENTS.md).
         header = f"# {path.name}\n"
-        _atomic_write(path, header + blurb.strip() + "\n")
+        _atomic_write(path, header + blurb.strip() + "\n", mode=0o644)
         return True
 
     content = path.read_text(encoding="utf-8-sig")
@@ -490,9 +493,9 @@ def inject_agents_md(path: Path, *, hpr_path: str = "hyperresearch") -> bool:
         new_content = pattern.sub(lambda _: blurb.strip(), content)
         if new_content == content:
             return False
-        _atomic_write(path, new_content)
+        _atomic_write(path, new_content, mode=0o644)
         return True
 
     separator = "\n\n" if not content.endswith("\n") else "\n"
-    _atomic_write(path, content + separator + blurb.strip() + "\n")
+    _atomic_write(path, content + separator + blurb.strip() + "\n", mode=0o644)
     return True

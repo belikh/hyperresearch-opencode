@@ -195,6 +195,31 @@ class TestRunCli:
         payload = json.loads(r.stdout)["data"]
         assert payload["profile"] == "dissertation"
 
+    def test_human_guidance_uses_opencode_invoke_form(self, tmp_vault, monkeypatch):
+        """Countersign Z-1: the human-facing resume hint must be valid opencode
+        syntax (``skill({ name: \"...\" })`` — the exact form the renderer's
+        D1a conversion emits), never dead Claude ``Skill(skill: ...)`` syntax.
+        Falsification pre-fix: `hpr run resume z1-run-000001` printed
+        ``  Skill(skill: "hyperresearch-1")``."""
+        from typer.testing import CliRunner
+
+        from hyperresearch.cli import app
+
+        init_run(tmp_vault, "z1-run-000001", profile="light")
+        monkeypatch.chdir(tmp_vault.root)
+        runner = CliRunner()
+
+        r = runner.invoke(app, ["run", "resume", "z1-run-000001"])
+        assert r.exit_code == 0
+        assert 'skill({ name: "hyperresearch-1" })' in r.output
+        assert "Skill(skill:" not in r.output
+
+        # The finding's named surface too: `run status` guidance stays
+        # Claude-syntax-free as well.
+        r = runner.invoke(app, ["run", "status", "z1-run-000001"])
+        assert r.exit_code == 0
+        assert "Skill(skill:" not in r.output
+
 
 class TestWorkspaceIsolation:
     def test_run_files_not_synced_as_notes(self, tmp_vault):

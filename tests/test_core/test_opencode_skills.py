@@ -413,6 +413,35 @@ def test_injection_is_idempotent(tmp_path: Path) -> None:
     assert path.read_bytes() == before
 
 
+def test_injection_lands_agents_md_world_readable(tmp_path: Path) -> None:
+    """Countersign Z-2: AGENTS.md is team-shared documentation, so every
+    write path must override mkstemp's owner-only 0600 with 0644.
+    Falsification pre-fix: creation produced mode 0o600."""
+    path = tmp_path / "AGENTS.md"
+    assert inject_agents_md(path) is True
+    assert path.stat().st_mode & 0o777 == 0o644
+
+    # The update-in-place branch rewrites via the same atomic writer; even a
+    # previously owner-only file comes out readable by the team.
+    stale = path.read_text(encoding="utf-8").replace(
+        MARKER_END, f"drift\n{MARKER_END}"
+    )
+    path.write_text(stale, encoding="utf-8")
+    path.chmod(0o600)
+    assert inject_agents_md(path) is True
+    assert (path.stat().st_mode & 0o777) == 0o644
+
+
+def test_atomic_write_default_stays_owner_only(tmp_path: Path) -> None:
+    """The Z-2 fix must be opt-in per call site: the shared writer's default
+    keeps every other atomic artifact exactly as restrictive as before."""
+    from hyperresearch.core.opencode_install import _atomic_write
+
+    other = tmp_path / "agent-file.md"
+    _atomic_write(other, "body\n")
+    assert other.stat().st_mode & 0o777 == 0o600
+
+
 def test_injection_preserves_existing_content_and_updates_stale_section(
     tmp_path: Path,
 ) -> None:
@@ -537,3 +566,42 @@ def test_invoke_conversion_census_is_25_across_the_chain(tmp_path: Path) -> None
             encoding="utf-8"
         )
     ) == [], "terminal skill must invoke nothing"
+
+
+def test_no_claude_invoke_syntax_anywhere_outside_the_converter() -> None:
+    """Countersign Z-1 boundary extension: the per-render arms above only
+    cover the 19 SKILL.md outputs; this guards the WHOLE ``src/hyperresearch``
+    tree so dead Claude invocation syntax cannot reappear in CLI guidance,
+    templates, or docs (it did once — cli/run_cmd.py printed
+    ``Skill(skill: "...")`` as resume guidance). Only two kinds of files may
+    contain the marker:
+
+    - ``skills/`` source templates: upstream-faithful pins that carry Claude
+      syntax BY DESIGN and are converted at render time by D1a;
+    - ``core/opencode_skills.py`` itself: the conversion machinery, which
+      documents and enforces the rule.
+
+    tests/fixtures goldens are outside this tree by construction.
+    """
+    src_root = Path(__file__).resolve().parents[2] / "src" / "hyperresearch"
+    converter = src_root / "core" / "opencode_skills.py"
+    assert converter.is_file(), f"src tree moved? {src_root} missing"
+
+    offenders: list[str] = []
+    for path in sorted(src_root.rglob("*")):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(src_root)
+        if rel.parts[0] == "skills" or path == converter:
+            continue  # the two sanctioned homes of the Claude form
+        # Binary artifacts (__pycache__, .pyc) cannot carry the pattern; skip
+        # undecodable files rather than widening the net with guesses.
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        if CLAUDE_INVOKE in text:
+            offenders.append(rel.as_posix())
+    assert offenders == [], (
+        f"Claude invoke syntax leaked into src/hyperresearch: {offenders}"
+    )
