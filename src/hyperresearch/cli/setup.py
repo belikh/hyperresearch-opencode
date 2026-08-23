@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -118,10 +119,6 @@ def setup(
     console.print()
 
     from hyperresearch.core.agent_docs import _resolve_executable, inject_agent_docs
-
-    # Delta vs upstream: import silenced via a pyproject mypy override until
-    # the Phase-2 agent-renderer piece lands core.hooks (remove then).
-    from hyperresearch.core.hooks import install_hooks
     from hyperresearch.core.vault import Vault, VaultError
 
     # Init vault
@@ -148,11 +145,29 @@ def setup(
 
     # Install Claude Code hook + skills + subagents (rendered from the
     # persisted scale gear, if one was chosen via `hpr profile use`)
-    hook_actions = install_hooks(root, hpr_path=hpr_path, profile=vault.config.pipeline_profile)
-    for action in hook_actions:
-        console.print(f"  [green]Hook:[/] {action}")
-    if not hook_actions:
-        console.print("  [dim]Hooks already installed[/]")
+    # Delta vs upstream: core.hooks (upstream's Claude installer) is retired
+    # in this port — opencode artifacts ship via `hpr install` instead.
+    # Guarded degrade: setup must never die on the missing module (same
+    # defect class as the `profile use` crash, P2-16 addendum).
+    hook_actions: list[Any] | None
+    try:
+        from hyperresearch.core.hooks import install_hooks
+
+        hook_actions = list(
+            install_hooks(root, hpr_path=hpr_path, profile=vault.config.pipeline_profile)
+        )
+    except ModuleNotFoundError:
+        hook_actions = None
+
+    if hook_actions is None:
+        console.print(
+            "  [dim]Claude Code hooks: n/a in this port — opencode artifacts come from `hpr install`[/]"
+        )
+    else:
+        for action in hook_actions:
+            console.print(f"  [green]Hook:[/] {action}")
+        if not hook_actions:
+            console.print("  [dim]Hooks already installed[/]")
 
     # Install browser if needed
     if use_crawl4ai:

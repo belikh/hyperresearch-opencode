@@ -153,20 +153,50 @@ def profile_use(
     vault.config.pipeline_profile = name
     vault.config.save(vault.config_path)
 
+    # Delta vs upstream: upstream re-invokes its Claude installer here
+    # (core.hooks install_hooks — retired with that module). This port
+    # re-renders OUR opencode artifacts from the resolved profile instead:
+    # agents + skills. The lockdown plugin carries no gear-baked knobs, so it
+    # stays untouched.
+    from hyperresearch.cli.install import AGENTS_SUBDIR, OPENCODE_DIRNAME, SKILLS_SUBDIR
     from hyperresearch.core.agent_docs import _resolve_executable
+    from hyperresearch.core.opencode_install import OpencodeInstallError, render_agents
+    from hyperresearch.core.opencode_skills import render_skills
 
-    # Delta vs upstream: import silenced via a pyproject mypy override until
-    # the Phase-2 agent-renderer piece lands core.hooks (remove then).
-    from hyperresearch.core.hooks import install_hooks
+    oc_dir = vault.root / OPENCODE_DIRNAME
+    try:
+        agent_manifest = render_agents(
+            oc_dir / AGENTS_SUBDIR,
+            profile,
+            profile.models,
+            hpr_path=_resolve_executable(),
+        )
+        skill_manifest = render_skills(oc_dir / SKILLS_SUBDIR, profile)
+    except OpencodeInstallError as e:
+        msg = f"re-render failed: {e}"
+        if json_output:
+            output(error(msg, "INSTALL_ERROR"), json_mode=True)
+        else:
+            console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(1)
 
-    actions = install_hooks(vault.root, hpr_path=_resolve_executable(), profile=name)
-
-    data = {
+    # Delta vs upstream: manifest counts typed explicitly for mypy --strict.
+    rerendered: dict[str, dict[str, int]] = {
+        "agents": {
+            "written": len(agent_manifest.written),
+            "unchanged": len(agent_manifest.unchanged),
+        },
+        "skills": {
+            "written": len(skill_manifest.written),
+            "unchanged": len(skill_manifest.unchanged),
+        },
+    }
+    data: dict[str, Any] = {
         "gear": name,
         "description": profile.description,
         "sources": list(profile.source_target),
         "time_estimate": profile.time_estimate,
-        "rerendered": actions,
+        "rerendered": rerendered,
     }
     if json_output:
         output(success(data, vault=str(vault.root)), json_mode=True)
@@ -179,8 +209,9 @@ def profile_use(
         f"  [dim]sources {profile.source_target[0]}-{profile.source_target[1]}"
         f"  {profile.time_estimate}[/]"
     )
-    if actions:
-        console.print(f"  re-rendered {len(actions)} skill/agent file(s)")
+    written_total = rerendered["agents"]["written"] + rerendered["skills"]["written"]
+    if written_total:
+        console.print(f"  re-rendered {written_total} skill/agent file(s)")
     else:
         console.print("  [dim]all installed prompts already at this gear[/]")
     console.print("[dim]Takes effect on the next /hyperresearch run. Revert with: hyperresearch profile use full[/]")

@@ -3376,3 +3376,56 @@ the proven spelling. No timestamps, no environment reads.
 - ruff check .: All checks passed!
 - mypy --strict src: Success, no issues found in 95 source files
   (94 + this module)
+
+## P2-16 addendum — `profile use` retargeted to opencode renderers; hooks dependency retired from CLI paths
+
+Live E2E caught `hpr profile use <gear>` crashing
+`ModuleNotFoundError: No module named 'hyperresearch.core.hooks'`
+(`src/hyperresearch/cli/profile_cmd.py:160`, inside `profile_use`): the verb
+still invoked upstream's Claude installer (`core/hooks.py` `install_hooks`,
+pinned reference 15010c5) even though that module never landed and never will
+— its job was absorbed by the opencode renderers (§P2-13 /
+`core/opencode_install.py`, §P2-14 / `core/opencode_skills.py`).
+
+Retargeted behavior (`cli/profile_cmd.py` only):
+
+- Agents: `core.opencode_install.render_agents` into
+  `<vault.root>/.opencode/agents`, called exactly like `hpr install` does —
+  resolved profile + its ModelMap (`profile.models`) + `_resolve_executable()`.
+- Skills: `core.opencode_skills.render_skills` into `.opencode/skills`.
+- Plugin: gear-independent by construction (no baked knobs), deliberately NOT
+  re-rendered — proven byte+mtime-stable across a gear switch in tests.
+- Output contract preserved: same envelope keys
+  (gear/description/sources/time_estimate/rerendered), where `rerendered` now
+  carries manifest-style counts
+  `{"agents": {"written": N, "unchanged": M}, "skills": {...}}`; human output
+  keeps the "Gear switched:" line ("re-rendered <N+M> skill/agent file(s)").
+  A render failure exits cleanly via an INSTALL_ERROR envelope instead of a
+  traceback. Stale delta comment about the pyproject mypy override removed.
+
+Sweep of the remaining CLI hooks references:
+
+- `cli/setup.py:124` — the import was function-level lazy, but the
+  *interactive TTY* execute path still called `install_hooks` unguarded (the
+  non-TTY / `--json` path delegates to `hpr install`, which is why E2E never
+  hit it). Guarded degrade applied: import+call wrapped, missing-module path
+  prints a dim pointer to `hpr install`. `hpr setup --help` verified rc=0.
+- `cli/lint.py:25` — already try/except-guarded; left alone.
+
+Falsification record (pinned in `tests/test_cli/test_install.py::TestProfileUseVerb`):
+pre-fix, `from hyperresearch.core.hooks import install_hooks` raises
+ModuleNotFoundError (the falsifier test executes that exact statement and pins
+its message) while the post-fix verb completes end-to-end on a real install;
+integration test proves full→smoke re-bakes knob strings ("At most 12
+findings." → "At most 4 findings.", "~10 min"), keeps skill bytes stable +
+mtime-frozen on a same-gear re-render (all-unchanged manifest), persists
+`profile = "smoke"` in config.toml, and `profile use does-not-exist` still
+fails UNKNOWN_PROFILE with zero mutation. Gates at close:
+pytest **1179 passed, 106 skipped, 0 failed**; ruff check .: All checks
+passed!; mypy --strict src: Success, no issues found in 96 source files.
+
+Residual cosmetics (outside this wave's file allowlist): the
+`hyperresearch.core.hooks` mypy override in `pyproject.toml` is now dead
+config, and the `tests/test_core/test_verification.py` skip reason still says
+the hooks installer "lands with the Phase-2 agent renderer piece" — both can
+be pruned in a hygiene pass.
