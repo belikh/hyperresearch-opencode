@@ -1,0 +1,55 @@
+# P1-12 — manual `hpr serve` verification transcript (requirement 1)
+
+Date: 2026-08-23. Host: Linux, Python 3.14.7 (.venv).
+Scratch vault: /tmp/opencode/p1-12-serve-vault/manual (created via
+Vault.init + write_note ×2 + force sync; deleted after capture).
+
+The P1-10 lazy shim (cli/serve.py → `from hyperresearch.serve.server import
+run_server`) now resolves for real: `hpr serve` inside a vault starts the UI.
+
+## Setup
+
+    $ .venv/bin/python - <<'EOF'   # scratch vault seed
+    v = Vault.init(Path("/tmp/opencode/p1-12-serve-vault/manual"), name="P1-12 Manual Serve Check")
+    write_note(v.notes_dir, "Serve Smoke Note", body="# Serve Smoke\n\nHello ... See [[second-note]].\n",
+               tags=["smoke"], status="evergreen", summary="manual transcript probe")
+    write_note(v.notes_dir, "Second Note", body="Backlink target.\n", tags=["smoke"])
+    plan = compute_sync_plan(v, force=True); execute_sync(v, plan)
+    EOF
+    vault ready: /tmp/opencode/p1-12-serve-vault/manual
+
+## Session
+
+    $ cd /tmp/opencode/p1-12-serve-vault/manual
+    $ /home/io/Projects/hyperresearch-opencode/.venv/bin/hpr serve --port 8765 &
+    Serving at http://127.0.0.1:8765
+    Press Ctrl+C to stop.
+
+    $ curl -sS -D - http://127.0.0.1:8765/ -o index.html
+    HTTP/1.0 200 OK
+    Server: BaseHTTP/0.6 Python/3.14.7
+    Content-Type: text/html; charset=utf-8
+
+    index.html contains:
+      <a href="/note/second-note">Second Note</a>
+      <a href="/note/serve-smoke-note">Serve Smoke Note</a>
+
+    $ curl -sS -D - -o note.html http://127.0.0.1:8765/note/serve-smoke-note
+    HTTP/1.0 200 OK
+    Content-Type: text/html; charset=utf-8
+    (note.html mentions "Serve Smoke" 3 times: nav link, <title>, h1)
+
+    $ curl -sS http://127.0.0.1:8765/api/graph | head -c 300
+    {"nodes": [{"id": "second-note", "title": "Second Note", "status": "draft",
+      "words": 2, "inbound": 1}, {"id": "serve-smoke-note", "title": "Serve Smoke
+      Note", "status": "evergreen", "words": 11, "inbound": 0}], "edges":
+      [["serve-smoke-note", "second-note"]]}
+
+    $ curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8765/nope
+    404
+
+    $ kill -INT <pid> && wait
+    Stopped.
+
+Result: index route serves the vault listing over real sockets; note route,
+graph JSON API and 404 path all answer; SIGINT shuts down cleanly.

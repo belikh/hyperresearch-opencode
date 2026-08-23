@@ -1,0 +1,268 @@
+--- /tmp/opencode/hyperresearch-reference/src/hyperresearch/serve/renderer.py	2026-08-22 10:02:57.090309314 +1000
++++ src/hyperresearch/serve/renderer.py	2026-08-23 12:26:19.695598972 +1000
+@@ -4,6 +4,7 @@
+ 
+ import html
+ import re
++from collections.abc import Callable
+ 
+ # Schemes a note body is allowed to link out to. Note bodies are fetched page
+ # content, so a URL in one is attacker-influenced: `javascript:` and `data:`
+@@ -42,8 +43,12 @@
+     return f'<img src="{url}" alt="{alt}">'
+ 
+ 
+-# Simple markdown patterns
+-MD_PATTERNS = [
++# Delta vs upstream: explicit annotation — upstream left MD_PATTERNS untyped,
++# and strict mode cannot join the str-replacement and lambda-replacement tuple
++# element types on its own.
++MD_PATTERNS: list[
++    tuple[re.Pattern[str], str | Callable[[re.Match[str]], str]]
++] = [
+     # Headers
+     (re.compile(r"^######\s+(.+)$", re.MULTILINE), r"<h6>\1</h6>"),
+     (re.compile(r"^#####\s+(.+)$", re.MULTILINE), r"<h5>\1</h5>"),
+@@ -74,8 +79,9 @@
+     text = html.escape(body)
+ 
+     # Handle code blocks (preserve them)
+-    code_blocks = []
+-    def save_code_block(m):
++    code_blocks: list[str] = []  # Delta vs upstream: annotation only
++
++    def save_code_block(m: re.Match[str]) -> str:  # Delta vs upstream: annotation only
+         code_blocks.append(m.group(0))
+         return f"\x00CODE{len(code_blocks) - 1}\x00"
+ 
+@@ -86,7 +92,7 @@
+         text = pattern.sub(replacement, text)
+ 
+     # Wiki links: [[target|display]] or [[target]]
+-    def replace_wiki_link(m):
++    def replace_wiki_link(m: re.Match[str]) -> str:  # Delta vs upstream: annotation only
+         full = m.group(0)
+         # Unescape the brackets that html.escape would have converted
+         inner = full[2:-2]  # strip [[ and ]]
+@@ -107,8 +113,8 @@
+     # Tables
+     lines = text.split("\n")
+     in_table = False
+-    table_lines = []
+-    result_lines = []
++    table_lines: list[str] = []  # Delta vs upstream: annotation only
++    result_lines: list[str] = []  # Delta vs upstream: annotation only
+     for line in lines:
+         if "|" in line and line.strip().startswith("|"):
+             if not in_table:
+@@ -149,7 +155,7 @@
+     if len(lines) < 2:
+         return "\n".join(lines)
+ 
+-    rows = []
++    rows: list[str] = []  # Delta vs upstream: annotation only
+     for i, line in enumerate(lines):
+         cells = [c.strip() for c in line.strip("|").split("|")]
+         if i == 1 and all(re.match(r"^[-:]+$", c.strip()) for c in cells):
+--- /tmp/opencode/hyperresearch-reference/src/hyperresearch/serve/server.py	2026-08-22 10:02:57.090309314 +1000
++++ src/hyperresearch/serve/server.py	2026-08-23 12:39:26.983515861 +1000
+@@ -6,9 +6,17 @@
+ import json
+ import urllib.parse
+ from http.server import BaseHTTPRequestHandler, HTTPServer
++from typing import TYPE_CHECKING, Any
+ 
+ from hyperresearch.serve.renderer import render_markdown
+ 
++if TYPE_CHECKING:
++    # Delta vs upstream: annotation-only imports (strict-mypy). Runtime sqlite3
++    # import stays lazy inside HyperresearchHandler.db, exactly as upstream.
++    import sqlite3
++
++    from hyperresearch.core.vault import Vault
++
+ # -- Vintage cream & dark brown theme --
+ CSS = """
+ :root {
+@@ -339,18 +347,24 @@
+ 
+ 
+ class HyperresearchHandler(BaseHTTPRequestHandler):
+-    vault = None
+-    _db = None
++    # Delta vs upstream: annotations added (strict-mypy); runtime defaults are
++    # still plain None assignments exactly as upstream.
++    vault: Vault | None = None
++    _db: sqlite3.Connection | None = None
+ 
+     @property
+-    def db(self):
++    def db(self) -> sqlite3.Connection:
+         if self.__class__._db is None:
+             import sqlite3
+-            self.__class__._db = sqlite3.connect(str(self.__class__.vault.db_path), check_same_thread=False)
++            # Delta vs upstream: narrowing assert (annotation-era). run_server
++            # (and tests) always set `vault` before any request can arrive.
++            vault = self.__class__.vault
++            assert vault is not None
++            self.__class__._db = sqlite3.connect(str(vault.db_path), check_same_thread=False)
+             self.__class__._db.row_factory = sqlite3.Row
+         return self.__class__._db
+ 
+-    def do_GET(self):
++    def do_GET(self) -> None:
+         parsed = urllib.parse.urlparse(self.path)
+         path = parsed.path
+         query = urllib.parse.parse_qs(parsed.query)
+@@ -375,7 +389,14 @@
+         else:
+             self._send(404, "<h1>Not Found</h1>")
+ 
+-    def _send(self, code: int, body_html: str, title: str = "Home", extra_head: str = "", extra_body: str = ""):
++    def _send(
++        self,
++        code: int,
++        body_html: str,
++        title: str = "Home",
++        extra_head: str = "",
++        extra_body: str = "",
++    ) -> None:
+         nav = self._build_nav()
+         full = f"""<!DOCTYPE html><html><head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+@@ -388,7 +409,7 @@
+         self.end_headers()
+         self.wfile.write(full.encode("utf-8"))
+ 
+-    def _send_json(self, data):
++    def _send_json(self, data: dict[str, Any]) -> None:
+         body = json.dumps(data)
+         self.send_response(200)
+         self.send_header("Content-Type", "application/json")
+@@ -396,7 +417,10 @@
+         self.wfile.write(body.encode("utf-8"))
+ 
+     def _build_nav(self) -> str:
++        # Delta vs upstream: narrowing assert (annotation-era), same invariant
++        # as the db property — `vault` is set before serving starts.
+         vault = self.__class__.vault
++        assert vault is not None
+         name = vault.config.name
+         lines = [
+             '<div class="nav-top">',
+@@ -429,7 +453,7 @@
+         )
+         return "\n".join(lines)
+ 
+-    def _serve_index(self):
++    def _serve_index(self) -> None:
+         rows = self.db.execute(
+             "SELECT id, title, status, summary, word_count FROM notes "
+             "WHERE type NOT IN ('index') ORDER BY title"
+@@ -441,7 +465,7 @@
+         body += "</ul>"
+         self._send(200, body, "Home")
+ 
+-    def _serve_note(self, note_id: str):
++    def _serve_note(self, note_id: str) -> None:
+         row = self.db.execute(
+             "SELECT n.*, nc.body FROM notes n "
+             "JOIN note_content nc ON n.id = nc.note_id WHERE n.id = ?",
+@@ -460,12 +484,23 @@
+ 
+         html_body = render_markdown(row["body"])
+         tags_html = " ".join(f'<a href="/tag/{html_mod.escape(t)}" class="tag">{html_mod.escape(t)}</a>' for t in tags)
++        # P1-12 XSS audit note: `status` is interpolated into class="" RAW here
++        # on purpose (upstream-verbatim). Probed, not trusted: every byte path
++        # into notes.status is guarded — tool flows validate through NoteMeta's
++        # StrEnum AND the schema itself carries CHECK (status IN (...)), so
++        # even direct SQL tampering is refused. See PORTING-NOTES §P1-12.
+         status_class = row["status"]
+         meta = (
+             f'<div class="meta">'
+             f'<span class="status {status_class}">{html_mod.escape(row["status"])}</span> '
+             f'{tags_html} '
+-            f'<span>{row["word_count"]} words</span>'
++            # Delta vs upstream (P1-12 XSS audit): word_count interpolated RAW
++            # upstream. Unlike status it has NO schema guard — SQLite's INTEGER
++            # affinity stores non-numeric text verbatim, so crafted DB bytes
++            # (vault dirs are git repositories; a committed hyperresearch.db
++            # makes another writer's rows this UI's input) reach this sink.
++            # Escape at the sink; legal ints render unchanged.
++            f'<span>{html_mod.escape(str(row["word_count"]))} words</span>'
+             f'</div>'
+         )
+         bl_html = ""
+@@ -476,7 +511,7 @@
+             bl_html = f'<div class="backlinks"><h3>Backlinks</h3><ul>{bl_items}</ul></div>'
+         self._send(200, f"{meta}\n{html_body}\n{bl_html}", html_mod.escape(row["title"]))
+ 
+-    def _serve_tag(self, tag: str):
++    def _serve_tag(self, tag: str) -> None:
+         rows = self.db.execute(
+             "SELECT n.id, n.title, n.status, n.summary FROM notes n "
+             "JOIN tags t ON n.id = t.note_id WHERE t.tag = ? ORDER BY n.title",
+@@ -490,7 +525,7 @@
+         body += "</ul>"
+         self._send(200, body, f"Tag: {safe_tag}")
+ 
+-    def _serve_tags(self):
++    def _serve_tags(self) -> None:
+         rows = self.db.execute(
+             "SELECT tag, COUNT(*) as c FROM tags GROUP BY tag ORDER BY c DESC"
+         ).fetchall()
+@@ -500,7 +535,7 @@
+         body += "</ul>"
+         self._send(200, body, "Tags")
+ 
+-    def _serve_search(self, query: str):
++    def _serve_search(self, query: str) -> None:
+         safe_q = html_mod.escape(query)
+         body = f'<h1>Search: {safe_q}</h1>\n'
+         if not query:
+@@ -536,7 +571,7 @@
+         body += "</div>"
+         self._send(200, body, f"Search: {safe_q}")
+ 
+-    def _serve_graph(self):
++    def _serve_graph(self) -> None:
+         body = (
+             '<div class="graph-container graph-fullpage">'
+             '<canvas id="graph-canvas"></canvas>'
+@@ -546,11 +581,11 @@
+         )
+         self._send(200, body, "Graph", extra_body=GRAPH_JS)
+ 
+-    def _serve_graph_api(self):
++    def _serve_graph_api(self) -> None:
+         nodes_rows = self.db.execute(
+             "SELECT n.id, n.title, n.status, n.word_count FROM notes n WHERE n.type NOT IN ('index')"
+         ).fetchall()
+-        inbound_counts = {}
++        inbound_counts: dict[str, int] = {}  # Delta vs upstream: annotation only
+         for r in self.db.execute(
+             "SELECT target_id, COUNT(*) as c FROM links WHERE target_id IS NOT NULL GROUP BY target_id"
+         ):
+@@ -568,11 +603,11 @@
+ 
+         self._send_json({"nodes": nodes, "edges": edges})
+ 
+-    def log_message(self, format, *args):
++    def log_message(self, format: str, *args: Any) -> None:
+         pass
+ 
+ 
+-def run_server(vault, port: int = 8080, open_browser: bool = False):
++def run_server(vault: Vault, port: int = 8080, open_browser: bool = False) -> None:
+     import signal
+     import sys
+ 
+@@ -589,7 +624,7 @@
+ 
+     running = True
+ 
+-    def _shutdown(sig, frame):
++    def _shutdown(sig: int, frame: object) -> None:  # Delta vs upstream: annotation only
+         nonlocal running
+         running = False
+ 

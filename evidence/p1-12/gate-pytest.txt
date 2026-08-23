@@ -1,0 +1,13 @@
+# command: .venv/bin/python -m pytest (tail)
+SKIPPED [16] tests/test_core/test_prompt_golden.py:373: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [11] tests/test_core/test_prompt_golden.py:400: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:408: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:422: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:434: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_prompt_golden.py:440: core.hooks + the skills package land with their own piece (PARITY sections 13-14); golden fixtures were frozen in P1-7
+SKIPPED [1] tests/test_core/test_vault.py:59: Depends on core.agent_docs (out of scope until the agent-docs piece); upstream asserted CLAUDE.md injection, opencode port will assert AGENTS.md
+SKIPPED [1] tests/test_core/test_vault.py:67: Claude Code-only doctrine test; depends on core.agent_docs (out of scope). Revisit when the opencode agent-docs piece lands
+SKIPPED [3] tests/test_core/test_verification.py: covered by tests/test_core/test_independence.py ported in P1-3
+SKIPPED [1] tests/test_core/test_verification.py: core.hooks agent installer lands with the Phase-2 agent renderer piece
+SKIPPED [3] tests/test_web/test_fetch_settings.py:23: crawl4ai extra not installed
+982 passed, 88 skipped in 88.44s (0:01:28)

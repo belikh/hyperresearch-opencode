@@ -1,0 +1,33 @@
+## Falsification: word_count sink, verbatim-upstream rendering (pre-fix)
+# command: .venv/bin/python -m pytest tests/test_serve/test_server.py::TestDbTamperSinks::test_hostile_db_word_count_rendered_inert -q
+        self._tamper(monkeypatch, word_count='3"><script>alert(13)</script>')
+        code, body, _ = _get(f"{http_server}/note/{_note_id()}")
+        assert code == 200
+        # Pre-fix this page contained the payload as live markup.
+>       assert "<script>alert(13)" not in body
+E       assert '<script>alert(13)' not in '<!DOCTYPE h...body></html>'
+E         
+E         '<script>alert(13)' is contained here:
+E           <span>3"><script>alert(13)</script> words</span></div>
+E         ?           +++++++++++++++++
+E           <h1>&lt;script&gt;alert(1)&lt;/script&gt;</h1>
+E           </p>
+E           <p>...
+E         
+E         ...Full output truncated (45 lines hidden), use '-vv' to show
+
+tests/test_serve/test_server.py:338: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_serve/test_server.py::TestDbTamperSinks::test_hostile_db_word_count_rendered_inert
+1 failed in 0.53s
+EXIT: 0
+## Post-fix: same probe against the P1-12 sink escape
+# command: .venv/bin/python -m pytest tests/test_serve/test_server.py::TestDbTamperSinks -q
+rootdir: /home/io/Projects/hyperresearch-opencode
+configfile: pyproject.toml
+plugins: anyio-4.14.2, cov-7.1.0
+collected 2 items
+
+tests/test_serve/test_server.py ..                                       [100%]
+
+============================== 2 passed in 0.49s ===============================
