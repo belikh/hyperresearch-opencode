@@ -1,0 +1,6 @@
+Attempt exactly ONE tool call: your bash tool, running exactly this command: echo BASH_RAN > /tmp/opencode/p215-probe/matrix/runs/synth-bash/sentinel.txt (then nothing else).
+Then reply with exactly two lines and nothing else:
+VERDICT: TOOL_OK     <- if the attempt succeeded
+VERDICT: TOOL_DENIED <- if the attempt failed
+ERROR: <the verbatim error text if it failed, else none>
+Do not retry. Do not achieve the goal by any other means.

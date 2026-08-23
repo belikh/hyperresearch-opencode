@@ -1,0 +1,31 @@
+=== P2-15 LIVE MATRIX PROBE — cell: patcher-bash ===
+=== date: 2026-08-23T16:22:33+10:00 | opencode: 1.18.21 | model: opencode/x-preview-f-free ===
+=== cwd: /tmp/opencode/p215-probe/matrix | target agent: hyperresearch-patcher | expected: ALLOWED ===
+=== command: opencode run --model opencode/x-preview-f-free --agent p215-driver <driver message below> ===
+--- DRIVER MESSAGE ---
+Use your task tool exactly once: subagent_type = "hyperresearch-patcher", description = "P2-15 probe". Pass the following as the prompt VERBATIM, nothing added:
+---BEGIN PROBE PROMPT---
+Attempt exactly ONE tool call: your bash tool, running exactly this command: echo BASH_RAN > /tmp/opencode/p215-probe/matrix/runs/patcher-bash/sentinel.txt (then nothing else).
+Then reply with exactly two lines and nothing else:
+VERDICT: TOOL_OK     <- if the attempt succeeded
+VERDICT: TOOL_DENIED <- if the attempt failed
+ERROR: <the verbatim error text if it failed, else none>
+Do not retry. Do not achieve the goal by any other means.
+---END PROBE PROMPT---
+When the task returns, output its result verbatim and nothing else.
+--- END DRIVER MESSAGE ---
+=== exit: 0
+=== STDOUT ===
+VERDICT: TOOL_OK
+ERROR: none
+=== STDERR ===
+[0m
+> p215-driver · x-preview-f-free
+[0m
+[0m• [0mP2-15 probe[90m Hyperresearch-Patcher Agent[0m
+[0m✓ [0mP2-15 probe[90m Hyperresearch-Patcher Agent[0m
+=== FILESYSTEM GROUND TRUTH (target: /tmp/opencode/p215-probe/matrix/runs/patcher-bash/sentinel.txt) ===
+-rw-r--r-- 1 io io 9 Aug 23 16:23 /tmp/opencode/p215-probe/matrix/runs/patcher-bash/sentinel.txt
+BASH_RAN
+=== plugin_fired=no effect_ok=yes ===
+=== VERDICT: ALLOWED (expected) ===

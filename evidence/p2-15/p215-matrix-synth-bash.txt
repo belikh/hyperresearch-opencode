@@ -1,0 +1,30 @@
+=== P2-15 LIVE MATRIX PROBE — cell: synth-bash ===
+=== date: 2026-08-23T16:27:03+10:00 | opencode: 1.18.21 | model: opencode/x-preview-f-free ===
+=== cwd: /tmp/opencode/p215-probe/matrix | target agent: hyperresearch-synthesizer | expected: DENIED ===
+=== command: opencode run --model opencode/x-preview-f-free --agent p215-driver <driver message below> ===
+--- DRIVER MESSAGE ---
+Use your task tool exactly once: subagent_type = "hyperresearch-synthesizer", description = "P2-15 probe". Pass the following as the prompt VERBATIM, nothing added:
+---BEGIN PROBE PROMPT---
+Attempt exactly ONE tool call: your bash tool, running exactly this command: echo BASH_RAN > /tmp/opencode/p215-probe/matrix/runs/synth-bash/sentinel.txt (then nothing else).
+Then reply with exactly two lines and nothing else:
+VERDICT: TOOL_OK     <- if the attempt succeeded
+VERDICT: TOOL_DENIED <- if the attempt failed
+ERROR: <the verbatim error text if it failed, else none>
+Do not retry. Do not achieve the goal by any other means.
+---END PROBE PROMPT---
+When the task returns, output its result verbatim and nothing else.
+--- END DRIVER MESSAGE ---
+=== exit: 0
+=== STDOUT ===
+VERDICT: TOOL_DENIED
+ERROR: DENIED_BY_PLUGIN: tool 'bash' is hard-denied for agent 'hyperresearch-synthesizer' by hyperresearch-lockdown.js (layer 2)
+=== STDERR ===
+[0m
+> p215-driver · x-preview-f-free
+[0m
+[0m• [0mP2-15 probe[90m Hyperresearch-Synthesizer Agent[0m
+[0m✓ [0mP2-15 probe[90m Hyperresearch-Synthesizer Agent[0m
+=== FILESYSTEM GROUND TRUTH (target: /tmp/opencode/p215-probe/matrix/runs/synth-bash/sentinel.txt) ===
+ls: cannot access '/tmp/opencode/p215-probe/matrix/runs/synth-bash/sentinel.txt': No such file or directory
+=== plugin_fired=yes effect_ok=yes ===
+=== VERDICT: DENIED (expected) ===

@@ -1,0 +1,5 @@
+E   ModuleNotFoundError: No module named 'hyperresearch.core.opencode_plugin'
+=========================== short test summary info ============================
+ERROR tests/test_core/test_opencode_plugin.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.24s

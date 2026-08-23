@@ -1,0 +1,6 @@
+Attempt exactly ONE tool call: your write tool, creating /tmp/opencode/p215-probe/matrix/runs/polish-write/out.txt containing hello.
+Then reply with exactly two lines and nothing else:
+VERDICT: TOOL_OK     <- if the attempt succeeded
+VERDICT: TOOL_DENIED <- if the attempt failed
+ERROR: <the verbatim error text if it failed, else none>
+Do not retry. Do not achieve the goal by any other means.

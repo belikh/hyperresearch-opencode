@@ -1,0 +1,18 @@
+=== P2-15 DIR-SPELLING PROBE — variant: plural (plugin at .opencode/plugins/) ===
+=== date: 2026-08-23T16:0x+10:00 | opencode: 1.18.21 | model: opencode/x-preview-f-free ===
+=== cwd: /tmp/opencode/p215-probe/dirspell/plural ===
+=== ONLY variable vs sibling variant: plugin dir spelling. Agent files at .opencode/agents/ (plural, S0-2-proven) in BOTH. ===
+=== agent under test: hyperresearch-patcher (mode: all, NO locks — plugin is the only belt) ===
+=== command: opencode run --model opencode/x-preview-f-free --agent hyperresearch-patcher 'Use your write tool ONCE to create /tmp/opencode/p215-probe/dirspell/plural/out.txt containing hello. Then reply with exactly one line: WRITE_OK if it succeeded, or WRITE_DENIED followed by the verbatim error text if it failed. One attempt, no retries, no other means.' ===
+=== exit: 0
+--- STDOUT ---
+WRITE_DENIED DENIED_BY_PLUGIN: tool 'write' is hard-denied for agent 'hyperresearch-patcher' by hyperresearch-lockdown.js (layer 2)
+--- STDERR ---
+[0m
+> hyperresearch-patcher · x-preview-f-free
+[0m
+[0m✗ [0mWrite out.txt failed
+[91m[1mError: [0mDENIED_BY_PLUGIN: tool 'write' is hard-denied for agent 'hyperresearch-patcher' by hyperresearch-lockdown.js (layer 2)
+--- FILESYSTEM GROUND TRUTH ---
+ls: cannot access 'dirspell/plural/out.txt': No such file or directory
+=== VERDICT (variant plural): PLUGIN LOADED — write attempt DENIED by hyperresearch-lockdown.js; file absent ===
