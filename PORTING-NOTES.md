@@ -3429,3 +3429,14 @@ Residual cosmetics (outside this wave's file allowlist): the
 config, and the `tests/test_core/test_verification.py` skip reason still says
 the hooks installer "lands with the Phase-2 agent renderer piece" — both can
 be pruned in a hygiene pass.
+
+## Phase 3 evidence notes (verifier-dossier caveats closed)
+- Spend $0.00 of $5.00 cap in BOTH live E2Es is NON-INSTRUMENTATION, not budget enforcement:
+  fetcher/drafter agents never invoked `hpr run spend`, so estimated_usd stayed at its
+  initial value. On subscription billing upstream documents --budget as a value measure,
+  not a bill; the ceiling mechanism itself is gate-tested (crossing flips run to blocked).
+- Smoke-tier per-DRAFT word counts (~5.2k–6k words each) exceeded the 800–1500
+  word_targets envelope; word_targets bind the FINAL report format on this tier, and the
+  ship-gate length-in-range check passed on both E2E finals. Per-draft targets were
+  therefore advisory under the smoke gear in practice — recorded here so nobody reads
+  them as enforced.

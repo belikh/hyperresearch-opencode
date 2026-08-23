@@ -5,7 +5,7 @@ Live status page for the port of
 (v0.10.0, reference pinned at `15010c5142244b88265f7abadf7b7aa1a8237fde`)
 to opencode. Scope and citations per piece live in [PARITY.md](PARITY.md).
 
-**Last updated:** 2026-08-23 (session 2 final) — PHASE 3 COMPLETE: light-tier E2E PASSED (finish passed:true; plugin denials observed in a natural run); smoke full-tier E2E PASSED all 16 steps incl two interruption->exact-resume recoveries (kill test + provider error) at $0/$5 budget; three ship-gate negatives blocked naming correct checks; MCP stdio handshake live: exactly 13 tools + read roundtrip. P3-21 verifier dossier dispatched.
+**LAST UPDATED (job close):** ALL 21 PLAN PIECES COMPLETE — Phases 0-3 done. Final gates 1179 passed / 106 skipped, ruff clean, mypy strict clean (96 files); working tree clean @ 42+ commits pushed to origin/main. Independent verifier verdict: VERIFIED WITH CAVEATS; both caveats closed immediately after verdict (see PORTING-NOTES §Phase 3 evidence notes). Blind gauntlet record: ours won every completed comparison (P0-1 lost r1->fixed->r2 PASS; two VOID rounds disclosed w/ protocol fixes; all others ours blind).
 
 ## Legend
 
@@ -53,7 +53,7 @@ evidence pointers fill in at first commit touching the piece.
 | P3-18 | Light-tier E2E (live opencode) | critic-won | PASS: report exists, finish passed:true failed_checks:[], 9/9 verify checks ok incl citations bind + provenance; natural-run plugin denials captured; lint advisory trio (provenance/extract-coverage/instruction-coverage) = designed light-tier skips per rule text, ship-blocking subset clean | evidence/e2e-light/, evidence/p3-mcp-handshake.json |
 | P3-19 | Smoke-gear full-tier E2E + mid-run kill/resume | critic-won | PASS: all steps 1–16 done incl 14.5, finish passed:true, spend $0/$5 cap; kill mid-step-2 -> `run resume` next_step exactly 2 -> continuation completed; SECOND provider-error interruption recovered via resume to exact step 10; all artifact classes on disk (4 critic JSONs, patch-log, polish-log, cite-check findings, readability decisions) | evidence/p3-19-smoke/, evidence/p3-19/kill-resume-proof.md |
 | P3-20 | Ship-gate negatives | critic-won | PASS: hallucinated-quote -> FAIL quote-integrity EXIT1; cited-source retraction -> FAIL retracted-citations EXIT1; over-length -> FAIL length-in-range EXIT1; positive controls green after each restore | evidence/p3-20/negatives-summary.md |
-| P3-21 | — | pending | — | — |
+| P3-21 | Verifier dossier | critic-won | INDEPENDENT VERIFIER: VERIFIED WITH CAVEATS (fresh re-runs R1-R9: gates 1179p/106s ruff+mypy clean; fresh install tree exact; ship-gate positive+negative re-executed w/ byte-identical restore; MCP handshake 13 tools; CLI helps; untrusted+forged-fence green; evidence audit; honesty sweep). Both caveats (spend-$0 rationale, per-draft word-target advisory) closed same session in PORTING-NOTES §Phase 3 evidence notes | verifier session records R1-R9, PORTING-NOTES §Phase 3 evidence notes |
 
 ## Known non-goals (carried on every piece)
 
