@@ -1,9 +1,10 @@
 """Phase-3 tests: per-run workspaces, run manifest, resume, budget governor.
 
-Delta vs upstream (P1-8): core.runs itself is this piece and runs unmodified;
-the tests that drive `hpr run ...` / cli.lint / cli.vault_tag are kept
-byte-faithful but skipped until those CLI pieces land (PARITY §16). Restore
-the skipped tests verbatim with their owning CLI piece.
+Delta vs upstream (P1-8, retired in P1-10): core.runs is unmodified; the
+tests that drive `hpr run ...` / cli.lint / cli.vault_tag were kept
+byte-faithful but skipped until their CLI pieces landed. P1-10 delivered
+cli/run_cmd.py + cli/lint.py, so every skip here has been removed and the
+tests run verbatim.
 """
 
 from __future__ import annotations
@@ -122,9 +123,6 @@ class TestBudgetGovernor:
         m = add_spend(tmp_vault, "b-000003", estimated_usd=99999)
         assert m["status"] == "running"
 
-    @pytest.mark.skip(
-        reason="needs `hpr run resume` (cli/run_cmd.py) — lands with the run CLI piece"
-    )
     def test_resume_unblocks(self, tmp_vault, monkeypatch):
         from typer.testing import CliRunner
 
@@ -156,9 +154,6 @@ class TestStatusSummary:
             status_summary(tmp_vault, "nope-000000")
 
 
-@pytest.mark.skip(
-    reason="needs the typer app + cli/run_cmd.py — lands with the run CLI piece (PARITY §16)"
-)
 class TestRunCli:
     def test_init_status_resume_roundtrip(self, tmp_vault, monkeypatch):
         from typer.testing import CliRunner
@@ -227,9 +222,6 @@ class TestWorkspaceIsolation:
         tags = _existing_tags(tmp_vault.root, tmp_vault.research_dir)
         assert "topic-aaaaaa" in tags
 
-    @pytest.mark.skip(
-        reason="needs cli/lint._run_artifact — lands with the lint CLI piece (PARITY §16)"
-    )
     def test_lint_resolves_run_scoped_loci(self, tmp_vault):
         from hyperresearch.cli.lint import _run_artifact
 
@@ -239,9 +231,6 @@ class TestWorkspaceIsolation:
         resolved = _run_artifact(tmp_vault, "loci.json")
         assert resolved == loci
 
-    @pytest.mark.skip(
-        reason="needs cli/lint._run_artifact — lands with the lint CLI piece (PARITY §16)"
-    )
     def test_lint_falls_back_to_legacy_flat_path(self, tmp_vault):
         from hyperresearch.cli.lint import _run_artifact
 
@@ -249,9 +238,6 @@ class TestWorkspaceIsolation:
         flat.write_text('{"loci": []}', encoding="utf-8")
         assert _run_artifact(tmp_vault, "loci.json") == flat
 
-    @pytest.mark.skip(
-        reason="needs cli/lint._query_files — lands with the lint CLI piece (PARITY §16)"
-    )
     def test_lint_query_files_both_layouts(self, tmp_vault):
         from hyperresearch.cli.lint import _query_files
 

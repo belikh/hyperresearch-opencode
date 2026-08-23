@@ -475,11 +475,10 @@ def verify_run(vault: Vault, vault_tag: str) -> dict[str, Any]:
         # separately and re-interpreted the failures as false positives —
         # folding the rules in here removes that seam.
         try:
-            # Delta vs upstream: `# type: ignore[import-untyped]` until the
-            # CLI lint piece lands (P1-4 self-cleaning pattern). Until then
-            # the ImportError lands here and verify_run records a failed
-            # "content-lints" check — the gate fails closed, never open.
-            from hyperresearch.cli.lint import (  # type: ignore[import-untyped]
+            # The CLI lint piece (cli/lint.py) has landed; if it ever goes
+            # missing again the ImportError lands here and verify_run records
+            # a failed "content-lints" check — the gate fails closed, never open.
+            from hyperresearch.cli.lint import (
                 _check_quote_integrity,
                 _check_retracted_citations,
             )

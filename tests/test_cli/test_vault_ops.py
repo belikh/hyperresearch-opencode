@@ -509,7 +509,8 @@ class TestRepairCli:
         assert result.exit_code == 0
         report = json.loads(result.output)["data"]
         assert set(report) >= {"sync", "stubs", "enriched", "promoted", "indexes", "centrality_ranked", "agent_docs", "health"}
-        # Delta vs upstream (P1-9): agent-docs injection is a documented no-op
-        # until core/agent_docs.py lands; upstream reported modified paths here.
-        assert report["agent_docs"] == []
+        # P1-10: core/agent_docs.py has landed, so repair --docs really
+        # injects CLAUDE.md and reports the modified paths (upstream-faithful;
+        # replaces the P1-9 no-op pin that expected [] here).
+        assert report["agent_docs"] == ["CLAUDE.md (created)"]
         assert report["health"]["total_notes"] >= 1

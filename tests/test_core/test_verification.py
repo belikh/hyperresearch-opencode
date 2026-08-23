@@ -121,7 +121,6 @@ class TestCiteCheckExtraction:
         assert len(strong) == 5      # 100% of number-bearing
         assert len(weak) == 5        # every 2nd weak pair
 
-    @pytest.mark.skip(reason="needs typer app verbs landing with P1-9/P1-10 (citecheck CLI)")
     def test_citecheck_cli(self, cited_vault, monkeypatch):
         from typer.testing import CliRunner
 
@@ -144,7 +143,6 @@ class TestCiteCheckExtraction:
         assert (cited_vault.run_dir("cc-run") / "cite-check-pairs.json").exists()
 
 
-@pytest.mark.skip(reason="needs typer app verbs landing with P1-9/P1-10 (lint CLI carries these rules); rule engines themselves are exercised via verify_run content gates")
 class TestVerificationLints:
     def _lint(self, vault, rule, monkeypatch):
         from typer.testing import CliRunner
@@ -299,7 +297,6 @@ class TestCJKLengthCheck:
             "[[dagitty-a-graphical-tool-for-analyzing-causal-diagrams-semantic-scholar]] " * 15
         )
 
-    @pytest.mark.skip(reason="content-gate rules live in cli/lint.py landing with P1-10; until then verify_run fails closed by design (upstream-faithful ImportError branch)")
     def test_verify_passes_cjk_report_within_char_target_despite_low_word_count(
         self, tmp_vault
     ):
@@ -388,7 +385,6 @@ class TestTelemetryAndVerify:
         assert step1["minutes"] is not None
         assert report["events"]["step"] >= 2
 
-    @pytest.mark.skip(reason="content-gate rules live in cli/lint.py landing with P1-10; until then verify_run fails closed by design (upstream-faithful ImportError branch)")
     def test_verify_passes_well_formed_light_run(self, tmp_vault):
         init_run(tmp_vault, "vf-01", profile="light")
         run_dir = tmp_vault.run_dir("vf-01")
@@ -433,7 +429,6 @@ class TestTelemetryAndVerify:
         result = verify_run(tmp_vault, "vf-02")
         assert result["passed"] is False
 
-    @pytest.mark.skip(reason="needs typer app verbs landing with P1-9/P1-10 (run verify CLI)")
     def test_verify_cli_exit_code(self, tmp_vault, monkeypatch):
         from typer.testing import CliRunner
 
@@ -467,7 +462,6 @@ class TestFinishGate:
         report.write_text(body, encoding="utf-8")
         return report
 
-    @pytest.mark.skip(reason="content-gate rules live in cli/lint.py landing with P1-10; until then verify_run fails closed by design (upstream-faithful ImportError branch)")
     def test_finish_marks_clean_run_done(self, tmp_vault):
         from hyperresearch.core.runs import finish_run, load_manifest
 
@@ -480,7 +474,6 @@ class TestFinishGate:
         assert manifest["verify"]["passed"] is True
         assert manifest["verify"]["failed_checks"] == []
 
-    @pytest.mark.skip(reason="content-gate rules live in cli/lint.py landing with P1-10; until then verify_run fails closed by design (upstream-faithful ImportError branch)")
     def test_finish_blocks_hallucinated_quote(self, tmp_vault):
         from hyperresearch.core.runs import finish_run, load_manifest
 
@@ -513,7 +506,6 @@ class TestFinishGate:
         assert manifest["status"] == "blocked"
         assert manifest["blocked_on"] == "verify"
 
-    @pytest.mark.skip(reason="content-gate rules live in cli/lint.py landing with P1-10; until then verify_run fails closed by design (upstream-faithful ImportError branch)")
     def test_finish_then_fix_then_done(self, tmp_vault):
         """The intended loop: blocked -> fix the report -> finish passes."""
         from hyperresearch.core.runs import finish_run, load_manifest
@@ -533,7 +525,6 @@ class TestFinishGate:
         assert finish_run(tmp_vault, "fin-04")["verify"]["passed"] is True
         assert load_manifest(tmp_vault, "fin-04")["status"] == "done"
 
-    @pytest.mark.skip(reason="needs typer app verbs landing with P1-9/P1-10 (run finish CLI)")
     def test_finish_cli_exit_code(self, tmp_vault, monkeypatch):
         from typer.testing import CliRunner
 
@@ -547,7 +538,6 @@ class TestFinishGate:
 
         assert load_manifest(tmp_vault, "fin-05")["status"] == "blocked"
 
-    @pytest.mark.skip(reason="content-gate rules live in cli/lint.py landing with P1-10; until then verify_run fails closed by design (upstream-faithful ImportError branch)")
     def test_verify_includes_content_gates(self, tmp_vault):
         """verify_run itself must carry quote-integrity + retracted-citations
         checks — one command, whole verdict."""

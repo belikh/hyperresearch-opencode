@@ -243,15 +243,16 @@ def repair(
     if update_docs:
         if not json_output:
             console.print("[bold]6/6 Updating agent docs...[/]")
-        # Delta vs upstream (P1-9, following the P1-1 precedent): core/
-        # agent_docs.py — the AGENTS.md injector — is a later piece. Upstream
-        # called `inject_agent_docs(vault.root)` here and reported the modified
-        # paths; until that piece lands this step is a documented no-op that
-        # reports "already up to date". Restore the call (and the modified
-        # paths report) together with core/agent_docs.py.
-        report["agent_docs"] = []
+        from hyperresearch.core.agent_docs import inject_agent_docs
+
+        modified = inject_agent_docs(vault.root)
+        report["agent_docs"] = modified
         if not json_output:
-            console.print("  Already up to date")
+            if modified:
+                for m in modified:
+                    console.print(f"  {m}")
+            else:
+                console.print("  Already up to date")
     else:
         if not json_output:
             console.print("[dim]6/6 Skipping agent docs[/]")

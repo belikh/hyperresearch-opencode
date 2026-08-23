@@ -110,13 +110,12 @@ class TestChromePolicy:
         assert maybe_enqueue_blocked_fetch(vault, "https://c.com", "login_wall", vault_tag="capped") is None
 
 
-@pytest.mark.skip(reason="needs typer app verbs landing with P1-9/P1-10 (fetch CLI)")
 class TestFetchGateIntegration:
     def test_login_wall_fetch_escalates(self, tmp_vault, monkeypatch):
         """A CLI fetch that hits a login wall queues the URL instead of just dying."""
-        import hyperresearch.cli.fetch as fetch_mod
         from typer.testing import CliRunner
 
+        import hyperresearch.cli.fetch as fetch_mod
         from hyperresearch.cli import app
         from hyperresearch.web.base import WebResult
 
@@ -147,7 +146,6 @@ class TestFetchGateIntegration:
         assert items[0]["utility_score"] == 15.0
 
 
-@pytest.mark.skip(reason="needs typer app verbs landing with P1-9/P1-10 (escalation CLI)")
 class TestEscalationCli:
     def test_add_claim_ingest_roundtrip(self, tmp_vault, monkeypatch):
         from typer.testing import CliRunner
@@ -210,7 +208,6 @@ class TestEscalationCli:
         assert json.loads(r.stdout)["data"]["status"] == "queued"
 
 
-@pytest.mark.skip(reason="needs run status CLI (cli/run_cmd.py) landing with P1-10")
 class TestRunStatusIntegration:
     def test_run_status_shows_queue_depth(self, tmp_vault, monkeypatch):
         from typer.testing import CliRunner

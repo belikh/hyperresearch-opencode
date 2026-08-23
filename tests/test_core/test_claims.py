@@ -77,7 +77,6 @@ class TestClaimsIngest:
         claims_vault.db.commit()
         assert r["ingested"] == 1
 
-    @pytest.mark.skip(reason="needs typer app verbs landing with P1-9/P1-10 (claims CLI)")
     def test_claims_cli(self, claims_vault, monkeypatch):
         from typer.testing import CliRunner
 

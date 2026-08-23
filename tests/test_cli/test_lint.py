@@ -1,0 +1,1749 @@
+"""Tests for lint rules — especially the gospel-enforcing scaffold-prompt rule."""
+
+from __future__ import annotations
+
+from typer.testing import CliRunner
+
+from hyperresearch.cli.lint import app as lint_app
+from hyperresearch.core.note import write_note
+
+
+def _run_lint(vault, rule: str | None = None, audit_file: str | None = None) -> tuple[int, str]:
+    """Invoke `hyperresearch lint` CLI against a vault. Returns (exit_code, stdout)."""
+    import os
+
+    runner = CliRunner()
+    prev_cwd = os.getcwd()
+    try:
+        os.chdir(vault.root)
+        args: list[str] = ["--json"]
+        if rule:
+            args = ["--rule", rule, *args]
+        if audit_file:
+            args = [*args, "--audit-file", audit_file]
+        result = runner.invoke(lint_app, args, catch_exceptions=False)
+        return result.exit_code, result.output
+    finally:
+        os.chdir(prev_cwd)
+
+
+def _write_scaffold(vault, body: str, note_id: str = "scaffold-test"):
+    write_note(
+        vault.notes_dir,
+        "Scaffold: Test",
+        body=body,
+        tags=["scaffold"],
+        note_id=note_id,
+    )
+    vault.auto_sync()
+
+
+def test_scaffold_prompt_passes_with_verbatim_prompt(tmp_vault):
+    _write_scaffold(
+        tmp_vault,
+        body=(
+            "## User Prompt (VERBATIM — gospel)\n"
+            "> I would like a detailed analysis of the Saint Seiya franchise and its armor classes. "
+            "For each significant character please describe techniques and fate.\n\n"
+            "## What the user explicitly asked for\n"
+            "- Entity enumeration\n"
+        ),
+    )
+    code, out = _run_lint(tmp_vault, rule="scaffold-prompt")
+    assert code == 0
+    # Output should contain no scaffold-prompt issues
+    import json
+    data = json.loads(out)
+    issues = data.get("data", {}).get("issues", [])
+    scaffold_issues = [i for i in issues if i.get("rule") == "scaffold-prompt"]
+    assert scaffold_issues == []
+
+
+def test_scaffold_prompt_fails_when_header_missing(tmp_vault):
+    _write_scaffold(
+        tmp_vault,
+        body=(
+            "## Thesis\n"
+            "Saint Seiya's armor hierarchy encodes a theology of sacrifice.\n\n"
+            "## Heading progression\n"
+            "1. Cosmology\n"
+        ),
+    )
+    _, out = _run_lint(tmp_vault, rule="scaffold-prompt")
+    import json
+    data = json.loads(out)
+    issues = data.get("data", {}).get("issues", [])
+    scaffold_issues = [i for i in issues if i.get("rule") == "scaffold-prompt"]
+    assert len(scaffold_issues) == 1
+    assert scaffold_issues[0]["severity"] == "error"
+    assert "verbatim" in scaffold_issues[0]["message"].lower()
+
+
+def test_scaffold_prompt_warns_when_quote_too_short(tmp_vault):
+    _write_scaffold(
+        tmp_vault,
+        body=(
+            "## User Prompt (VERBATIM — gospel)\n"
+            "> hi\n\n"
+            "## What the user explicitly asked for\n"
+            "- thing\n"
+        ),
+    )
+    _, out = _run_lint(tmp_vault, rule="scaffold-prompt")
+    import json
+    data = json.loads(out)
+    issues = data.get("data", {}).get("issues", [])
+    scaffold_issues = [i for i in issues if i.get("rule") == "scaffold-prompt"]
+    assert len(scaffold_issues) == 1
+    assert scaffold_issues[0]["severity"] == "warning"
+
+
+def test_scaffold_prompt_fails_when_canonical_prompt_mismatch(tmp_vault):
+    (tmp_vault.root / "research" / "prompt.txt").write_text(
+        "Exact wrapped prompt text.\nSecond line.",
+        encoding="utf-8",
+    )
+    _write_scaffold(
+        tmp_vault,
+        body=(
+            "## User Prompt (VERBATIM — gospel)\n"
+            "> Exact wrapped prompt text.\n"
+            "> Second line with drift.\n\n"
+            "## What the user explicitly asked for\n"
+            "- thing\n"
+        ),
+    )
+    _, out = _run_lint(tmp_vault, rule="scaffold-prompt")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "scaffold-prompt"]
+    assert len(issues) == 1
+    assert issues[0]["severity"] == "error"
+    assert "research/prompt.txt" in issues[0]["message"]
+
+
+def test_scaffold_prompt_no_scaffold_notes_is_noop(tmp_vault):
+    # A vault with no scaffold-tagged notes should produce no issues for this rule.
+    code, out = _run_lint(tmp_vault, rule="scaffold-prompt")
+    assert code == 0
+    import json
+    data = json.loads(out)
+    issues = data.get("data", {}).get("issues", [])
+    scaffold_issues = [i for i in issues if i.get("rule") == "scaffold-prompt"]
+    assert scaffold_issues == []
+
+
+def _write_wrapper_contract(vault, **fields):
+    """Persist a research/wrapper_contract.json at the vault root."""
+    import json
+    (vault.root / "research" / "wrapper_contract.json").write_text(
+        json.dumps(fields), encoding="utf-8",
+    )
+
+
+def test_wrapper_report_requires_terminal_sections_from_wrapper_contract(tmp_vault):
+    """When wrapper_contract.json declares required_terminal_sections, the
+    wrapper-report rule must fail if any are missing from the final report."""
+    (tmp_vault.root / "research" / "prompt.txt").write_text(
+        "Exact wrapped prompt text.",
+        encoding="utf-8",
+    )
+    _write_wrapper_contract(
+        tmp_vault,
+        required_terminal_sections=[
+            "## Opinionated Synthesis",
+            "### Concluding Thoughts",
+        ],
+    )
+    (tmp_vault.root / "research" / "notes" / "final_report.md").write_text(
+        "# Report\n\n## Body\nSome body content.\n",
+        encoding="utf-8",
+    )
+
+    _, out = _run_lint(tmp_vault, rule="wrapper-report")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "wrapper-report"]
+    assert len(issues) == 1
+    assert issues[0]["severity"] == "error"
+    assert "required_terminal_sections" in issues[0]["message"]
+    assert "Opinionated Synthesis" in issues[0]["message"]
+    assert "Concluding Thoughts" in issues[0]["message"]
+
+
+def test_wrapper_report_passes_when_required_sections_present(tmp_vault):
+    """Wrapper contract + report with all declared sections => no issues."""
+    (tmp_vault.root / "research" / "prompt.txt").write_text(
+        "Exact wrapped prompt text.",
+        encoding="utf-8",
+    )
+    _write_wrapper_contract(
+        tmp_vault,
+        required_terminal_sections=[
+            "## Opinionated Synthesis",
+            "### Concluding Thoughts",
+        ],
+    )
+    (tmp_vault.root / "research" / "notes" / "final_report.md").write_text(
+        (
+            "# Report\n\n"
+            "## Body\nSome body content.\n\n"
+            "## Opinionated Synthesis\n\n"
+            "### Concluding Thoughts\nE\n"
+        ),
+        encoding="utf-8",
+    )
+
+    _, out = _run_lint(tmp_vault, rule="wrapper-report")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "wrapper-report"]
+    assert issues == []
+
+
+def test_wrapper_report_without_contract_only_checks_hygiene(tmp_vault):
+    """With prompt.txt but no wrapper_contract.json, the rule should NOT
+    flag missing terminal sections (since nothing was declared required).
+    Scaffold-leak hygiene is still enforced."""
+    (tmp_vault.root / "research" / "prompt.txt").write_text(
+        "Exact wrapped prompt text.",
+        encoding="utf-8",
+    )
+    (tmp_vault.root / "research" / "notes" / "final_report.md").write_text(
+        "# Report\n\n## Body\nSome content, no synthesis tail.\n",
+        encoding="utf-8",
+    )
+
+    _, out = _run_lint(tmp_vault, rule="wrapper-report")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "wrapper-report"]
+    assert issues == []
+
+
+def test_wrapper_report_forbids_scaffold_leaks_without_contract(tmp_vault):
+    """Scaffold-leak hygiene runs regardless of whether wrapper_contract.json
+    declares forbidden_body_sections — the canonical base list from
+    SCAFFOLD_ONLY_SECTION_HEADERS is always forbidden."""
+    (tmp_vault.root / "research" / "prompt.txt").write_text(
+        "Exact wrapped prompt text.",
+        encoding="utf-8",
+    )
+    (tmp_vault.root / "research" / "notes" / "final_report.md").write_text(
+        (
+            "# Report\n\n"
+            "## User Prompt (VERBATIM — gospel)\n"
+            "> Exact wrapped prompt text.\n\n"
+            "## Body\nContent.\n"
+        ),
+        encoding="utf-8",
+    )
+
+    _, out = _run_lint(tmp_vault, rule="wrapper-report")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "wrapper-report"]
+    assert len(issues) == 1
+    assert issues[0]["severity"] == "error"
+    assert "leaking scaffold-only sections" in issues[0]["message"]
+    assert "User Prompt (VERBATIM" in issues[0]["message"]
+
+
+def test_wrapper_report_honors_wrapper_extra_forbidden_sections(tmp_vault):
+    """A wrapper can declare ADDITIONAL forbidden body sections on top of the
+    canonical base list."""
+    _write_wrapper_contract(
+        tmp_vault,
+        forbidden_body_sections=["## Internal-only scratch"],
+    )
+    (tmp_vault.root / "research" / "notes" / "final_report.md").write_text(
+        (
+            "# Report\n\n"
+            "## Body\nContent.\n\n"
+            "## Internal-only scratch\nLeaked note.\n"
+        ),
+        encoding="utf-8",
+    )
+
+    _, out = _run_lint(tmp_vault, rule="wrapper-report")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "wrapper-report"]
+    assert len(issues) == 1
+    assert "Internal-only scratch" in issues[0]["message"]
+
+
+def test_wrapper_report_inactive_without_signals(tmp_vault):
+    """No prompt.txt, no wrapper_contract.json => rule is inactive, no issues."""
+    (tmp_vault.root / "research" / "notes" / "final_report.md").write_text(
+        "# Report\n\n## Body\nRegular /research output.\n",
+        encoding="utf-8",
+    )
+
+    _, out = _run_lint(tmp_vault, rule="wrapper-report")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "wrapper-report"]
+    assert issues == []
+
+
+def test_wrapper_report_unreadable_contract_surfaces_error(tmp_vault):
+    """Malformed wrapper_contract.json produces an error rather than silently
+    disabling the rule."""
+    (tmp_vault.root / "research" / "wrapper_contract.json").write_text(
+        "{not valid json",
+        encoding="utf-8",
+    )
+    _, out = _run_lint(tmp_vault, rule="wrapper-report")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "wrapper-report"]
+    assert any("wrapper_contract.json" in i["message"] for i in issues)
+
+
+def _write_source(vault, title: str, note_id: str, body: str = "Source content."):
+    write_note(
+        vault.notes_dir,
+        title,
+        body=body,
+        note_id=note_id,
+        source=f"https://example.com/{note_id}",
+        tier="institutional",
+        content_type="article",
+    )
+
+
+def _write_extract(
+    vault,
+    note_id: str,
+    word_count_target: int,
+    run_tag: str | None = None,
+    parent: str | None = None,
+    dud: bool = False,
+):
+    """Write an extract note with a body of roughly `word_count_target` words.
+
+    When `dud=True`, the extract is tagged `dud` — marking it as an honest
+    "source had no extractable content" placeholder. The analyst-coverage
+    lint excludes dud notes from both its numerator and denominator.
+    """
+    body = "word " * word_count_target
+    tags = ["extract"]
+    if run_tag:
+        tags.append(run_tag)
+    if dud:
+        tags.append("dud")
+    write_note(
+        vault.notes_dir,
+        f"Extract {note_id}",
+        body=body,
+        note_id=note_id,
+        tags=tags,
+        parent=parent,
+    )
+
+
+def _write_dud_source(vault, title: str, note_id: str, body: str = "Dud source content."):
+    """Write a source note that is also tagged `dud` — simulating a fetch
+    that returned something but the body is genuinely unextractable."""
+    write_note(
+        vault.notes_dir,
+        title,
+        body=body,
+        note_id=note_id,
+        source=f"https://example.com/{note_id}",
+        tier="institutional",
+        content_type="article",
+        tags=["dud"],
+    )
+
+
+def test_provenance_rooted_tree_passes_with_valid_chain(tmp_vault):
+    # Build a valid chain: seed → child1 → child2, plus a few more non-seeds
+    # pointing at the seed or each other. 6+ sources so the rule activates.
+    _write_source(tmp_vault, "Seed Source", "seed-one", body="Seminal paper on X.")
+    _write_source(tmp_vault, "Child A", "child-a", body="*Suggested by [[seed-one]] — follow-up citation*\n\nDerivative work.")
+    _write_source(tmp_vault, "Child B", "child-b", body="*Suggested by [[seed-one]] — cross-reference*\n\nRelated analysis.")
+    _write_source(tmp_vault, "Grandchild", "grandchild", body="*Suggested by [[child-a]] — deeper dive*\n\nMore content.")
+    _write_source(tmp_vault, "Extra seed", "seed-two", body="Another primary source.")
+    _write_source(tmp_vault, "Child C", "child-c", body="*Suggested by [[seed-two]] — reply*\n\nCritical response.")
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="provenance")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "provenance"]
+    assert issues == [], f"expected no issues, got: {issues}"
+
+
+def test_provenance_fails_when_all_sources_are_seeds(tmp_vault):
+    # 6 sources, zero breadcrumbs — flat batch, rule must fire.
+    for i in range(6):
+        _write_source(tmp_vault, f"Source {i}", f"source-{i}")
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="provenance")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "provenance"]
+    assert len(issues) >= 1
+    assert any("ZERO" in i["message"] or "no seed" in i["message"].lower() or "bouncing reading loop" in i["message"] for i in issues)
+
+
+def test_provenance_fails_on_dangling_breadcrumb(tmp_vault):
+    # Six sources; one of them references a non-existent note.
+    _write_source(tmp_vault, "Seed", "seed-one")
+    _write_source(tmp_vault, "Child A", "child-a", body="*Suggested by [[seed-one]] — real*\n")
+    _write_source(tmp_vault, "Child B", "child-b", body="*Suggested by [[seed-one]] — real*\n")
+    _write_source(tmp_vault, "Dangler", "dangler", body="*Suggested by [[nonexistent-note]] — fake*\n")
+    _write_source(tmp_vault, "Child C", "child-c", body="*Suggested by [[seed-one]] — real*\n")
+    _write_source(tmp_vault, "Child D", "child-d", body="*Suggested by [[seed-one]] — real*\n")
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="provenance")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "provenance"]
+    assert any("nonexistent-note" in i["message"] for i in issues), (
+        f"expected dangling breadcrumb issue, got: {issues}"
+    )
+
+
+def test_provenance_small_corpus_is_skipped(tmp_vault):
+    # <= 5 sources, rule should not complain (loop may not have fired by design).
+    for i in range(3):
+        _write_source(tmp_vault, f"Source {i}", f"source-{i}")
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="provenance")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "provenance"]
+    assert issues == []
+
+
+def test_provenance_errors_on_under_30pct_non_seed_ratio(tmp_vault):
+    """The guided reading loop must actually fire. A large corpus with only
+    a token 1-2 breadcrumbs should ERROR, not just warn. This is the exact
+    failure mode both v2 runs exhibited (3/19 and 2/33 breadcrumbs)."""
+    # 11 sources, 2 of them with breadcrumbs = 18% non-seed (below 30%)
+    _write_source(tmp_vault, "Seed 1", "seed-one")
+    _write_source(tmp_vault, "Seed 2", "seed-two")
+    for i in range(9):
+        # 2 of the 9 have breadcrumbs; rest are seeds
+        if i < 2:
+            body = f"*Suggested by [[seed-one]] — from analyst*\n\nContent {i}"
+        else:
+            body = f"Content {i}"
+        _write_source(tmp_vault, f"Source {i}", f"source-{i}", body=body)
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="provenance")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "provenance"]
+    errors = [i for i in issues if i.get("severity") == "error"]
+    assert len(errors) >= 1
+    assert "guided reading loop did not fire" in errors[0]["message"]
+
+
+def test_orphaned_raw_files_flags_disk_leak(tmp_vault):
+    """Files in research/raw/ with no matching note should be flagged."""
+    raw_dir = tmp_vault.root / "research" / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    # Create a raw file whose stem doesn't match any note.
+    (raw_dir / "orphan-note.pdf").write_bytes(b"%PDF-1.4 dummy")
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="orphaned-raw-files")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "orphaned-raw-files"]
+    assert len(issues) == 1
+    assert "orphan-note" in issues[0]["message"]
+
+
+def _write_audit_findings(vault, data: dict, path: str = "research/audit_findings.json") -> None:
+    import json as _json
+    audit_path = vault.root / path
+    audit_path.parent.mkdir(parents=True, exist_ok=True)
+    audit_path.write_text(_json.dumps(data, indent=2), encoding="utf-8")
+
+
+def test_audit_gate_accepts_custom_audit_file_flag(tmp_vault):
+    """Ensemble sub-runs need to point audit-gate at per-run audit files."""
+    # Parent audit_findings.json has unresolved CRITICALs — would normally block.
+    _write_audit_findings(tmp_vault, {
+        "runs": [
+            {
+                "mode": "conformance",
+                "timestamp": "2026-04-14T10:00:00Z",
+                "status": "needs_fixes",
+                "criticals": [{"id": "C0", "description": "parent gap", "fixed_at": None}],
+                "important": [],
+                "minor": [],
+            }
+        ],
+    })
+    # But the per-run file for run-a is clean. Gate should pass when pointed there.
+    _write_audit_findings(tmp_vault, {
+        "runs": [
+            {
+                "mode": "comprehensiveness",
+                "timestamp": "2026-04-14T10:00:00Z",
+                "status": "pass",
+                "criticals": [],
+                "important": [],
+                "minor": [],
+            },
+            {
+                "mode": "conformance",
+                "timestamp": "2026-04-14T10:01:00Z",
+                "status": "pass",
+                "criticals": [],
+                "important": [],
+                "minor": [],
+            },
+        ],
+    }, path="research/audit_findings-run-a.json")
+
+    _, out = _run_lint(
+        tmp_vault,
+        rule="audit-gate",
+        audit_file="research/audit_findings-run-a.json",
+    )
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "audit-gate"]
+    assert issues == [], f"sub-run gate should pass, got: {issues}"
+
+    # Sanity: the DEFAULT path (parent's) still blocks — the flag is scoped, not global.
+    _, out = _run_lint(tmp_vault, rule="audit-gate")
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "audit-gate"]
+    assert len(issues) >= 1, "parent gate should still block"
+
+
+def test_audit_gate_missing_file_is_open(tmp_vault):
+    """No audit file = gate is OPEN (early-stage research)."""
+    code, out = _run_lint(tmp_vault, rule="audit-gate")
+    assert code == 0
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "audit-gate"]
+    assert issues == []
+
+
+def test_audit_gate_blocks_unresolved_criticals(tmp_vault):
+    _write_audit_findings(tmp_vault, {
+        "runs": [
+            {
+                "mode": "conformance",
+                "timestamp": "2026-04-14T10:00:00Z",
+                "status": "needs_fixes",
+                "criticals": [
+                    {"id": "C0", "description": "Scaffold missing verbatim prompt", "fixed_at": None},
+                    {"id": "C1", "description": "Silver Saints omitted", "fixed_at": None},
+                ],
+                "important": [],
+                "minor": [],
+            }
+        ]
+    })
+    _, out = _run_lint(tmp_vault, rule="audit-gate")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "audit-gate"]
+    assert len(issues) == 1
+    assert "2 unresolved CRITICAL" in issues[0]["message"]
+
+
+def test_audit_gate_passes_when_all_criticals_fixed(tmp_vault):
+    """A CRITICAL with a vague description that doesn't map to any lint rule
+    should emit a WARNING (unverified agent self-report) but NOT an error —
+    the save gate still opens because warnings don't block."""
+    _write_audit_findings(tmp_vault, {
+        "runs": [
+            {
+                "mode": "conformance",
+                "timestamp": "2026-04-14T10:00:00Z",
+                "status": "pass",
+                "criticals": [
+                    {"id": "C0", "description": "generic content fix", "fixed_at": "2026-04-14T11:00:00Z"},
+                ],
+                "important": [],
+                "minor": [],
+            }
+        ]
+    })
+    _, out = _run_lint(tmp_vault, rule="audit-gate")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "audit-gate"]
+    errors = [i for i in issues if i.get("severity") == "error"]
+    warnings = [i for i in issues if i.get("severity") == "warning"]
+    # Save gate stays open (no errors) but emits a warning about the
+    # unverified self-report.
+    assert errors == []
+    assert len(warnings) == 1
+    assert "not machine-verified" in warnings[0]["message"]
+
+
+def test_audit_gate_uses_most_recent_conformance_run(tmp_vault):
+    """If a later run has fixes applied, the gate should pass even if older
+    runs had unresolved findings."""
+    _write_audit_findings(tmp_vault, {
+        "runs": [
+            {
+                "mode": "conformance",
+                "timestamp": "2026-04-14T10:00:00Z",
+                "status": "needs_fixes",
+                "criticals": [
+                    {"id": "C0", "description": "old finding", "fixed_at": None},
+                ],
+                "important": [], "minor": [],
+            },
+            {
+                "mode": "conformance",
+                "timestamp": "2026-04-14T12:00:00Z",
+                "status": "pass",
+                "criticals": [],
+                "important": [], "minor": [],
+            },
+        ]
+    })
+    _, out = _run_lint(tmp_vault, rule="audit-gate")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "audit-gate"]
+    assert issues == []
+
+
+def test_audit_gate_fails_when_only_comprehensiveness_run_exists(tmp_vault):
+    """A file with only comprehensiveness runs means the conformance auditor
+    never fired. The save gate must fail in that case."""
+    _write_audit_findings(tmp_vault, {
+        "runs": [
+            {
+                "mode": "comprehensiveness",
+                "timestamp": "2026-04-14T10:00:00Z",
+                "status": "needs_fixes",
+                "criticals": [],
+                "important": [
+                    {"id": "I1", "description": "some gap", "fixed_at": None},
+                ],
+                "minor": [],
+            }
+        ]
+    })
+    _, out = _run_lint(tmp_vault, rule="audit-gate")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "audit-gate"]
+    # Expect: one error for missing conformance, one info for important findings.
+    errors = [i for i in issues if i.get("severity") == "error"]
+    infos = [i for i in issues if i.get("severity") == "info"]
+    assert len(errors) == 1
+    assert "ZERO" in errors[0]["message"] and "conformance" in errors[0]["message"]
+    assert len(infos) == 1
+    assert "IMPORTANT" in infos[0]["message"]
+
+
+def test_audit_gate_surfaces_important_findings_as_info(tmp_vault):
+    """Unresolved IMPORTANT findings should surface as info-severity issues
+    (advisory), not block save."""
+    _write_audit_findings(tmp_vault, {
+        "runs": [
+            {
+                "mode": "conformance",
+                "timestamp": "2026-04-14T10:00:00Z",
+                "status": "pass",
+                "criticals": [],
+                "important": [
+                    {"id": "I1", "description": "Proportional depth uneven", "fixed_at": None},
+                    {"id": "I2", "description": "Citation to unfetched source", "fixed_at": None},
+                ],
+                "minor": [],
+            }
+        ]
+    })
+    _, out = _run_lint(tmp_vault, rule="audit-gate")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "audit-gate"]
+    errors = [i for i in issues if i.get("severity") == "error"]
+    infos = [i for i in issues if i.get("severity") == "info"]
+    assert errors == []  # save is NOT blocked by IMPORTANT alone
+    assert len(infos) == 1
+    assert "2 unresolved IMPORTANT" in infos[0]["message"]
+
+
+def test_audit_gate_catches_self_certification_on_provenance(tmp_vault):
+    """Regression test: when a CRITICAL finding mentions provenance AND is
+    marked `fixed_at`, but the provenance rule still returns errors, the
+    audit-gate must emit a SELF-CERTIFICATION VIOLATION error.
+
+    This is a past self-certification failure mode — the agent marked
+    the C1 provenance finding as fixed with a justification string, but
+    the vault's actual breadcrumb graph was still broken.
+    """
+    # Build a vault where provenance is genuinely broken (12 sources, none
+    # with breadcrumbs — classic flat batch).
+    for i in range(12):
+        _write_source(tmp_vault, f"Source {i}", f"source-{i}")
+    tmp_vault.auto_sync()
+
+    # Audit findings file: conformance run with a CRITICAL marked fixed_at
+    # that references provenance. The "fix" is a lie — the vault still fails
+    # the provenance rule.
+    _write_audit_findings(tmp_vault, {
+        "runs": [
+            {
+                "mode": "conformance",
+                "timestamp": "2026-04-14T20:00:00Z",
+                "status": "pass",
+                "criticals": [
+                    {
+                        "id": "C1",
+                        "description": "Provenance chain broken — no --suggested-by breadcrumbs in corpus",
+                        "fixed_at": "2026-04-14T20:20:00Z",
+                    }
+                ],
+                "important": [],
+                "minor": [],
+            }
+        ]
+    })
+
+    _, out = _run_lint(tmp_vault, rule="audit-gate")
+    import json
+    data = json.loads(out)
+    issues = data.get("data", {}).get("issues", [])
+    audit_errors = [
+        i for i in issues
+        if i.get("rule") == "audit-gate" and i.get("severity") == "error"
+    ]
+    self_cert_errors = [
+        i for i in audit_errors if "SELF-CERTIFICATION VIOLATION" in i["message"]
+    ]
+    assert len(self_cert_errors) == 1, f"expected self-cert violation, got: {audit_errors}"
+    assert "C1" in self_cert_errors[0]["message"]
+    assert "provenance" in self_cert_errors[0]["message"]
+
+
+def test_audit_gate_no_self_cert_when_fix_genuinely_landed(tmp_vault):
+    """Control: when CRITICAL fixed_at IS set AND the underlying lint rule
+    genuinely passes, the audit-gate should NOT emit a self-cert violation."""
+    # Build a vault where provenance is healthy (seed + 6 non-seeds, all
+    # pointing at real notes).
+    _write_source(tmp_vault, "Seed", "seed-one")
+    for i in range(6):
+        _write_source(
+            tmp_vault, f"Child {i}", f"child-{i}",
+            body=f"*Suggested by [[seed-one]] — real*\n\nContent {i}"
+        )
+    tmp_vault.auto_sync()
+
+    _write_audit_findings(tmp_vault, {
+        "runs": [
+            {
+                "mode": "conformance",
+                "timestamp": "2026-04-14T20:00:00Z",
+                "status": "pass",
+                "criticals": [
+                    {
+                        "id": "C1",
+                        "description": "provenance was broken earlier",
+                        "fixed_at": "2026-04-14T20:20:00Z",
+                    }
+                ],
+                "important": [],
+                "minor": [],
+            }
+        ]
+    })
+
+    _, out = _run_lint(tmp_vault, rule="audit-gate")
+    import json
+    data = json.loads(out)
+    issues = data.get("data", {}).get("issues", [])
+    self_cert_errors = [
+        i for i in issues
+        if i.get("rule") == "audit-gate" and "SELF-CERTIFICATION VIOLATION" in i.get("message", "")
+    ]
+    assert self_cert_errors == [], f"false-positive self-cert: {self_cert_errors}"
+
+
+def test_audit_gate_handles_malformed_file(tmp_vault):
+    audit_path = tmp_vault.root / "research" / "audit_findings.json"
+    audit_path.parent.mkdir(parents=True, exist_ok=True)
+    audit_path.write_text("{ not valid json }", encoding="utf-8")
+    _, out = _run_lint(tmp_vault, rule="audit-gate")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "audit-gate"]
+    assert len(issues) == 1
+    assert "malformed" in issues[0]["message"]
+
+
+def test_orphaned_raw_files_ignores_matched_raw(tmp_vault):
+    """Raw files whose stem matches a note id are not orphans."""
+    write_note(
+        tmp_vault.notes_dir,
+        "PDF Note",
+        note_id="real-pdf-note",
+        source="https://example.com/paper.pdf",
+        tier="ground_truth",
+        content_type="paper",
+        extra_frontmatter={"raw_file": "raw/real-pdf-note.pdf"},
+    )
+    raw_dir = tmp_vault.root / "research" / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    (raw_dir / "real-pdf-note.pdf").write_bytes(b"%PDF-1.4 dummy")
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="orphaned-raw-files")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "orphaned-raw-files"]
+    assert issues == []
+
+
+
+# ---------------------------------------------------------------------------
+# locus-coverage (hyperresearch Layer 3 — every locus must have an interim note)
+# ---------------------------------------------------------------------------
+
+
+def _write_loci_json(vault, loci: list[dict]) -> None:
+    """Write research/loci.json so the locus-coverage rule has something to read."""
+    import json
+    research_dir = vault.root / "research"
+    research_dir.mkdir(parents=True, exist_ok=True)
+    (research_dir / "loci.json").write_text(
+        json.dumps({"loci": loci}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_interim(vault, locus_name: str, note_id: str | None = None) -> None:
+    """Write an interim-report note for a given locus. Mimics the Layer 3
+    depth-investigator output shape: type=interim, tag=locus-<name>."""
+    from hyperresearch.core.note import write_note
+    nid = note_id or f"interim-{locus_name}"
+    write_note(
+        vault.notes_dir,
+        f"Interim report {locus_name}",
+        body="Interim synthesis for locus.",
+        note_id=nid,
+        tags=["interim", f"locus-{locus_name}"],
+        note_type="interim",
+    )
+
+
+def test_locus_coverage_passes_when_every_locus_has_interim(tmp_vault):
+    _write_loci_json(tmp_vault, [
+        {"name": "alpha", "one_line": "Q1"},
+        {"name": "beta",  "one_line": "Q2"},
+    ])
+    _write_interim(tmp_vault, "alpha")
+    _write_interim(tmp_vault, "beta")
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="locus-coverage")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "locus-coverage"]
+    assert issues == []
+
+
+def test_locus_coverage_flags_missing_interim(tmp_vault):
+    _write_loci_json(tmp_vault, [
+        {"name": "alpha", "one_line": "Q1"},
+        {"name": "beta",  "one_line": "Q2"},
+        {"name": "gamma", "one_line": "Q3"},
+    ])
+    # Only alpha got investigated; beta and gamma are orphans
+    _write_interim(tmp_vault, "alpha")
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="locus-coverage")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "locus-coverage"]
+    assert len(issues) == 1
+    msg = issues[0]["message"]
+    assert "2 of 3" in msg
+    assert "beta" in msg
+    assert "gamma" in msg
+    # 2 missing -> error severity (threshold at 2)
+    assert issues[0]["severity"] == "error"
+
+
+def test_locus_coverage_noop_when_no_loci_json(tmp_vault):
+    """A vault from a single-pass /research run has no loci.json; the rule
+    must stay silent in that case, not misfire."""
+    _, out = _run_lint(tmp_vault, rule="locus-coverage")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "locus-coverage"]
+    assert issues == []
+
+
+# ---------------------------------------------------------------------------
+# patch-surgery (hyperresearch Layer 6 — patcher must not skip critical findings)
+# ---------------------------------------------------------------------------
+
+
+def _write_patch_log(vault, applied=None, skipped=None, conflicts=None) -> None:
+    import json
+    research_dir = vault.root / "research"
+    research_dir.mkdir(parents=True, exist_ok=True)
+    (research_dir / "patch-log.json").write_text(
+        json.dumps({
+            "applied": applied or [],
+            "skipped": skipped or [],
+            "conflicts": conflicts or [],
+        }, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def test_patch_surgery_passes_with_clean_log(tmp_vault):
+    _write_patch_log(tmp_vault, applied=[
+        {"finding_id": 0, "severity": "critical", "critic": "dialectic", "chars_added": 87},
+        {"finding_id": 1, "severity": "major",    "critic": "depth",     "chars_added": 54},
+    ])
+    _, out = _run_lint(tmp_vault, rule="patch-surgery")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "patch-surgery"]
+    assert issues == []
+
+
+def test_patch_surgery_flags_critical_skip(tmp_vault):
+    _write_patch_log(tmp_vault,
+        applied=[
+            {"finding_id": 0, "severity": "major", "critic": "depth", "chars_added": 50},
+        ],
+        skipped=[
+            {"finding_id": 1, "severity": "critical", "critic": "dialectic",
+             "reason": "anchor drifted"},
+        ],
+    )
+    _, out = _run_lint(tmp_vault, rule="patch-surgery")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "patch-surgery"]
+    assert len(issues) == 1
+    assert issues[0]["severity"] == "error"
+    assert "1 critical" in issues[0]["message"]
+    assert "dialectic" in issues[0]["message"]
+
+
+def test_patch_surgery_noop_when_no_patch_log(tmp_vault):
+    """Single-pass /research runs produce no patch-log.json. Rule stays silent."""
+    _, out = _run_lint(tmp_vault, rule="patch-surgery")
+    import json
+    data = json.loads(out)
+    issues = [i for i in data.get("data", {}).get("issues", []) if i.get("rule") == "patch-surgery"]
+    assert issues == []
+
+
+# ---------------------------------------------------------------------------
+# workflow — comparisons.md gate for hyperresearch runs with 2+ loci
+# ---------------------------------------------------------------------------
+
+
+def test_workflow_flags_missing_comparisons_when_multiple_loci(tmp_vault):
+    """2+ loci without research/comparisons.md is a Layer 3.5 skip — the
+    insight-killing failure mode the cross-locus reconciliation step was
+    added to prevent."""
+    from hyperresearch.core.note import write_note
+    # Hyperresearch final-report signal
+    write_note(
+        tmp_vault.notes_dir,
+        "final_report",
+        body="Some draft content.",
+        note_id="final_report",
+        tags=["synthesis"],
+    )
+    # Scaffold artifact so the scaffold check passes
+    (tmp_vault.root / "research" / "scaffold.md").write_text(
+        "scaffold\n", encoding="utf-8"
+    )
+    # 2 loci, 2 interim notes — but NO comparisons.md
+    _write_loci_json(tmp_vault, [
+        {"name": "alpha", "one_line": "Q1"},
+        {"name": "beta",  "one_line": "Q2"},
+    ])
+    _write_interim(tmp_vault, "alpha")
+    _write_interim(tmp_vault, "beta")
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="workflow")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "workflow"
+    ]
+    comparisons_issues = [i for i in issues if "comparisons.md" in i["message"]]
+    assert len(comparisons_issues) == 1
+    assert comparisons_issues[0]["severity"] == "error"
+    assert "2 loci" in comparisons_issues[0]["message"]
+    assert "Layer 3.5" in comparisons_issues[0]["message"]
+
+
+def test_workflow_passes_with_comparisons_md(tmp_vault):
+    """With comparisons.md present alongside 2+ loci, workflow rule stays silent."""
+    from hyperresearch.core.note import write_note
+    write_note(
+        tmp_vault.notes_dir,
+        "final_report",
+        body="Draft.",
+        note_id="final_report",
+        tags=["synthesis"],
+    )
+    (tmp_vault.root / "research" / "scaffold.md").write_text(
+        "scaffold\n", encoding="utf-8"
+    )
+    (tmp_vault.root / "research" / "comparisons.md").write_text(
+        "# Cross-locus comparisons\n\n## Tension 1\n...", encoding="utf-8"
+    )
+    _write_loci_json(tmp_vault, [
+        {"name": "alpha", "one_line": "Q1"},
+        {"name": "beta",  "one_line": "Q2"},
+    ])
+    _write_interim(tmp_vault, "alpha")
+    _write_interim(tmp_vault, "beta")
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="workflow")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "workflow" and "comparisons.md" in i["message"]
+    ]
+    assert issues == []
+
+
+def test_workflow_requires_comparisons_even_on_single_locus(tmp_vault):
+    """Layer 3.5 is always-on: single-locus runs still produce a
+    comparisons.md distilling that locus's committed position. Missing
+    comparisons.md when loci >= 1 is now an error."""
+    from hyperresearch.core.note import write_note
+    write_note(
+        tmp_vault.notes_dir,
+        "final_report",
+        body="Draft.",
+        note_id="final_report",
+        tags=["synthesis"],
+    )
+    (tmp_vault.root / "research" / "scaffold.md").write_text(
+        "scaffold\n", encoding="utf-8"
+    )
+    _write_loci_json(tmp_vault, [
+        {"name": "alpha", "one_line": "Q1"},
+    ])
+    _write_interim(tmp_vault, "alpha")
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="workflow")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "workflow" and "comparisons.md" in i["message"]
+    ]
+    assert len(issues) == 1
+    assert issues[0]["severity"] == "error"
+    assert "always-on" in issues[0]["message"]
+
+
+# ---------------------------------------------------------------------------
+# provenance — hyperresearch-aware: skip breadcrumb coverage ratio checks when
+# research/loci.json exists (hyperresearch's fetch pattern is not bouncing-loop)
+# ---------------------------------------------------------------------------
+
+
+def test_provenance_skips_coverage_ratio_on_hyperresearch_runs(tmp_vault):
+    """A hyperresearch run with many flat-seed fetches should NOT fail provenance's
+    coverage-ratio check. Structural invariants (seeds exist, no dangling) still
+    enforced."""
+    # 15 source notes, ALL seeds (no --suggested-by breadcrumbs) — would be
+    # an instant failure under the old ensemble provenance rule.
+    for i in range(15):
+        _write_source(tmp_vault, f"Source {i}", f"source-{i}")
+    # Add the hyperresearch marker
+    _write_loci_json(tmp_vault, [
+        {"name": "alpha", "one_line": "Q"},
+        {"name": "beta",  "one_line": "Q"},
+    ])
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="provenance")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "provenance" and i.get("severity") in ("error", "warning")
+    ]
+    # No ratio-based errors on hyperresearch runs
+    assert issues == [], f"expected no coverage issues on hyperresearch, got: {issues}"
+
+
+def test_provenance_still_fires_coverage_check_on_non_hyperresearch_runs(tmp_vault):
+    """Ensemble / single-pass runs (no loci.json) should still get the
+    bouncing-loop coverage check — nothing about this fix changes that."""
+    for i in range(15):
+        _write_source(tmp_vault, f"Source {i}", f"source-{i}")
+    # NO loci.json → non-hyperresearch run
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="provenance")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "provenance"
+    ]
+    # Old behavior: zero breadcrumbs on >5 sources = error
+    assert any(i["severity"] == "error" for i in issues)
+
+
+# ---------------------------------------------------------------------------
+# locus-coverage — flag duplicate interim notes on the same locus
+# ---------------------------------------------------------------------------
+
+
+def test_locus_coverage_flags_duplicate_interim_notes(tmp_vault):
+    """Past failure mode: a single locus accumulated 3 interim notes
+    instead of 1. Inflates source count and confuses critics."""
+    _write_loci_json(tmp_vault, [
+        {"name": "alpha", "one_line": "Q1"},
+    ])
+    _write_interim(tmp_vault, "alpha", note_id="interim-alpha-1")
+    _write_interim(tmp_vault, "alpha", note_id="interim-alpha-2")
+    _write_interim(tmp_vault, "alpha", note_id="interim-alpha-3")
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="locus-coverage")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "locus-coverage"
+    ]
+    dup_issues = [i for i in issues if "duplicate" in i["message"]]
+    assert len(dup_issues) == 1
+    assert "alpha (3)" in dup_issues[0]["message"]
+    assert dup_issues[0]["severity"] == "warning"
+
+
+# ---------------------------------------------------------------------------
+# patch-surgery — empty log vs real zero-apply distinction
+# ---------------------------------------------------------------------------
+
+
+def test_patch_surgery_flags_empty_log_with_findings_present(tmp_vault):
+    """When critics returned findings and the draft exists, but the patch
+    log is empty, the patcher's log was lost. Warn so the operator knows."""
+    import json as _json
+    # Draft exists
+    notes_dir = tmp_vault.root / "research" / "notes"
+    notes_dir.mkdir(parents=True, exist_ok=True)
+    (notes_dir / "final_report.md").write_text("# Report\n\nBody.", encoding="utf-8")
+    # Critic findings with 12 findings
+    research = tmp_vault.root / "research"
+    research.mkdir(parents=True, exist_ok=True)
+    (research / "critic-findings-dialectic.json").write_text(
+        _json.dumps({"findings": [{"severity": "major"} for _ in range(12)]}),
+        encoding="utf-8",
+    )
+    # Empty stub patch log
+    _write_patch_log(tmp_vault)
+
+    _, out = _run_lint(tmp_vault, rule="patch-surgery")
+    data = _json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "patch-surgery" and "log was almost certainly lost" in i["message"]
+    ]
+    assert len(issues) == 1
+    assert issues[0]["severity"] == "warning"
+
+
+def test_patch_surgery_empty_log_without_findings_is_silent(tmp_vault):
+    """If no critic findings exist, an empty patch log is correct (nothing
+    to apply), not a warning."""
+    import json as _json
+    _write_patch_log(tmp_vault)
+
+    _, out = _run_lint(tmp_vault, rule="patch-surgery")
+    data = _json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "patch-surgery"
+    ]
+    assert issues == []
+
+
+# ---------------------------------------------------------------------------
+# instruction-coverage — atomic items from prompt-decomposition must
+# appear in the final report
+# ---------------------------------------------------------------------------
+
+
+def _write_decomposition(vault, entities=None, formats=None, citation_style=None):
+    import json as _json
+    research = vault.root / "research"
+    research.mkdir(parents=True, exist_ok=True)
+    data = {
+        "sub_questions": [],
+        "entities": entities or [],
+        "required_formats": formats or [],
+        "required_sections": [],
+        "time_horizons": [],
+        "scope_conditions": [],
+    }
+    if citation_style is not None:
+        data["citation_style"] = citation_style
+    (research / "prompt-decomposition.json").write_text(
+        _json.dumps(data, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_final_report(vault, body: str):
+    notes_dir = vault.root / "research" / "notes"
+    notes_dir.mkdir(parents=True, exist_ok=True)
+    (notes_dir / "final_report.md").write_text(body, encoding="utf-8")
+
+
+def test_instruction_coverage_passes_when_all_entities_present(tmp_vault):
+    _write_decomposition(tmp_vault, entities=[
+        {"name": "Alpha Method", "type": "concept"},
+        {"name": "Beta Framework", "type": "concept"},
+    ])
+    _write_final_report(tmp_vault,
+        "# Report\n\n## Alpha Method\nContent about the Alpha Method.\n\n"
+        "## Beta Framework\nContent about the Beta Framework.\n"
+    )
+    _, out = _run_lint(tmp_vault, rule="instruction-coverage")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "instruction-coverage"
+    ]
+    assert issues == []
+
+
+def test_instruction_coverage_flags_missing_entities(tmp_vault):
+    _write_decomposition(tmp_vault, entities=[
+        {"name": "Alpha Method"},
+        {"name": "Beta Framework"},
+        {"name": "Gamma Protocol"},
+    ])
+    _write_final_report(tmp_vault,
+        "# Report\n\n## Alpha Method\nContent about the Alpha Method.\n"
+    )
+    _, out = _run_lint(tmp_vault, rule="instruction-coverage")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "instruction-coverage"
+    ]
+    assert len(issues) == 1
+    assert "2 atomic entity" in issues[0]["message"]
+    assert "Beta Framework" in issues[0]["message"]
+    assert "Gamma Protocol" in issues[0]["message"]
+    # 2 missing → warning, 3+ would be error
+    assert issues[0]["severity"] == "warning"
+
+
+def test_instruction_coverage_errors_on_three_plus_missing(tmp_vault):
+    _write_decomposition(tmp_vault, entities=[
+        {"name": "Alpha"},
+        {"name": "Beta"},
+        {"name": "Gamma"},
+        {"name": "Delta"},
+    ])
+    _write_final_report(tmp_vault, "# Report\n\nOnly Alpha is here.\n")
+    _, out = _run_lint(tmp_vault, rule="instruction-coverage")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "instruction-coverage"
+    ]
+    # Beta, Gamma, Delta all missing → error severity
+    entity_issues = [i for i in issues if "atomic entity" in i["message"]]
+    assert len(entity_issues) == 1
+    assert entity_issues[0]["severity"] == "error"
+
+
+def test_instruction_coverage_flags_missing_format(tmp_vault):
+    _write_decomposition(tmp_vault,
+        entities=[{"name": "X"}],
+        formats=["mind map of causal structure", "ranked list of tradeoffs"],
+    )
+    _write_final_report(tmp_vault, "# Report\n\n## X\nPlain prose about X.\n")
+    _, out = _run_lint(tmp_vault, rule="instruction-coverage")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "instruction-coverage"
+           and "Required format" in i["message"]
+    ]
+    assert len(issues) == 1
+    assert "mind map" in issues[0]["message"]
+    assert "ranked list" in issues[0]["message"]
+
+
+def test_instruction_coverage_noop_when_no_decomposition(tmp_vault):
+    """Non-hyperresearch runs have no decomposition file — rule stays silent."""
+    _, out = _run_lint(tmp_vault, rule="instruction-coverage")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "instruction-coverage"
+    ]
+    assert issues == []
+
+
+# ---------------------------------------------------------------------------
+# extract-coverage — single-pass /research runs must have analyst-extract
+# notes per source. Skips on hyperresearch runs (loci.json present).
+# ---------------------------------------------------------------------------
+
+
+def test_extract_coverage_passes_with_healthy_ratio(tmp_vault):
+    """9 sources + 3 real extracts (≥150 words, parent points to source) =
+    33% coverage = passes the 1/3 gate."""
+    for i in range(9):
+        _write_source(tmp_vault, f"Source {i}", f"source-{i}")
+    for i in range(3):
+        _write_extract(
+            tmp_vault,
+            f"extract-{i}",
+            word_count_target=200,
+            parent=f"source-{i}",
+        )
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="extract-coverage")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "extract-coverage"
+    ]
+    assert issues == []
+
+
+def test_extract_coverage_flags_missing_extracts(tmp_vault):
+    """9 sources + 0 extracts = 0% coverage = error."""
+    for i in range(9):
+        _write_source(tmp_vault, f"Source {i}", f"source-{i}")
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="extract-coverage")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "extract-coverage"
+    ]
+    assert len(issues) == 1
+    assert issues[0]["severity"] == "error"
+    assert "9 fetched source notes" in issues[0]["message"]
+    assert "0 real" in issues[0]["message"]
+
+
+def test_extract_coverage_rejects_stubs(tmp_vault):
+    """9 sources + 20 stub extracts (<150 words) = 0 real extracts, all
+    stubs counted separately. Lint-gaming defense."""
+    for i in range(9):
+        _write_source(tmp_vault, f"Source {i}", f"source-{i}")
+    for i in range(20):
+        _write_extract(
+            tmp_vault,
+            f"stub-{i}",
+            word_count_target=70,
+            parent=f"source-{i % 9}",
+        )
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="extract-coverage")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "extract-coverage"
+    ]
+    assert len(issues) == 1
+    assert issues[0]["severity"] == "error"
+    assert "20 stub notes" in issues[0]["message"]
+
+
+def test_extract_coverage_skips_on_hyperresearch_runs(tmp_vault):
+    """Hyperresearch runs produce loci.json. This rule is single-pass only —
+    it should stay silent on hyperresearch vaults, where locus-coverage takes
+    over for quality gating."""
+    for i in range(9):
+        _write_source(tmp_vault, f"Source {i}", f"source-{i}")
+    # No extracts — would normally fire — but...
+    _write_loci_json(tmp_vault, [
+        {"name": "alpha", "one_line": "Q1"},
+    ])
+    tmp_vault.auto_sync()
+
+    _, out = _run_lint(tmp_vault, rule="extract-coverage")
+    import json
+    data = json.loads(out)
+    issues = [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "extract-coverage"
+    ]
+    # Silent on hyperresearch — locus-coverage handles this mode
+    assert issues == []
+
+
+# ---------------------------------------------------------------------------
+# citation-style-preservation
+# ---------------------------------------------------------------------------
+
+
+def _citation_issues(out: str) -> list[dict]:
+    import json
+    data = json.loads(out)
+    return [
+        i for i in data.get("data", {}).get("issues", [])
+        if i.get("rule") == "citation-style-preservation"
+    ]
+
+
+def test_citation_preservation_passes_with_resolvable_wikilink(tmp_vault):
+    _write_source(tmp_vault, "Battery Paper", "battery-paper")
+    _write_decomposition(tmp_vault, citation_style="wikilink")
+    _write_final_report(
+        tmp_vault,
+        "# Report\n\nSolid-state batteries are improving [[battery-paper]].\n",
+    )
+    code, out = _run_lint(tmp_vault, rule="citation-style-preservation")
+    assert code == 0
+    assert _citation_issues(out) == []
+
+
+def test_citation_preservation_flags_report_with_no_wikilinks(tmp_vault):
+    _write_source(tmp_vault, "Battery Paper", "battery-paper")
+    _write_decomposition(tmp_vault, citation_style="wikilink")
+    _write_final_report(tmp_vault, "# Report\n\nAll citations were stripped.\n")
+    _, out = _run_lint(tmp_vault, rule="citation-style-preservation")
+    issues = _citation_issues(out)
+    assert len(issues) == 1
+    assert issues[0]["severity"] == "error"
+    assert "no [[wikilink]] markers" in issues[0]["message"]
+
+
+def test_citation_preservation_flags_only_unresolvable_wikilinks(tmp_vault):
+    _write_source(tmp_vault, "Battery Paper", "battery-paper")
+    _write_decomposition(tmp_vault, citation_style="wikilink")
+    _write_final_report(
+        tmp_vault,
+        "# Report\n\nSee [[does-not-exist]] and [[also-missing|display text]].\n",
+    )
+    _, out = _run_lint(tmp_vault, rule="citation-style-preservation")
+    issues = _citation_issues(out)
+    assert len(issues) == 1
+    assert "none of which resolve" in issues[0]["message"]
+
+
+def test_citation_preservation_wikilink_with_display_pipe_resolves(tmp_vault):
+    _write_source(tmp_vault, "Battery Paper", "battery-paper")
+    _write_decomposition(tmp_vault, citation_style="wikilink")
+    _write_final_report(
+        tmp_vault,
+        "# Report\n\nPer [[battery-paper|Chen et al. 2025]], density doubled.\n",
+    )
+    _, out = _run_lint(tmp_vault, rule="citation-style-preservation")
+    assert _citation_issues(out) == []
+
+
+def test_citation_preservation_skips_when_no_source_notes(tmp_vault):
+    # Nothing to cite -> nothing to enforce.
+    _write_decomposition(tmp_vault, citation_style="wikilink")
+    _write_final_report(tmp_vault, "# Report\n\nNo sources exist yet.\n")
+    _, out = _run_lint(tmp_vault, rule="citation-style-preservation")
+    assert _citation_issues(out) == []
+
+
+def test_citation_preservation_skips_without_decomposition(tmp_vault):
+    _write_source(tmp_vault, "Battery Paper", "battery-paper")
+    _write_final_report(tmp_vault, "# Report\n\nNo decomposition declared.\n")
+    _, out = _run_lint(tmp_vault, rule="citation-style-preservation")
+    assert _citation_issues(out) == []
+
+
+def test_citation_preservation_skips_style_none(tmp_vault):
+    _write_source(tmp_vault, "Battery Paper", "battery-paper")
+    _write_decomposition(tmp_vault, citation_style="none")
+    _write_final_report(tmp_vault, "# Report\n\nDeliberately citation-free.\n")
+    _, out = _run_lint(tmp_vault, rule="citation-style-preservation")
+    assert _citation_issues(out) == []
+
+
+def test_citation_preservation_inline_passes_with_refs_and_heading(tmp_vault):
+    _write_source(tmp_vault, "Battery Paper", "battery-paper")
+    _write_decomposition(tmp_vault, citation_style="inline")
+    _write_final_report(
+        tmp_vault,
+        "# Report\n\nDensity doubled [1].\n\n## Sources\n\n1. Chen et al. 2025\n",
+    )
+    _, out = _run_lint(tmp_vault, rule="citation-style-preservation")
+    assert _citation_issues(out) == []
+
+
+def test_citation_preservation_inline_accepts_grouped_markers(tmp_vault):
+    _write_source(tmp_vault, "Battery Paper", "battery-paper")
+    _write_decomposition(tmp_vault, citation_style="inline")
+    _write_final_report(
+        tmp_vault,
+        "# Report\n\nDensity doubled [1, 2].\n\n## Sources\n\n"
+        "1. Chen et al. 2025\n2. Park 2026\n",
+    )
+    _, out = _run_lint(tmp_vault, rule="citation-style-preservation")
+    assert _citation_issues(out) == []
+
+
+def test_report_body_only_strips_grouped_citation_markers():
+    from hyperresearch.cli.lint import _report_body_only
+
+    body = _report_body_only(
+        "Claim one [1]. Claim two [2, 14]. Claim three [3,4]. "
+        "A 12,000-unit figure survives.\n\n## Sources\n[1] A\n"
+    )
+    assert "[1]" not in body
+    assert "[2, 14]" not in body
+    assert "[3,4]" not in body
+    assert "12,000-unit" in body
+
+
+def test_citation_preservation_inline_flags_missing_refs(tmp_vault):
+    _write_source(tmp_vault, "Battery Paper", "battery-paper")
+    _write_decomposition(tmp_vault, citation_style="inline")
+    _write_final_report(tmp_vault, "# Report\n\nNo citations at all.\n")
+    _, out = _run_lint(tmp_vault, rule="citation-style-preservation")
+    issues = _citation_issues(out)
+    assert len(issues) == 1
+    assert issues[0]["severity"] == "error"
+    assert "numbered [N] reference markers" in issues[0]["message"]
+    assert "Sources/References section heading" in issues[0]["message"]
+
+
+def test_citation_preservation_wrapper_contract_overrides_style(tmp_vault):
+    # Decomposition says wikilink, wrapper overrides to none -> rule skips
+    # even though the report has no wikilinks.
+    _write_source(tmp_vault, "Battery Paper", "battery-paper")
+    _write_decomposition(tmp_vault, citation_style="wikilink")
+    _write_wrapper_contract(tmp_vault, citation_style="none")
+    _write_final_report(tmp_vault, "# Report\n\nWrapper said no citations.\n")
+    _, out = _run_lint(tmp_vault, rule="citation-style-preservation")
+    assert _citation_issues(out) == []
+
+
+# ── P1-10 fail-closed remediation ────────────────────────────────────────
+
+
+def test_gate_defects_exit_1_naming_failing_rules(tmp_vault):
+    """F-1: a vault carrying hallucinated-quote + retracted-citation defects
+    must exit 1 with an ok:false envelope that NAMES the failing rules.
+    Pre-fix this exited 0 with a success envelope (fail-open, falsified in
+    PORTING-NOTES P1-10 'Fail-closed remediation')."""
+    import json
+
+    # Retracted source whose note id never puts "retract" near the citation.
+    write_note(
+        tmp_vault.notes_dir,
+        "Smith 2019 Cohort",
+        body="# Smith 2019 Cohort\n\nWithdrawn by all authors.\n",
+        tags=["source"],
+        note_id="smith-2019-cohort",
+        source="https://example.org/smith2019",
+        extra_frontmatter={"is_retracted": True},
+    )
+    _write_final_report(
+        tmp_vault,
+        "# Report\n\n"
+        'One author summarized it as "this cohort shows a completely untraceable '
+        'fabricated statistical effect" in the discussion.\n\n'
+        "Prior evidence strongly supports [[smith-2019-cohort]] here.\n",
+    )
+    tmp_vault.auto_sync()
+
+    code, out = _run_lint(tmp_vault)
+    assert code == 1
+    data = json.loads(out)
+    assert data["ok"] is False
+    assert data["error_code"] == "LINT_ERRORS"
+    assert data["data"]["summary"]["errors"] >= 2
+
+    error_rules = {i["rule"] for i in data["data"]["issues"] if i["severity"] == "error"}
+    assert {"quote-integrity", "retracted-citations"} <= error_rules
+    # The envelope error names every failing CHECK (same names verify_run
+    # uses on the ship gate), so machine consumers see which gate tripped.
+    for rule_name in ("quote-integrity", "retracted-citations"):
+        assert rule_name in data["error"]
+
+    # Schema keys stay stable vs the success shape — only ok/error flip.
+    assert set(data["data"].keys()) == {"issues", "summary"}
+
+
+def test_warning_only_findings_stay_exit_0(tmp_vault):
+    """F-1: warnings/info must NOT trip the gate — errors-only blocks."""
+    import json
+
+    write_note(
+        tmp_vault.notes_dir,
+        "Note A",
+        body="# A\n\nSee [[note-b]].\n",
+        tags=["shared"],
+        status="evergreen",
+        tier="institutional",
+        content_type="docs",
+        summary="Classified and tagged.",
+    )
+    write_note(
+        tmp_vault.notes_dir,
+        "Note B",
+        body="# B\n\nBacklink [[note-a]].\n",
+        tags=["shared"],
+        status="evergreen",
+        tier="institutional",
+        content_type="docs",
+        summary="Classified and tagged.",
+    )
+    # Note C is fully classified but untagged -> missing-tags warning.
+    write_note(
+        tmp_vault.notes_dir,
+        "Note C",
+        body="# C\n\nNo tags here.\n",
+        status="evergreen",
+        tier="institutional",
+        content_type="docs",
+        summary="Classified but untagged.",
+    )
+    tmp_vault.auto_sync()
+
+    code, out = _run_lint(tmp_vault)
+    assert code == 0
+    data = json.loads(out)
+    assert data["ok"] is True
+    assert data.get("error") is None
+    summary = data["data"]["summary"]
+    assert summary["errors"] == 0
+    assert summary["warnings"] >= 1  # missing-tags fired but did not gate
+
+
+def test_unknown_rule_exits_1_listing_valid_rules(tmp_vault):
+    """F-2: an unknown --rule name must fail loudly instead of reporting a
+    silent healthy vault. Pre-fix any unmatched name exited 0."""
+    import json
+
+    code, out = _run_lint(tmp_vault, rule="totally-bogus")
+    assert code == 1
+    data = json.loads(out)
+    assert data["ok"] is False
+    assert data["error_code"] == "UNKNOWN_RULE"
+    assert "totally-bogus" in data["error"]
+    # The envelope lists the valid rules so the caller can self-correct.
+    for advertised in ("missing-title", "quote-integrity", "stale-indexes"):
+        assert advertised in data["error"]
+
+
+def _build_indexes(vault):
+    from hyperresearch.indexgen.generator import IndexGenerator
+
+    IndexGenerator(vault).build_all()
+
+
+def test_stale_indexes_clean_right_after_build(tmp_vault):
+    import json
+
+    write_note(
+        tmp_vault.notes_dir,
+        "Seed Note",
+        body="# Seed\n\nContent.\n",
+        tags=["seed"],
+        summary="Seeded.",
+    )
+    tmp_vault.auto_sync()
+    _build_indexes(tmp_vault)
+
+    code, out = _run_lint(tmp_vault, rule="stale-indexes")
+    assert code == 0
+    data = json.loads(out)
+    issues = [i for i in data["data"]["issues"] if i["rule"] == "stale-indexes"]
+    assert issues == []
+
+
+def test_stale_indexes_flags_page_older_than_newest_note(tmp_vault):
+    """F-2 minimal semantics: index page generation marker (`updated:`) older
+    than the newest note mtime -> stale warning. Warnings stay exit 0; a
+    rebuild clears the finding."""
+    import json
+
+    path = write_note(
+        tmp_vault.notes_dir,
+        "Seed Note",
+        body="# Seed\n\nContent.\n",
+        tags=["seed"],
+        summary="Seeded.",
+    )
+    tmp_vault.auto_sync()
+    _build_indexes(tmp_vault)
+
+    # Rewrite the note AFTER the index build so its mtime is genuinely newer
+    # than the pages' generation marker (no clock faking — a future mtime
+    # would also outrank any rebuild).
+    path.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    code, out = _run_lint(tmp_vault, rule="stale-indexes")
+    assert code == 0  # warning severity does not block the gate
+    data = json.loads(out)
+    assert data["ok"] is True
+    issues = [i for i in data["data"]["issues"] if i["rule"] == "stale-indexes"]
+    assert len(issues) >= 1
+    assert all(i["severity"] == "warning" for i in issues)
+    assert "index build" in issues[0]["message"]
+
+    # Rebuilding clears the staleness.
+    _build_indexes(tmp_vault)
+    _, out2 = _run_lint(tmp_vault, rule="stale-indexes")
+    data2 = json.loads(out2)
+    assert [i for i in data2["data"]["issues"] if i["rule"] == "stale-indexes"] == []
+
+
+def test_stale_indexes_flags_page_without_generation_marker(tmp_vault):
+    """A page that cannot prove its freshness gets flagged instead of being
+    silently treated as healthy."""
+    import json
+
+    _build_indexes(tmp_vault)
+    (tmp_vault.index_dir / "_handmade.md").write_text(
+        "---\ntitle: \"Handmade\"\n---\n\nNo updated marker.\n", encoding="utf-8",
+    )
+
+    _, out = _run_lint(tmp_vault, rule="stale-indexes")
+    data = json.loads(out)
+    issues = [i for i in data["data"]["issues"] if i["rule"] == "stale-indexes"
+              and i["note_id"] == "_handmade"]
+    assert len(issues) == 1
+    assert issues[0]["severity"] == "warning"
+    assert "generation" in issues[0]["message"]

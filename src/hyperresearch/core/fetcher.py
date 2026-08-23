@@ -180,8 +180,8 @@ def fetch_and_save(
     # Save assets if requested
     saved_assets: list[dict[str, Any]] = []
     if save_assets:
-        # cli/fetch.py lands in a later piece; remove the ignore then.
-        from hyperresearch.cli.fetch import (  # type: ignore[import-untyped]
+        # cli/fetch.py has landed; the P1-era ignore was removed with its piece.
+        from hyperresearch.cli.fetch import (
             _save_assets,
         )
 

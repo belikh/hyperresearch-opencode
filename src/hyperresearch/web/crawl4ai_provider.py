@@ -367,10 +367,10 @@ class Crawl4AIProvider:
         crawl4ai's managed browser always forces headless. For sites like LinkedIn
         that detect headless mode and kill sessions, we need a truly visible browser.
         """
-        # Delta vs upstream: ignore for --strict (playwright is crawl4ai's own
-        # dependency, absent on this host; this visible-browser path cannot run
-        # without the extra anyway).
-        from playwright.async_api import async_playwright  # type: ignore[import-not-found]
+        # Delta vs upstream: playwright is crawl4ai's own dependency, absent on
+        # this host; the import is silenced via the pyproject mypy override
+        # (P1-10). This visible-browser path cannot run without the extra anyway.
+        from playwright.async_api import async_playwright
 
         async with async_playwright() as pw:
             context = await pw.chromium.launch_persistent_context(
