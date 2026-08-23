@@ -65,7 +65,8 @@ class TestBuiltins:
 
     def test_list_builtins(self):
         # Ascending scale order — `hpr profile list` follows this.
-        assert list_profiles() == ["light", "full", "premier", "dissertation"]
+        # P2-17: smoke joined as the lightest built-in.
+        assert list_profiles() == ["smoke", "light", "full", "premier", "dissertation"]
 
     def test_all_builtins_validate(self):
         for name in BUILTIN_PROFILES:
@@ -104,7 +105,9 @@ class TestBuiltins:
     def test_gear_profiles_are_valid_builtins(self):
         from hyperresearch.core.profiles import GEAR_PROFILES
 
-        assert GEAR_PROFILES == ("full", "premier")
+        # P2-17: smoke joined the gears ahead of full — it is a genuine gear
+        # (its numbers bake into rendered prompts), unlike the light tier.
+        assert GEAR_PROFILES == ("smoke", "full", "premier")
         for name in GEAR_PROFILES:
             assert name in BUILTIN_PROFILES
 
@@ -129,6 +132,139 @@ class TestBuiltins:
         # how most users run the pipeline. Time estimates remain.
         assert "cost_estimate" not in Profile.model_fields
         assert "time_estimate" in Profile.model_fields
+
+
+class TestSmokeGear:
+    """P2-17: the smoke gear — a port-only addition (upstream ships no
+    smoke-like profile; construction follows upstream's own built-in overlay
+    pattern: spread _FULL, override every funnel stage coherently, register in
+    ascending scale order). See PORTING-NOTES.md §P2-17.
+    """
+
+    def _write(self, tmp_path: Path, body: str) -> Path:
+        p = tmp_path / "config.toml"
+        p.write_text(body, encoding="utf-8")
+        return p
+
+    def test_smoke_overlay_values_exact(self):
+        p = resolve_profile("smoke")
+        assert p.name == "smoke"
+        # All 16 steps: E2E mechanics-proving runs every stage once — unlike
+        # the light tier, which routes only (1, 2, 10, 15, 16).
+        assert p.steps == tuple(range(1, 17))
+        assert p.chapters == (0, 0)  # unchaptered flat run
+        assert p.source_min == 5
+        assert p.source_target == (8, 12)
+        assert p.planned_searches == (6, 12)
+        assert p.loci_max == 2
+        assert p.draft_count == 3
+        assert p.word_targets == {
+            "short": (800, 1500),
+            "structured": (800, 1500),
+            "argumentative": (800, 1500),
+        }
+        assert p.time_estimate == "~10 min"
+
+    def test_range_validation_accepts_smoke_values(self):
+        # The raw built-in table validates standalone through the same
+        # Profile model user overlays go through — ordered ranges,
+        # non-negative knobs, legal steps.
+        from hyperresearch.core.profiles import Profile
+
+        profile = Profile(**BUILTIN_PROFILES["smoke"])  # must not raise
+        assert profile.source_target == (8, 12)
+
+    def test_inverted_smoke_scale_values_still_rejected(self, tmp_path: Path):
+        # The validators are not vacuous at toy scale: an inverted range in a
+        # smoke overlay fails the same way it does for full.
+        cfg = self._write(
+            tmp_path, "[profile.smoke]\nword_targets = { short = [1500, 800] }\n"
+        )
+        with pytest.raises(ProfileError, match="invalid profile"):
+            resolve_profile("smoke", cfg)
+
+    def test_user_overlay_overrides_smoke_defaults(self, tmp_path: Path):
+        # Merge precedence per upstream semantics for built-in names: built-in
+        # values first, then the user's [profile.<name>] keys on top.
+        cfg = self._write(tmp_path, "[profile.smoke]\ndraft_count = 1\nloci_max = 4\n")
+        p = resolve_profile("smoke", cfg)
+        assert p.draft_count == 1
+        assert p.loci_max == 4
+        # Untouched keys keep the smoke defaults, not full's.
+        assert p.source_target == (8, 12)
+        assert p.word_targets["short"] == (800, 1500)
+
+    def test_custom_profile_can_extend_smoke(self, tmp_path: Path):
+        # smoke is a BUILTIN_PROFILES member, so upstream's extends rule
+        # accepts it as a base — micro-profiles inherit its whole envelope.
+        cfg = self._write(
+            tmp_path,
+            '[profile.microcheck]\nextends = "smoke"\nplanned_searches = [4, 8]\n',
+        )
+        p = resolve_profile("microcheck", cfg)
+        assert p.extends == "smoke"
+        assert p.planned_searches == (4, 8)
+        assert p.loci_max == 2  # inherited from the smoke base
+        assert p.steps == tuple(range(1, 16 + 1))
+
+    def test_smoke_is_lighter_than_light_but_runs_more_pipeline(self):
+        smoke = resolve_profile("smoke")
+        light = resolve_profile("light")
+        # Every shared scale knob sits below light's envelope...
+        assert smoke.source_min < light.source_min
+        assert smoke.source_target[1] < light.source_target[0]
+        # Pinned envelope (6, 12) overlaps light's (8, 20), so compare ceilings.
+        assert smoke.planned_searches[1] < light.planned_searches[1]
+        assert smoke.candidate_urls[1] < light.candidate_urls[0]
+        assert smoke.wave1_fetchers[0] < light.wave1_fetchers[0]
+        assert smoke.wave1_fetchers[1] <= light.wave1_fetchers[1]
+        assert smoke.depth_budget_total < light.depth_budget_total
+        # ...yet smoke runs the FULL step list where light is a 5-step tier.
+        assert len(smoke.steps) == 16 and len(light.steps) == 5
+
+    def test_selection_plumbing_end_to_end(self, tmp_vault):
+        """THE P2-17 integration proof, offline: the name a run selects is
+        the name the prompts render from.
+
+        config.toml → runs.init_run(profile="smoke") → resolve_profile →
+        manifest, AND build_render_context(primary=...) → render_prompt over
+        the REAL bundled researcher agent template. No network, no CLI.
+        """
+        from hyperresearch.core.opencode_install import RESEARCHER_AGENT
+        from hyperresearch.core.render import build_render_context, render_prompt
+        from hyperresearch.core.runs import init_run
+
+        # config.toml participates through the same plumbing: a user overlay
+        # on the smoke gear rides along.
+        cfg = tmp_vault.config_path
+        existing = cfg.read_text(encoding="utf-8") if cfg.exists() else ""
+        cfg.write_text(existing + "\n[profile.smoke]\nsource_min = 6\n", encoding="utf-8")
+
+        manifest = init_run(tmp_vault, "p217-smoke", profile="smoke")
+        assert manifest["profile"] == "smoke"
+        assert manifest["profile_steps"] == [str(s) for s in range(1, 17)]
+
+        resolved = resolve_profile(manifest["profile"], tmp_vault.config_path)
+        assert resolved.source_min == 6  # the config.toml overlay won
+        assert resolved.source_target == (8, 12)  # knob values differ from full
+        assert resolved.draft_count == 3
+
+        ctx = build_render_context(tmp_vault.config_path, primary="smoke")
+        prepared = RESEARCHER_AGENT.replace("{hpr_path}", "hpr")
+        smoke_prompt = render_prompt(prepared, ctx)
+        # Smoke numbers baked into a real agent prompt...
+        assert "select the **1-2 most" in smoke_prompt
+        assert "**2 additional primary sources**" in smoke_prompt
+        # ...and full's numbers gone from the lines the profile controls.
+        # (The template also carries literal prose like "short sources 3-8" —
+        # claims guidance, not a profile knob — so absence is pinned per line.)
+        assert "select the **3-8 most" not in smoke_prompt
+        assert "**8 additional primary sources**" not in smoke_prompt
+        # Same template under the full gear renders differently — the
+        # selected profile, not the template, moved the numbers.
+        full_prompt = render_prompt(prepared, build_render_context(None, primary="full"))
+        assert "select the **3-8 most" in full_prompt
+        assert smoke_prompt != full_prompt
 
 
 class TestUserOverlay:
@@ -198,7 +334,13 @@ class TestUserOverlay:
 
     def test_listing_includes_user_profiles(self, tmp_path: Path):
         cfg = self._write(tmp_path, "[profile.dissertation]\nsource_min = 250\n")
-        assert list_profiles(cfg) == ["light", "full", "premier", "dissertation"]
+        assert list_profiles(cfg) == [
+            "smoke",
+            "light",
+            "full",
+            "premier",
+            "dissertation",
+        ]
 
     def test_missing_config_is_fine(self, tmp_path: Path):
         p = resolve_profile("full", tmp_path / "nope.toml")

@@ -288,6 +288,96 @@ _FULL: dict[str, Any] = {
     "time_estimate": "~1.5–2.5 hours",
 }
 
+# P2-17 (port-only addition): mechanics-proving shakedown gear for E2E runs
+# (~10 min target). Upstream ships no smoke-like profile — its lightest
+# GEAR-scale set is full itself (`light` is a run-time tier, see
+# GEAR_PROFILES below) — so there was nothing upstream to reconcile names
+# with; the name follows the pipeline's plain-English scale vocabulary.
+# Construction is upstream's own built-in pattern exactly: spread _FULL,
+# then override every funnel stage coherently (premier's rule inverted —
+# shrinking only the fetch targets would strand candidates, claims, and
+# word counts at full scale and stall the run). Steps stay 1-16 ON PURPOSE:
+# a smoke run exists to exercise every mechanic once, not to skip stages
+# like the light tier does. utility_scoring stays ON (inherited): light only
+# turns it off because its tier never reaches the steps that consume scores;
+# smoke reaches all of them.
+_SMOKE: dict[str, Any] = {
+    **_FULL,
+    "name": "smoke",
+    "description": (
+        "Mechanics-proving end-to-end shakedown — 8–12 sources, all 16 steps "
+        "at toy scale, triple mini-draft."
+    ),
+    # Width: one tiny sweep; every stage of the funnel shrinks with it.
+    "source_min": 5,
+    "source_target": (8, 12),
+    "planned_searches": (6, 12),
+    "candidate_urls": (12, 18),
+    "deduped_urls": (10, 15),
+    "batch_size": (4, 6),
+    "batch_count": (1, 2),
+    "waves": (1, 2),
+    "wave1_fetchers": (2, 3),
+    "wave2_fetchers": (1, 2),
+    "wave3_fetchers": (1, 2),
+    "adversarial_searches_min": 2,
+    "source_analyst_cap": 3,
+    "fetcher_chase": (1, 2),
+    "fetcher_chase_cap": 2,
+    # Depth: loci capped at 2, budgets toy-sized but non-degenerate so the
+    # depth machinery still has something to chew.
+    "loci_analysts": 1,
+    "loci_max": 2,
+    "depth_budget_total": 6,
+    "depth_budget_brackets": ((30, 3), (20, 2), (10, 1), (0, 1)),
+    "investigator_max": 2,
+    "depth_default_budget": 2,
+    # Tensions + corpus critic
+    "comparisons_tensions": (1, 2),
+    "source_tensions": (1, 2),
+    "tension_survey": (4, 6),
+    "tension_full_reads": (2, 3),
+    "corpus_critic_gaps": (1, 2),
+    "corpus_critic_fetchers": (1, 2),
+    # Evidence funnel sized to terminate on an 8-12 source corpus.
+    "claims_cap": (12, 20),
+    "claims_min": 5,
+    # Triple draft kept deliberately: draft orchestration is one of the
+    # mechanics under test; the drafts are just small.
+    "draft_count": 3,
+    "single_draft_reads": (3, 5),
+    "must_read": {"argumentative": (5, 8), "structured": (4, 6), "short": (3, 5)},
+    # One word envelope for every response_format: the report lands at
+    # 800-1500 words regardless of shape - mechanics, not rhetoric.
+    "word_targets": {
+        "short": (800, 1500),
+        "structured": (800, 1500),
+        "argumentative": (800, 1500),
+    },
+    # CJK char targets keep _FULL's ~3x words editorial ratio at the new
+    # envelope (word envelope is uniform, so the char envelope is too).
+    "char_targets_no_word_boundary": {
+        "short": (2400, 4500),
+        "structured": (2400, 4500),
+        "argumentative": (2400, 4500),
+    },
+    # citation_density_min stays 2.0 (inherited); 800-1500 words at 2 per 100
+    # words is exactly 16-30 citations.
+    "citation_totals": {
+        "short": (16, 30),
+        "structured": (16, 30),
+        "argumentative": (16, 30),
+    },
+    # Critics + gap-fetch + readability
+    "critic_finding_caps": {"dialectic": 4, "depth": 4, "width": 3, "instruction": 5},
+    "gap_fetch_cap": 2,
+    "gap_fetch_fetchers": (1, 2),
+    "readability_rec_cap": 10,
+    # A 10-minute run checks the vault more often, not less.
+    "vault_check_interval_s": 30,
+    "time_estimate": "~10 min",
+}
+
 _LIGHT: dict[str, Any] = {
     **_FULL,
     "name": "light",
@@ -393,6 +483,7 @@ _DISSERTATION: dict[str, Any] = {
 
 # Listed in ascending scale order — `hpr profile list` follows this order.
 BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
+    "smoke": _SMOKE,
     "light": _LIGHT,
     "full": _FULL,
     "premier": _PREMIER,
@@ -405,8 +496,9 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
 # step 1, dissertation is opt-in per run (its chapter loop reads
 # `dissertation.*` values by name and runs each chapter inside the gear's
 # envelope). Installing either AS the gear would bake the wrong numbers into
-# the flat pipeline.
-GEAR_PROFILES: tuple[str, ...] = ("full", "premier")
+# the flat pipeline. `smoke` IS a gear (P2-17): its entire job is baking toy
+# numbers into the prompts for mechanics-proving end-to-end shakedowns.
+GEAR_PROFILES: tuple[str, ...] = ("smoke", "full", "premier")
 
 
 class ProfileError(Exception):
