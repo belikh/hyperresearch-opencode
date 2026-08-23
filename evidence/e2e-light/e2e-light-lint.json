@@ -1,0 +1,284 @@
+{
+  "ok": false,
+  "data": {
+    "issues": [
+      {
+        "rule": "provenance",
+        "severity": "error",
+        "note_id": "<vault>",
+        "message": "Only 3/28 source notes (11%) have breadcrumbs — the guided reading loop did not fire. The initial batch fetch is not the whole corpus; after fetching seeds you MUST spawn analysts to propose next targets, then fetch those with `--suggested-by`. Target: at least 30% of sources should come from analyst recommendations."
+      },
+      {
+        "rule": "extract-coverage",
+        "severity": "error",
+        "note_id": "<vault>",
+        "message": "Vault has 28 fetched source notes but only 0 real source-linked extract notes (0% coverage, need ≥9). The analyst was skipped on most sources or the source->extract chain of custody is broken. Spawn an analyst subagent on the unanalyzed sources during curation. Target: at least 1 extract (≥150 words, with `parent=<source-note-id>`) per 3 sources (floor of 1 for any corpus size). Minting stub notes to pass this gate is lint-gaming and will not satisfy."
+      },
+      {
+        "rule": "instruction-coverage",
+        "severity": "error",
+        "note_id": "<vault>",
+        "message": "6 atomic entity/entities from prompt-decomposition.json are missing from the final report: Titanium aluminides (γ-TiAl), Refractory alloying elements (rhenium, tungsten, molybdenum, tantalum, niobium, ruthenium), Gamma-prime (γ′/γ'') precipitates, Single-crystal and directionally-solidified castings, Thermal barrier coatings (YSZ), Internal film and convective cooling. The draft drifted from the user's explicit ask. Re-spawn the instruction-critic with the missing items flagged, or hand-craft Edits to restore them."
+      },
+      {
+        "rule": "instruction-coverage",
+        "severity": "warning",
+        "note_id": "<vault>",
+        "message": "Required format(s) from prompt-decomposition not visibly present in draft: comparison table of alloy systems (base metal, representative grades, service temperature), per-mechanism bulleted explanations for heat tolerance. This may be a false positive if the format is rendered without the spec word in the prose — review manually."
+      },
+      {
+        "rule": "uncurated",
+        "severity": "warning",
+        "note_id": "designing-for-creep-resistance-nickel-based-superalloys",
+        "note_path": "research/notes/designing-for-creep-resistance-nickel-based-superalloys.md",
+        "message": "Note is review but missing tier/content_type. Run curation pass."
+      },
+      {
+        "rule": "uncurated",
+        "severity": "warning",
+        "note_id": "nickel-based-superalloy-precipitation-hardened-alloy-comprehensive-analysis-of-s",
+        "note_path": "research/notes/nickel-based-superalloy-precipitation-hardened-alloy-comprehensive-analysis-of-s.md",
+        "message": "Note is review but missing tier/content_type. Run curation pass."
+      },
+      {
+        "rule": "uncurated",
+        "severity": "warning",
+        "note_id": "thermal-barrier-coatings-tbcs-the-invisible-shield-protecting-turbine-blades-at",
+        "note_path": "research/notes/thermal-barrier-coatings-tbcs-the-invisible-shield-protecting-turbine-blades-at.md",
+        "message": "Note is review but missing tier/content_type. Run curation pass."
+      },
+      {
+        "rule": "uncurated",
+        "severity": "warning",
+        "note_id": "youtube",
+        "note_path": "research/notes/youtube.md",
+        "message": "Note is review but missing tier/content_type. Run curation pass."
+      },
+      {
+        "rule": "uncurated",
+        "severity": "warning",
+        "note_id": "superalloys-a-primer-and-history",
+        "note_path": "research/notes/superalloys-a-primer-and-history.md",
+        "message": "Note is review but missing tier/content_type. Run curation pass."
+      },
+      {
+        "rule": "uncurated",
+        "severity": "warning",
+        "note_id": "metals-free-full-text-ni-and-co-based-superalloys-and-their-coatings",
+        "note_path": "research/notes/metals-free-full-text-ni-and-co-based-superalloys-and-their-coatings.md",
+        "message": "Note is review but missing tier/content_type. Run curation pass."
+      },
+      {
+        "rule": "uncurated",
+        "severity": "warning",
+        "note_id": "metals-free-full-text-the-effect-of-nbti-ratio-on-hardness-in-high-strength-ni-b",
+        "note_path": "research/notes/metals-free-full-text-the-effect-of-nbti-ratio-on-hardness-in-high-strength-ni-b.md",
+        "message": "Note is review but missing tier/content_type. Run curation pass."
+      },
+      {
+        "rule": "uncurated",
+        "severity": "warning",
+        "note_id": "metals-free-full-text-experimental-and-numerical-modeling-of-the-stress-rupture",
+        "note_path": "research/notes/metals-free-full-text-experimental-and-numerical-modeling-of-the-stress-rupture.md",
+        "message": "Note is review but missing tier/content_type. Run curation pass."
+      },
+      {
+        "rule": "uncurated",
+        "severity": "warning",
+        "note_id": "ge9x-engine-ge-aerospace",
+        "note_path": "research/notes/ge9x-engine-ge-aerospace.md",
+        "message": "Note is review but missing tier/content_type. Run curation pass."
+      },
+      {
+        "rule": "singleton-tags",
+        "severity": "info",
+        "note_id": "nasa-turbine",
+        "message": "Tag 'nasa-turbine' is used by only 1 note. Consider merging."
+      },
+      {
+        "rule": "singleton-tags",
+        "severity": "info",
+        "note_id": "source-hub",
+        "message": "Tag 'source-hub' is used by only 1 note. Consider merging."
+      },
+      {
+        "rule": "singleton-tags",
+        "severity": "info",
+        "note_id": "turbine-cooling",
+        "message": "Tag 'turbine-cooling' is used by only 1 note. Consider merging."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_index",
+        "note_path": "research/index/_index.md",
+        "message": "Index page _index.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_month-2026-08",
+        "note_path": "research/index/_month-2026-08.md",
+        "message": "Index page _month-2026-08.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_most-linked",
+        "note_path": "research/index/_most-linked.md",
+        "message": "Index page _most-linked.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_orphans",
+        "note_path": "research/index/_orphans.md",
+        "message": "Index page _orphans.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_raw-pending",
+        "note_path": "research/index/_raw-pending.md",
+        "message": "Index page _raw-pending.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_recent",
+        "note_path": "research/index/_recent.md",
+        "message": "Index page _recent.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_stale",
+        "note_path": "research/index/_stale.md",
+        "message": "Index page _stale.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_stats",
+        "note_path": "research/index/_stats.md",
+        "message": "Index page _stats.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_tag-ceramic-matrix-composites",
+        "note_path": "research/index/_tag-ceramic-matrix-composites.md",
+        "message": "Index page _tag-ceramic-matrix-composites.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_tag-creep-mechanisms",
+        "note_path": "research/index/_tag-creep-mechanisms.md",
+        "message": "Index page _tag-creep-mechanisms.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_tag-ni-superalloys",
+        "note_path": "research/index/_tag-ni-superalloys.md",
+        "message": "Index page _tag-ni-superalloys.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_tag-oxidation",
+        "note_path": "research/index/_tag-oxidation.md",
+        "message": "Index page _tag-oxidation.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_tag-refractory-high-entropy-alloys",
+        "note_path": "research/index/_tag-refractory-high-entropy-alloys.md",
+        "message": "Index page _tag-refractory-high-entropy-alloys.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_tag-single-crystal",
+        "note_path": "research/index/_tag-single-crystal.md",
+        "message": "Index page _tag-single-crystal.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_tag-superalloys-history",
+        "note_path": "research/index/_tag-superalloys-history.md",
+        "message": "Index page _tag-superalloys-history.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_tag-thermal-barrier-coatings",
+        "note_path": "research/index/_tag-thermal-barrier-coatings.md",
+        "message": "Index page _tag-thermal-barrier-coatings.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_tag-tial",
+        "note_path": "research/index/_tag-tial.md",
+        "message": "Index page _tag-tial.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_tag-titanium-aluminide",
+        "note_path": "research/index/_tag-titanium-aluminide.md",
+        "message": "Index page _tag-titanium-aluminide.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_tag-turbine-materials",
+        "note_path": "research/index/_tag-turbine-materials.md",
+        "message": "Index page _tag-turbine-materials.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_tag-turbine-metals",
+        "note_path": "research/index/_tag-turbine-metals.md",
+        "message": "Index page _tag-turbine-metals.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_tag-vendor-content",
+        "note_path": "research/index/_tag-vendor-content.md",
+        "message": "Index page _tag-vendor-content.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "stale-indexes",
+        "severity": "warning",
+        "note_id": "_tags",
+        "note_path": "research/index/_tags.md",
+        "message": "Index page _tags.md was generated before the newest note modification — it is stale. Rebuild with `hyperresearch index build`."
+      },
+      {
+        "rule": "numeric-consistency",
+        "severity": "warning",
+        "note_id": "<report>",
+        "note_path": "/tmp/opencode/e2e-light/research/notes/final_report_jet-engine-turbine-metals-a1b636.md",
+        "message": "Number '1,450' in the final report appears in no claim or cited note body. If it is derived arithmetic, fine; otherwise verify it against a source or remove it."
+      }
+    ],
+    "summary": {
+      "errors": 3,
+      "warnings": 33,
+      "info": 3,
+      "total": 39
+    }
+  },
+  "error": "Lint failed: 3 error(s) across rules: extract-coverage, instruction-coverage, provenance.",
+  "error_code": "LINT_ERRORS",
+  "count": 39,
+  "vault": "/tmp/opencode/e2e-light",
+  "timestamp": "2026-08-23T09:41:08.527243+00:00"
+}

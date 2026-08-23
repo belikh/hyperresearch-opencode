@@ -1,0 +1,15 @@
+  ok report-exists: 
+/tmp/opencode/e2e-light/research/notes/final_report_jet-engine-turbine-metals-a1
+b636.md
+  ok levers-rendered: all shim files present
+  ok length-in-range: 2080 words vs target 2000-5000 (structured; ±20% 
+tolerance)
+  ok required-headings: all present
+  ok citation-density: 3.14 citations/1000 chars (floor 1.5)
+  ok no-scaffold-leak: scaffold gospel header must not ship
+  ok quote-integrity: clean
+  ok retracted-citations: clean
+  ok artifact:polish-log.json: 
+/tmp/opencode/e2e-light/research/runs/jet-engine-turbine-metals-a1b636/polish-lo
+g.json
+PASSED

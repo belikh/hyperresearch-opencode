@@ -1,0 +1,60 @@
+{
+  "manifest_version": 1,
+  "vault_tag": "jet-engine-turbine-metals-a1b636",
+  "profile": "light",
+  "profile_steps": [
+    "1",
+    "2",
+    "10",
+    "15",
+    "16"
+  ],
+  "status": "done",
+  "started_at": "2026-08-23T08:32:40.157845+00:00",
+  "updated_at": "2026-08-23T09:38:12.255848+00:00",
+  "budget_usd": 5.0,
+  "blocked_on": null,
+  "steps": {
+    "1": {
+      "status": "done",
+      "started_at": "2026-08-23T08:33:27.637999+00:00",
+      "finished_at": "2026-08-23T08:35:11.289462+00:00"
+    },
+    "2": {
+      "status": "done",
+      "finished_at": "2026-08-23T09:13:08.316602+00:00"
+    },
+    "10": {
+      "status": "done",
+      "started_at": "2026-08-23T09:13:18.843203+00:00",
+      "finished_at": "2026-08-23T09:19:12.384827+00:00"
+    },
+    "15": {
+      "status": "done",
+      "started_at": "2026-08-23T09:19:32.531415+00:00",
+      "finished_at": "2026-08-23T09:26:13.527118+00:00"
+    },
+    "16": {
+      "status": "done",
+      "started_at": "2026-08-23T09:26:35.658743+00:00",
+      "finished_at": "2026-08-23T09:38:12.255300+00:00"
+    }
+  },
+  "chapters": {},
+  "spend": {
+    "estimated_usd": 0.0,
+    "sources_fetched": 0,
+    "notes_written": 0,
+    "agents_spawned": 0
+  },
+  "levers": {
+    "register": "teach",
+    "inference_depth": "surface",
+    "domain_notes": "Sourcing: aerospace-metallurgy literature first \u2014 NASA technical reports, materials-science reviews, and manufacturer/engine-OEM technical publications outrank general web commentary. Evidence norms: measured figures win (specific service temperatures in \u00b0C, alloy compositions in wt%, creep/failure data); vendor marketing claims rank last. Recency window: underlying physical metallurgy is settled, but 'modern' means current-generation engines (~2010s onward), so confirm which alloys (e.g., third-generation single-crystal Ni superalloys, TiAl LPT blades) are actually flying today."
+  },
+  "verify": {
+    "passed": true,
+    "at": "2026-08-23T09:37:54.150134+00:00",
+    "failed_checks": []
+  }
+}

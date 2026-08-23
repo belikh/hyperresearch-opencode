@@ -1,0 +1,40 @@
+{
+  "ok": true,
+  "data": {
+    "target": "/tmp/opencode/e2e-light",
+    "opencode_dir": "/tmp/opencode/e2e-light/.opencode",
+    "mode": "project",
+    "profile": "full",
+    "vault": {
+      "path": "/tmp/opencode/e2e-light",
+      "state": "created"
+    },
+    "agents": {
+      "written": 15,
+      "unchanged": 0,
+      "pruned": 0
+    },
+    "skills": {
+      "written": 19,
+      "unchanged": 0,
+      "pruned": 0
+    },
+    "plugin": {
+      "written": 1,
+      "unchanged": 0,
+      "pruned": 0
+    },
+    "command": {
+      "written": 1,
+      "unchanged": 0,
+      "pruned": 0
+    },
+    "agents_md": {
+      "written": 1,
+      "unchanged": 0,
+      "pruned": 0
+    },
+    "pruned_paths": []
+  },
+  "timestamp": "2026-08-23T08:31:34.487775+00:00"
+}
