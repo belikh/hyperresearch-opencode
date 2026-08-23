@@ -125,14 +125,12 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 # P1-10: modules whose owning pieces have not landed yet (core.hooks is the
-# Phase-2 agent renderer; hyperresearch.serve lands with P1-12 — the
-# hyperresearch.mcp entry was pruned when P1-11 landed that package). The CLI
-# wrappers lazy-import them inside handlers, so the imports only fail at call
-# time, never at registration. Same reasoning as the tavily/exa override
-# above; remove entries together with their piece.
+# Phase-2 agent renderer). The CLI wrappers lazy-import them inside handlers,
+# so the imports only fail at call time, never at registration. Same reasoning
+# as the tavily/exa override above; remove entries together with their piece.
+# Pruned so far: hyperresearch.mcp.* (P1-11), hyperresearch.serve.* (P1-12).
 module = [
     "hyperresearch.core.hooks",
-    "hyperresearch.serve.*",
 ]
 ignore_missing_imports = true
 
