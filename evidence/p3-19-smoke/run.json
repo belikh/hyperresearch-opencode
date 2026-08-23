@@ -1,0 +1,118 @@
+{
+  "manifest_version": 1,
+  "vault_tag": "mrna-vaccine-cold-chain-f82458",
+  "profile": "smoke",
+  "profile_steps": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16"
+  ],
+  "status": "done",
+  "started_at": "2026-08-23T10:04:54.398060+00:00",
+  "updated_at": "2026-08-23T16:41:06.718889+00:00",
+  "budget_usd": 5.0,
+  "blocked_on": null,
+  "steps": {
+    "1": {
+      "status": "done",
+      "started_at": "2026-08-23T10:05:54.342706+00:00",
+      "finished_at": "2026-08-23T10:09:04.417223+00:00"
+    },
+    "2": {
+      "status": "done",
+      "started_at": "2026-08-23T10:09:31.620597+00:00",
+      "finished_at": "2026-08-23T10:59:04.202175+00:00"
+    },
+    "3": {
+      "status": "done",
+      "finished_at": "2026-08-23T11:03:06.351208+00:00"
+    },
+    "4": {
+      "status": "done",
+      "finished_at": "2026-08-23T11:13:38.461242+00:00"
+    },
+    "5": {
+      "status": "done",
+      "finished_at": "2026-08-23T11:47:02.009755+00:00"
+    },
+    "6": {
+      "status": "done",
+      "finished_at": "2026-08-23T11:50:14.193409+00:00"
+    },
+    "7": {
+      "status": "done",
+      "finished_at": "2026-08-23T11:53:39.004345+00:00"
+    },
+    "8": {
+      "status": "done",
+      "finished_at": "2026-08-23T12:44:13.433506+00:00"
+    },
+    "9": {
+      "status": "done",
+      "finished_at": "2026-08-23T12:48:18.205781+00:00"
+    },
+    "10": {
+      "status": "done",
+      "started_at": "2026-08-23T13:23:40.383803+00:00",
+      "finished_at": "2026-08-23T14:20:07.131261+00:00"
+    },
+    "11": {
+      "status": "done",
+      "finished_at": "2026-08-23T15:03:33.631994+00:00"
+    },
+    "12": {
+      "status": "done",
+      "finished_at": "2026-08-23T15:28:25.032021+00:00"
+    },
+    "13": {
+      "status": "done",
+      "finished_at": "2026-08-23T15:29:17.507133+00:00"
+    },
+    "14": {
+      "status": "done",
+      "finished_at": "2026-08-23T15:50:01.994645+00:00"
+    },
+    "14.5": {
+      "status": "done",
+      "finished_at": "2026-08-23T16:22:44.846989+00:00"
+    },
+    "15": {
+      "status": "done",
+      "finished_at": "2026-08-23T16:32:06.113116+00:00"
+    },
+    "16": {
+      "status": "done",
+      "finished_at": "2026-08-23T16:40:37.462105+00:00"
+    }
+  },
+  "chapters": {},
+  "spend": {
+    "estimated_usd": 0.0,
+    "sources_fetched": 0,
+    "notes_written": 0,
+    "agents_spawned": 0
+  },
+  "levers": {
+    "register": "analyze",
+    "inference_depth": "standard",
+    "domain_notes": "Sourcing: academic APIs first (PubMed, Semantic Scholar, OpenAlex) for mechanism and stability literature; regulatory primary documents (FDA EUA fact sheets, EMA assessment reports) outrank press coverage for any storage-temperature claim; landmark papers (Karik\u00f3 & Weissman 2005) and authoritative reviews anchor the mechanism story. Recency window: core literature 2005-2024, deployment-era specifics Nov 2020 onward; post-pandemic thermostability work (2023-2026) included where it changes the verdict."
+  },
+  "verify": {
+    "passed": true,
+    "at": "2026-08-23T16:41:06.718383+00:00",
+    "failed_checks": []
+  }
+}

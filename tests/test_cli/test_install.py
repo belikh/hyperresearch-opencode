@@ -433,6 +433,149 @@ class TestProfileRerender:
 
 
 # ---------------------------------------------------------------------------
+# P2-16 addendum — `hpr profile use <gear>` (opencode re-render, no core.hooks)
+# ---------------------------------------------------------------------------
+
+
+class TestProfileUseVerb:
+    """`hpr profile use <gear>` must re-render OUR opencode artifacts.
+
+    Live E2E found the verb crashing `ModuleNotFoundError:
+    No module named 'hyperresearch.core.hooks'` — it invoked upstream's Claude
+    installer. The retargeted verb renders agents + skills from the resolved
+    profile (plugin is gear-independent and stays untouched), keeps the
+    envelope keys (gear/description/sources/time_estimate/rerendered) with
+    manifest-style counts under ``rerendered``, and keeps the human
+    "Gear switched:" line.
+    """
+
+    def test_use_smoke_rerenders_opencode_artifacts_and_persists_gear(
+        self, proj: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _install(str(proj))  # default full gear baked into every file
+        agents = proj / ".opencode" / "agents"
+        skills = proj / ".opencode" / "skills"
+        plugin = proj / ".opencode" / "plugins" / PLUGIN_FILENAME
+
+        critic_full = (agents / "hyperresearch-dialectic-critic.md").read_text(encoding="utf-8")
+        router_full = (skills / "hyperresearch" / "SKILL.md").read_text(encoding="utf-8")
+        assert "At most 12 findings." in critic_full
+        assert "~1.5–2.5 hours" in router_full
+
+        plugin_before = (plugin.read_bytes(), plugin.stat().st_mtime_ns)
+
+        monkeypatch.chdir(proj)
+        result = runner.invoke(app, ["profile", "use", "smoke", "--json"])
+        assert result.exit_code == 0, result.output
+        envelope = json.loads(result.output)
+        assert envelope["ok"] is True
+        data = envelope["data"]
+
+        # Output contract preserved: same envelope keys, manifest-style counts.
+        assert set(data) == {"gear", "description", "sources", "time_estimate", "rerendered"}
+        assert data["gear"] == "smoke"
+        assert data["sources"] == [8, 12]
+        assert data["time_estimate"] == "~10 min"
+        assert data["rerendered"] == {
+            "agents": {"written": 15, "unchanged": 0},
+            "skills": {"written": 19, "unchanged": 0},
+        }
+
+        # Agent files re-baked with smoke numbers (changed vs full).
+        critic_smoke = (agents / "hyperresearch-dialectic-critic.md").read_text(encoding="utf-8")
+        assert "At most 4 findings." in critic_smoke
+        assert "At most 12 findings." not in critic_smoke
+        assert "(default 2 if" in (agents / "hyperresearch-depth-investigator.md").read_text(
+            encoding="utf-8"
+        )
+
+        # Skill files consistently re-rendered from the new gear…
+        router_smoke = (skills / "hyperresearch" / "SKILL.md").read_text(encoding="utf-8")
+        assert 'rendered from profile "smoke"' in router_smoke
+        assert "~10 min" in router_smoke
+
+        # …and the choice persisted into the vault config.
+        assert 'profile = "smoke"' in (proj / ".hyperresearch" / "config.toml").read_text(
+            encoding="utf-8"
+        )
+
+        # Plugin untouched (gear-independent).
+        assert (plugin.read_bytes(), plugin.stat().st_mtime_ns) == plugin_before
+
+        # Re-rendering the SAME gear is a full no-op: zero writes, sha256 AND
+        # mtime stable over every skill file (byte-stability proof).
+        skills_snap = _snapshot(skills)
+        result2 = runner.invoke(app, ["profile", "use", "smoke", "--json"])
+        assert result2.exit_code == 0, result2.output
+        data2 = json.loads(result2.output)["data"]
+        assert data2["rerendered"] == {
+            "agents": {"written": 0, "unchanged": 15},
+            "skills": {"written": 0, "unchanged": 19},
+        }
+        assert _snapshot(skills) == skills_snap
+
+    def test_falsifier_pre_fix_import_raises_post_fix_verb_works(
+        self, proj: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The defect pinned on both sides.
+
+        Pre-fix (live E2E failure recorded before the fix):
+
+            File ".../cli/profile_cmd.py:160 in profile_use
+              from hyperresearch.core.hooks import install_hooks
+            ModuleNotFoundError: No module named 'hyperresearch.core.hooks'
+
+        First half proves the module really is absent; second half proves the
+        verb now completes on a real install. Together they falsify any
+        reintroduction of the dependency into this CLI path.
+        """
+        with pytest.raises(ModuleNotFoundError) as excinfo:
+            from hyperresearch.core.hooks import install_hooks  # noqa: F401
+
+        assert str(excinfo.value) == "No module named 'hyperresearch.core.hooks'"
+
+        _install(str(proj))
+        monkeypatch.chdir(proj)
+        result = runner.invoke(app, ["profile", "use", "premier", "--json"])
+        assert result.exit_code == 0, result.output
+        envelope = json.loads(result.output)
+        assert envelope["ok"] is True
+        rerendered = envelope["data"]["rerendered"]
+        assert rerendered["agents"]["written"] + rerendered["agents"]["unchanged"] == 15
+        assert rerendered["skills"]["written"] + rerendered["skills"]["unchanged"] == 19
+
+    def test_unknown_gear_still_fails_cleanly_without_mutating(
+        self, proj: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _install(str(proj))
+        cfg = proj / ".hyperresearch" / "config.toml"
+        cfg_before = cfg.read_text(encoding="utf-8")
+        agents_snap = _snapshot(proj / ".opencode" / "agents")
+
+        monkeypatch.chdir(proj)
+        result = runner.invoke(app, ["profile", "use", "does-not-exist", "--json"])
+        assert result.exit_code == 1
+        envelope = json.loads(result.output)
+        assert envelope["ok"] is False
+        assert envelope["error_code"] == "UNKNOWN_PROFILE"
+        assert "unknown profile 'does-not-exist'" in envelope["error"]
+
+        # No side effects: gear not persisted, artifacts byte+mtime identical.
+        assert cfg.read_text(encoding="utf-8") == cfg_before
+        assert _snapshot(proj / ".opencode" / "agents") == agents_snap
+
+    def test_human_output_keeps_gear_switched_line(
+        self, proj: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _install(str(proj))
+        monkeypatch.chdir(proj)
+        result = runner.invoke(app, ["profile", "use", "smoke"])
+        assert result.exit_code == 0, result.output
+        assert "Gear switched:" in result.output
+        assert "re-rendered 34 skill/agent file(s)" in result.output
+
+
+# ---------------------------------------------------------------------------
 # (g) steps-only -> full upgrade
 # ---------------------------------------------------------------------------
 

@@ -1,0 +1,1228 @@
+[0m
+> build · x-preview-f-free
+[0m
+[0m→ [0mSkill "hyperresearch"
+Entry skill loaded. This is **RESUME MODE** for an interrupted run. Let me get the exact continuation position and inspect the existing run state before proceeding.
+[0m
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch archive-run --json
+{
+  "ok": true,
+  "data": {
+    "archived": false,
+    "files_moved": 0,
+    "previous_vault_tag": null
+  },
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:17:23.249158+00:00"
+}
+[0m
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch run resume mrna-vaccine-cold-chain-f82458 -j
+{
+  "ok": true,
+  "data": {
+    "vault_tag": "mrna-vaccine-cold-chain-f82458",
+    "run_dir": "/tmp/opencode/e2e-smoke/research/runs/mrna-vaccine-cold-chain-f82458",
+    "profile": "smoke",
+    "next_step": "2",
+    "done_steps": [
+      "1"
+    ],
+    "remaining_steps": [
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16"
+    ],
+    "chapters_pending": [],
+    "skill_to_invoke": "hyperresearch-2"
+  },
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:17:23.670383+00:00"
+}
+[0m
+[0m→ [0mRead research/runs/mrna-vaccine-cold-chain-f82458/run.json
+[0m→ [0mRead research/runs/mrna-vaccine-cold-chain-f82458
+Run `mrna-vaccine-cold-chain-f82458` confirmed: step 1 done, next step is **2**. Now let me inspect the canonical inputs and existing artifacts to bootstrap my orchestrator state.
+[0m→ [0mRead research/runs/mrna-vaccine-cold-chain-f82458/shims
+[0m→ [0mRead research/runs/mrna-vaccine-cold-chain-f82458/prompt-decomposition.json
+[0m→ [0mRead research/runs/mrna-vaccine-cold-chain-f82458/query.md
+[0m→ [0mRead research/runs/mrna-vaccine-cold-chain-f82458/temp
+[0m
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch note list --tag mrna-vaccine-cold-chain-f82458 --all -j
+{
+  "ok": true,
+  "data": [],
+  "count": 0,
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:18:15.080597+00:00"
+}
+[0m
+Step 2 was interrupted before any sources were fetched (zero run-tagged notes exist; `search-plan.md` + `coverage-matrix.md` exist). Let me read the remaining bootstrap artifacts.
+[0m→ [0mRead research/runs/mrna-vaccine-cold-chain-f82458/temp/search-plan.md
+[0m→ [0mRead research/runs/mrna-vaccine-cold-chain-f82458/scaffold.md
+[0m
+[0m# [0mTodos
+[✓] Step 1 — Skill: hyperresearch-1-decompose
+[•] Step 2 — Skill: hyperresearch-2-width-sweep (RE-RUN: no sources fetched yet)
+[ ] Step 3 — Skill: hyperresearch-3-contradiction-graph
+[ ] Step 4 — Skill: hyperresearch-4-loci-analysis
+[ ] Step 5 — Skill: hyperresearch-5-depth-investigation
+[ ] Step 6 — Skill: hyperresearch-6-cross-locus-reconcile
+[ ] Step 7 — Skill: hyperresearch-7-source-tensions
+[ ] Step 8 — Skill: hyperresearch-8-corpus-critic
+[ ] Step 9 — Skill: hyperresearch-9-evidence-digest
+[ ] Step 10 — Skill: hyperresearch-10-triple-draft
+[ ] Step 11 — Skill: hyperresearch-11-synthesize
+[ ] Step 12 — Skill: hyperresearch-12-critics
+[ ] Step 13 — Skill: hyperresearch-13-gap-fetch
+[ ] Step 14 — Skill: hyperresearch-14-patcher
+[ ] Step 14.5 — Skill: hyperresearch-14-5-cite-check
+[ ] Step 15 — Skill: hyperresearch-15-polish
+[ ] Step 16 — Skill: hyperresearch-16-readability-audit
+[ ] Ship gate — run finish + integrity checks
+[0m
+Bootstrap is fully recovered. State summary:
+
+- **Run**: `mrna-vaccine-cold-chain-f82458` — smoke gear, **full tier** (all 16 steps), $5 hard cap
+- **Done**: Step 1 (decomposition → 6 required section headings, argumentative format, wikilink citations)
+- **Interrupted**: Step 2 mid-flight — search plan written, but **zero sources fetched**
+- **Resume position**: Re-execute step 2 from its start
+
+Seeding the durable todo list, then invoking the step-2 skill.
+[0m→ [0mSkill "hyperresearch-2-width-sweep"
+[0m→ [0mRead research/runs/mrna-vaccine-cold-chain-f82458/temp/coverage-matrix.md
+Step 2 procedure loaded. The search plan survived the interruption and passes its checks (16 planned searches, 3 adversarial ≥2 required, all lens types). Let me read the remaining inputs: coverage matrix + the research shim (required for fetcher spawns).
+[0m→ [0mRead research/runs/mrna-vaccine-cold-chain-f82458/shims/research.md
+[0m
+[0m$ [0mcurl -s "https://api.semanticscholar.org/graph/v1/paper/search?query=mRNA+vacccine+nucleoside+modification+pseudouridine+innate+immune&fields=title,year,citationCount,externalIds&limit=8" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+for p in d.get('data',[]):
+    print(p['year'], p['citationCount'], '|', p['title'], '|', (p.get('externalIds') or {}).get('DOI'))
+" ; echo '---S2---'; sleep 2; curl -s "https://api.semanticscholar.org/graph/v1/paper/search?query=mRNA+vaccine+lipid+nanoparticle+cold+chain+stability&fields=title,year,citationCount,externalIds&limit=8" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+for p in d.get('data',[]):
+    print(p['year'], p['citationCount'], '|', p['title'], '|', (p.get('externalIds') or {}).get('DOI'))
+"
+---S2---
+[0m
+Step 2.1's plan already exists and passed its gap check. Proceeding to **step 2.2 — execute searches**. Academic APIs first, in parallel batches.
+[0m$ [0mcurl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=mRNA+vaccine+thermostability+lyophilization+lipid+nanoparticle&retmode=json&retmax=10" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+print('\n'.join(d['esearchresult']['idlist']))
+"; echo '---PUBMED2---'; sleep 1; curl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=mRNA+vaccine+cold+chain+storage+temperature&retmode=json&retmax=10" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+print('\n'.join(d['esearchresult']['idlist']))
+"
+42350438
+42288299
+41993129
+41893779
+41625776
+41331990
+40997950
+40901740
+40499765
+39408932
+---PUBMED2---
+42506657
+41893779
+41880821
+41331990
+41101606
+40997950
+40759560
+40499765
+39408932
+38338667
+[0m
+[0m$ [0mcurl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=39408932,40499765,40997950,41331990,41893779,38338667&retmode=json" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)['result']
+for uid in d['uids']:
+    r=d[uid]
+    print(uid, '|', r.get('pubdate','')[:4], '|', r['title'][:160], '|', r.get('fulljournalname',''))
+"
+39408932 | 2024 | Comprehensive Optimization of a Freeze-Drying Process Achieving Enhanced Long-Term Stability and In Vivo Performance of Lyophilized mRNA-LNPs. | International journal of molecular sciences
+40499765 | 2025 | Lyophilized SARS-CoV-2 self-amplifying RNA vaccines for microneedle array patch delivery. | Journal of controlled release : official journal of the Controlled Release Society
+40997950 | 2025 | Overcoming cold chain challenges: Cryoprotection of self-amplifying mRNA polyplexes for long-term storage at ambient temperature. | Journal of controlled release : official journal of the Controlled Release Society
+41331990 | 2025 | Not so cold! Improving the thermostability of mRNA vaccines. | Expert review of vaccines
+41893779 | 2026 | Investigation on a Freeze-Drying Process for Long-Term Stability of mRNA-LNPs. | Vaccines
+38338667 | 2024 | Novel Lipid Nanoparticles Stable and Efficient for mRNA Transfection to Antigen-Presenting Cells. | International journal of molecular sciences
+[0m
+PubMed returned hits; Semantic Scholar came back empty (typo in query). Retrying S2 + fetching PubMed titles + starting web searches in parallel.
+[0m$ [0mcurl -s "https://api.semanticscholar.org/graph/v1/paper/search?query=mRNA+vaccine+nucleoside+modification+pseudouridine&fields=title,year,citationCount,externalIds&limit=8" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+for p in d.get('data',[]) or []:
+    print(p['year'], p['citationCount'], '|', p['title'], '|', (p.get('externalIds') or {}).get('DOI'))
+"; echo '---S2B---'; sleep 3; curl -s "https://api.semanticscholar.org/graph/v1/paper/search?query=mRNA+lipid+nanoparticle+vaccine+cold+chain&fields=title,year,citationCount,externalIds&limit=8" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+for p in d.get('data',[]) or []:
+    print(p['year'], p['citationCount'], '|', p['title'], '|', (p.get('externalIds') or {}).get('DOI'))
+"
+---S2B---
+[0m
+[0m◈ [0mExa Web Search "how mRNA vaccines work mechanism review lipid nanoparticle antigen presentation immune response"
+Strong mechanism + lyophilization hits already. Now filling remaining atomic items: Karikó 2005 canonical, RNA instability, cold-chain deployment evolution (period-pinned), and adversarial angles.
+[0m◈ [0mExa Web Search "Karikó Weissman 2005 suppression of RNA recognition toll-like receptors pseudouridine mRNA Immunity"
+[0m◈ [0mExa Web Search "Pfizer BioNTech BNT162b2 -70°C ultra-cold storage FDA fact sheet December 2020 -20°C February 2021 label change"
+Karikó 2005 and FDA period-pinned primaries secured. Continuing with Moderna formulation, adversarial angles, RNA-instability, and thermostable-formulation searches.
+[0m◈ [0mExa Web Search "Moderna mRNA-1273 stability -20°C six months 2-8°C 30 days sucrose buffer formulation storage"
+[0m◈ [0mExa Web Search "ultra-cold chain COVID vaccines inequity low-income countries criticism freezer burden waste"
+Now the final search round: RNA instability fundamentals + lyophilization limitations (adversarial).
+[0m◈ [0mExa Web Search "mRNA inherent instability hydrolysis RNase degradation therapeutic development barrier review"
+[0m◈ [0mExa Web Search "lyophilized mRNA LNP vaccine challenges aggregation ice damage glass transition limitations"
+Search execution complete — all lenses covered. Now **step 2.3 — utility scoring**, writing `scored-urls.md`, then batching for fetchers.
+[0m
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/temp/scored-urls.md
+Wrote file successfully.
+[0m
+[0m• [0mFetch batch B sources[90m Hyperresearch-Fetcher Agent[0m
+**Step 2.4 — Wave 1:** Spawning both fetchers in parallel with non-overlapping batches of 6.
+[0m✓ [0mFetch batch B sources[90m Hyperresearch-Fetcher Agent[0m
+[0m• [0mFetch batch A sources[90m Hyperresearch-Fetcher Agent[0m
+Batch 2 landed (+6 notes incl. 2 citation-chain primaries). Batch A still needs spawning — launching it now.
+[0m✓ [0mFetch batch A sources[90m Hyperresearch-Fetcher Agent[0m
+Wave 1 complete: 12 notes in vault. Running **step 2.5 — coverage check** against the decomposition's atomic items.
+[0m
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch note list --tag mrna-vaccine-cold-chain-f82458 --all -j | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+for n in d['data']:
+    print(n['id'], '|', n.get('type',''), '|', (n.get('summary') or '')[:110])
+print('TOTAL:', d['count'])
+"
+TOTAL: 0
+[0m
+Tag filter returned zero — checking unfiltered note list to see how fetchers actually tagged their notes.
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch note list --json | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+for n in d['data']:
+    print(n['id'], '|', ','.join(n.get('tags',[])), '|', (n.get('summary') or '')[:100])
+print('TOTAL:', d['count'])
+"
+acknowledgments | covid-19,lipid-nanoparticles,mrna-vaccines | Pardi, Hogan, Naradikian et al. (J Exp Med 2018), 'Nucleoside-modified mRNA vaccines induce potent T
+references-2 | cold-chain,covid-19,review,stability | Crommelin, Anchordoquy, Volkin, Jiskoot & Mastrobattista (J Pharm Sci 2021), 'Addressing the Cold Re
+dailymed-pfizer-biontech-covid-19-vaccine-bnt162b2-injection-suspension | cold-chain,covid-19,fda,regulatory | Archived DailyMed label (capture 2021-01-29; label LAB-1450-5.0, revised January 2021) for Pfizer-Bi
+data-availability-statement | cold-chain,lipid-nanoparticles,mrna-vaccines,stability | Li et al. (npj Vaccines 2023, Tianjin Univ. of Science & Technology + CanSino Biologics), 'Lyophiliz
+acknowledgement | cold-chain,covid-19,review,stability | Oude Blenke, Örnskov, Schöneich, Nilsson, Volkin, Mastrobattista, Almarsson & Crommelin (J Pharm Sci
+references | covid-19,lipid-nanoparticles,mrna-vaccines,review | Verbeke, Rein, Hogan, Loré & Pardi (Immunity 2022) review of innate immune mechanisms of nucleoside-
+lock-3 | cold-chain,lipid-nanoparticles,review,stability | Schoenmaker et al. 2021 Int J Pharm 601:120586 'mRNA-lipid nanoparticle COVID-19 vaccines: Structure
+coronavirus-covid-19-update-fda-allows-more-flexible-storage-transportation-cond | cold-chain,covid-19,fda,regulatory | FDA press announcement, February 25, 2021 — primary regulatory document updating the Pfizer-BioNTech
+lock-2 | cold-chain,lipid-nanoparticles,mrna-vaccines,review,stability | Khan, Islam, Mishra & Kamen 2026 comprehensive review of mRNA-LNP degradation mechanisms (Vaccines 1
+lock | lipid-nanoparticles,mrna-vaccines,review,stability | Hou, Zaks, Langer & Dong 2021 Nature Reviews Materials review 'Lipid nanoparticles for mRNA delivery
+the-coldest-cold-chain-chilling-effects-of-covid-19-vaccines | cold-chain,covid-19,ethics,health-policy | Sandvik, Kovács & Comes commentary (International Health Policies blog, Nov 25 2020) on the logistic
+mrna-vaccines-in-the-covid-19-pandemic-and-beyond-annual-reviews | covid-19,mrna-vaccines,review,source-hub | Hogan & Pardi 2022 Annual Review of Medicine 73:17-39 overview of mRNA COVID-19 vaccines (doi:10.114
+TOTAL: 12
+[0m
+Notes exist but lack the run tag — fixing scoping by adding `mrna-vaccine-cold-chain-f82458` to all 12 notes so downstream steps can address the run's corpus.
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch note list --json | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+print('\n'.join(n['id'] for n in d['data']))
+" | while read -r id; do
+  /home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch note update "$id" --add-tag mrna-vaccine-cold-chain-f82458 -j > /dev/null || echo "FAILED: $id"
+done; echo '---'; /home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch note list --tag mrna-vaccine-cold-chain-f82458 --all -j | python3 -c "import sys,json; print('tagged count:', json.load(sys.stdin)['count'])"
+---
+tagged count: 12
+[0m
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/temp/coverage-gaps.md
+Wrote file successfully.
+[0m
+All 12 notes tagged. Writing the coverage report (**step 2.5** output), then checking claims files for the **redundancy audit (step 2.6)**.
+[0m$ [0mls research/runs/mrna-vaccine-cold-chain-f82458/temp/
+claims-acknowledgement.json
+claims-acknowledgments.json
+claims-coronavirus-covid-19-update-fda-allows-more-flexible-storage-transportation-cond.json
+claims-dailymed-pfizer-biontech-covid-19-vaccine-bnt162b2-injection-suspension.json
+claims-data-availability-statement.json
+claims-lock-2.json
+claims-lock-3.json
+claims-lock.json
+claims-mrna-vaccines-in-the-covid-19-pandemic-and-beyond-annual-reviews.json
+claims-references-2.json
+claims-references.json
+claims-the-coldest-cold-chain-chilling-effects-of-covid-19-vaccines.json
+coverage-gaps.md
+coverage-matrix.md
+scored-urls.md
+search-plan.md
+[0m
+Claims files exist for all 12 notes — running the **step 2.6 redundancy audit** by inspecting claim overlap and citation ancestry.
+[0m$ [0mpython3 - <<'EOF'
+import json, glob, os
+base='research/runs/mrna-vaccine-cold-chain-f82458/temp'
+for f in sorted(glob.glob(f'{base}/claims-*.json')):
+    d=json.load(open(f))
+    claims = d if isinstance(d,list) else d.get('claims',d.get('data',[]))
+    nid=os.path.basename(f)[7:-5]
+    print(f"== {nid} ({len(claims)} claims)")
+    for c in claims[:8]:
+        q=(c.get('quoted_support') or c.get('quote') or '')[:90].replace('\n',' ')
+        sb=c.get('suggested_by') or c.get('suggested-by') or ''
+        print(f"   - {q} | sb={sb}")
+EOF
+== acknowledgement (9 claims)
+   - Long-term storage integrity of Comirnaty® and SpikeVax® is only achieved at subzero temper | sb=
+   - The kinetics of the transesterification reaction are accelerated by alkaline pH and therma | sb=
+   - amino lipids, such as those used in the Moderna and Pfizer/BioNTech mRNA-LNP COVID-19 vacc | sb=
+   - The formulation was changed to a second-generation formulation containing Tris buffer with | sb=
+   - This method revealed that 'linkages 5’ of a uridine residue are particularly susceptible t | sb=
+   - Zhao et al. employed a shortened mRNA chain length of 1100 nt compared to 4000+ nt for the | sb=
+   - In India, GEMCOVAC™-19, a freeze-dried form of an mRNA vaccine encoding for the S-protein  | sb=
+   - only mechanical shear stress caused immediate loss of mRNA integrity and aggregation of th | sb=
+== acknowledgments (4 claims)
+   - replacement of uridine (U) with m1Ψ resulted in ∼20 times more total luciferase protein an | sb=
+   - three vaccines consisting of m1Ψ-modified, FPLC-purified mRNA-LNPs encoding HIV-1 envelope | sb=
+   - we demonstrate that mRNA-LNPs act as highly effective adjuvants and that incorporation of  | sb=
+   - [primary] ∼20 times more total luciferase protein | [Verbeke review] luciferase from m1Ψ-m | sb=
+== coronavirus-covid-19-update-fda-allows-more-flexible-storage-transportation-cond (2 claims)
+   - the U.S. Food and Drug Administration announced that it is allowing undiluted frozen vials | sb=
+   - The alternative temperature for storage of frozen vials is not applicable to the storage o | sb=
+== dailymed-pfizer-biontech-covid-19-vaccine-bnt162b2-injection-suspension (2 claims)
+   - remove the vial cartons immediately from the thermal container and store in an ultra-low t | sb=
+   - Thaw and then store undiluted vials in the refrigerator [2ºC to 8ºC (35ºF to 46ºF)] for up | sb=
+== data-availability-statement (5 claims)
+   - an efficient lyophilization method suitable for mRNA-LNPs was designed and optimized, shor | sb=
+   - The lyophilized samples with the optimal protectant formulation ... showed no significant  | sb=
+   - The immune effects on Day 14 and Day 28 after primary immunization are shown in Fig. 6F, G | sb=
+   - Arteta et al. found that the isotropic LNP core consists of 24% water (volume fraction), a | sb=
+   - Sub-zero temperature conditions and transportation are needed for the two current licensed | sb=
+== lock-2 (6 claims)
+   - Comirnaty (Pfizer-BioNTech), 2025–2026 −90 to −60 °C Until labeled expiry date when stored | sb=
+   - Current mRNA vaccines require ultra-cold storage; for example, Pfizer’s vaccine must be st | sb=
+   - Without cryoprotectants, even 2–3 freeze–thaw cycles reduce mRNA-LNP potency by more than  | sb=
+   - Lyophilization (freeze-drying) improves stability by reducing moisture content, inhibiting | sb=
+   - functional stability was formulation dependent, as C12-200 LNPs maintained EGFP expression | sb=
+   - UHPLC analysis of stored COVID-19 mRNA-LNP revealed significant DSPC and cholesterol degra | sb=
+== lock-3 (5 claims)
+   - The current mRNA COVID-19 vaccines of Moderna and BioNTech/Pfizer have to be kept between  | sb=
+   - At refrigerator temperatures, 2–8 °C, the Pfizer/BioNTech and Moderna vaccines are stable  | sb=
+   - An implication of this is that decreasing the exposure to water would be a promising appro | sb=
+   - shows that freeze-dried mRNA formulated with trehalose is stable at 4 °C for up to 10 mont | sb=
+   - Tom Madden, the CEO of Acuitas Therapeutics, stated that the Moderna and Pfizer/BioNTech m | sb=
+== lock (6 claims)
+   - mRNA-1273 is stored at −15 °C to −20 °C and is directly injected after thawing, whereas BN | sb=
+   - Recently, the European Medicines Agency (EMA) has approved storage of BNT162b2 at −15 °C t | sb=
+   - the addition of 5% (w/v) sucrose or trehalose to lipid nanoparticle–mRNA formulations, sto | sb=
+   - Cholesterol can enhance particle stability by modulating membrane integrity and rigidity.  | sb=
+   - The IVT mRNA molecules used in the mRNA-1273 and BNT162b2 COVID-19 vaccines were prepared  | sb=
+   - Although cold-chain transportation can maintain vaccine activity, the development of lipid | sb=
+== mrna-vaccines-in-the-covid-19-pandemic-and-beyond-annual-reviews (0 claims)
+== references-2 (4 claims)
+   - Moderna−20 °C, up to 6 months30 daysUp to 12 h ... Pfizer-BioNTech−80 °C to −60 °C, up to  | sb=
+   - Even a minor degradation reaction, anywhere along a mRNA strand, can severely slow or stop | sb=
+   - The dried formulation was stored at temperatures ranging from −80 to +70 °C. Under the cho | sb=
+   - in a theoretical study, Wayment-Steele et al. predict a hundred-fold increase in cleavage  | sb=
+== references (7 claims)
+   - A major breakthrough came via the studies of Karikó, Weissman, and colleagues in the 2000s | sb=
+   - firefly luciferase expression from unmodified mRNA-iLNP can be detected for 8 days after i | sb=
+   - The ionizable lipid component is critical for this adjuvant effect, as empty LNPs without  | sb=
+   - The ionizable lipid is also essential to achieve a nanoparticle that has a neutral surface | sb=
+   - The three major categories of innate immune sensing of synthetic mRNA are (1) uridine-depe | sb=
+   - In the draining LNs of BNT162b2-vaccinated humans, GC B cell and Tfh cell responses persis | sb=
+   - Mda5−/− mice and Ifnar1−/− mice exhibit a massive decrease in the frequency of antigen-spe | sb=
+== the-coldest-cold-chain-chilling-effects-of-covid-19-vaccines (6 claims)
+   - Taking the Pfizer vaccine, with a storage requirement of -70˚C (-94 F) or below, as our ca | sb=
+   - The proposed active plus passive cooling in containers will enable keeping vaccines in the | sb=
+   - The estimated time that vaccines will stay usable after opening a package is 24 hours only | sb=
+   - Such a short delivery time calls for air transportation; yet carrying dry ice on airplanes | sb=
+   - The proposed package sizes are for 5,000 vs 1,000 units. While optimal for transportation, | sb=
+   - it is likely that the 92 ODA-eligible countries accessing vaccines through the AMC may als | sb=
+[0m
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/temp/redundancy-audit.md
+Wrote file successfully.
+[0m
+No derivative clusters — overlapping storage-fact claims are independent publications reporting the same regulatory facts with distinct added value. Writing the audit, then running **step 2.7 ranking signals**.
+[0m$ [0mHPR=/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch; $HPR claims ingest --tag mrna-vaccine-cold-chain-f82458 -j | tail -5; $HPR sources backfill-doi --tag mrna-vaccine-cold-chain-f82458 -j | tail -5
+"errors": []
+  },
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:56:19.500837+00:00"
+}
+    "dois_added": 0
+  },
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:56:20.314913+00:00"
+}
+[0m
+[0m$ [0mHPR=/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch; $HPR sources score --tag mrna-vaccine-cold-chain-f82458 -j 2>&1 | python3 -c "
+import sys,json
+raw=sys.stdin.read()
+try:
+    d=json.loads(raw)
+    dd=d.get('data',{})
+    print('retracted:', dd.get('retracted'))
+    print('scored:', dd.get('scored', len(dd.get('sources',[]))))
+    for s in (dd.get('sources') or [])[:15]:
+        if isinstance(s,dict): print(s.get('note_id'), '| q=', s.get('quality_score'), '| cit=', s.get('citation_count'), '| retr=', s.get('retracted'))
+except Exception as e:
+    print(raw[:2000])
+"; $HPR graph rank -j | tail -4
+retracted: []
+scored: 4
+  "count": 12,
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:56:59.393510+00:00"
+}
+[0m
+No retractions; ranking signals persisted. **Step 2.8** — checking the escalation queue for blocked fetches.
+[0m$ [0mHPR=/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch; $HPR escalation list --status queued --tag mrna-vaccine-cold-chain-f82458 -j
+{
+  "ok": true,
+  "data": {
+    "items": [],
+    "stats": {
+      "queued": 0,
+      "in_progress": 0,
+      "fetched": 0,
+      "needs_human": 0,
+      "abandoned": 0
+    }
+  },
+  "count": 0,
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:58:37.451129+00:00"
+}
+[0m
+Queue empty — blocked fetches were handled inline by fetchers. **Step 2 exit criteria all met** (12 sources, no uncovered items, both audit files written). Marking step 2 done in the manifest and moving to step 3.
+[0m$ [0mHPR=/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch; $HPR run step mrna-vaccine-cold-chain-f82458 2 --status done -j | tail -3; mkdir -p research/runs/mrna-vaccine-cold-chain-f82458/temp && cat >> research/runs/mrna-vaccine-cold-chain-f82458/temp/orchestrator-notes.md <<'EOF'
+## Step 2 resume-complete (2026-08-23)
+- 12 notes fetched across 2 batches + citation chains. No retractions. Escalation queue empty.
+- Corpus shape: mechanism (Verbeke, Pardi2018, Hogan&Pardi, Hou/Langer) / stability chemistry (Oude Blenke, Schoenmaker, Crommelin) / process-level lyophilization (Li npj, Khan2026) / deployment primaries (DailyMed Jan-2021 label, FDA Feb-2021 release) / adversarial equity (IHP commentary).
+- Emerging thesis for drafting: the cold chain was unlocked less by any single "eureka" than a stack — m1Ψ (tolerability/translation), LNP encapsulation (RNase protection), then formulation/process engineering (sucrose cryoprotection, Tris buffer, lyophilization) that walked labels from -80 to fridge over 2020–26. Attribution contest between sequence-level vs formulation-level vs regulatory-data-accumulation is the dialectical core.
+- Watch: Karikó 2005 has NO OA full text — cite via abstract claims only. Pardi-vs-Verbeke ~20x vs ~10-fold discrepancy seeded for cite-check.
+EOF
+echo notes-appended
+"vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:59:04.203055+00:00"
+}
+notes-appended
+[0m
+[0m# [0mTodos
+[✓] Step 1 — Skill: hyperresearch-1-decompose
+[✓] Step 2 — Skill: hyperresearch-2-width-sweep (RE-RUN: no sources fetched yet)
+[•] Step 3 — Skill: hyperresearch-3-contradiction-graph
+[ ] Step 4 — Skill: hyperresearch-4-loci-analysis
+[ ] Step 5 — Skill: hyperresearch-5-depth-investigation
+[ ] Step 6 — Skill: hyperresearch-6-cross-locus-reconcile
+[ ] Step 7 — Skill: hyperresearch-7-source-tensions
+[ ] Step 8 — Skill: hyperresearch-8-corpus-critic
+[ ] Step 9 — Skill: hyperresearch-9-evidence-digest
+[ ] Step 10 — Skill: hyperresearch-10-triple-draft
+[ ] Step 11 — Skill: hyperresearch-11-synthesize
+[ ] Step 12 — Skill: hyperresearch-12-critics
+[ ] Step 13 — Skill: hyperresearch-13-gap-fetch
+[ ] Step 14 — Skill: hyperresearch-14-patcher
+[ ] Step 14.5 — Skill: hyperresearch-14-5-cite-check
+[ ] Step 15 — Skill: hyperresearch-15-polish
+[ ] Step 16 — Skill: hyperresearch-16-readability-audit
+[ ] Ship gate — run finish + integrity checks
+[0m
+[0m→ [0mSkill "hyperresearch-3-contradiction-graph"
+Step 3 loaded. Reading the full claims files to pair contradictions properly.
+[0m
+[0m$ [0mpython3 - <<'EOF'
+import json, glob, os
+base='research/runs/mrna-vaccine-cold-chain-f82458/temp'
+for f in sorted(glob.glob(f'{base}/claims-*.json')):
+    d=json.load(open(f))
+    claims = d if isinstance(d,list) else d.get('claims',d.get('data',[]))
+    nid=os.path.basename(f)[7:-5]
+    print(f"\n===== {nid} =====")
+    for i,c in enumerate(claims):
+        if not isinstance(c,dict): continue
+        keys=list(c.keys())
+        txt=(c.get('claim') or c.get('claim_text') or c.get('statement') or '')[:300]
+        q=(c.get('quoted_support') or c.get('quote') or '')[:250].replace('\n',' ')
+        st=c.get('stance'); tg=c.get('stance_target'); et=c.get('evidence_type'); num=c.get('numbers')
+        ent=c.get('entities'); sc=c.get('scope_conditions')
+        print(f"[{i}] {txt}")
+        print(f"    q: {q}")
+        print(f"    stance={st} target={tg} etype={et} num={num} ent={ent} scope={sc}")
+EOF
+===== acknowledgement =====
+[0] Long-term storage integrity of Comirnaty and Spikevax is only achieved at subzero temperatures; once thawed, labeled shelf life is weeks at refrigerator conditions and hours-to-days at room temperature.
+    q: Long-term storage integrity of Comirnaty® and SpikeVax® is only achieved at subzero temperatures. Upon thawing the frozen drug product, the labelled shelf life is measured in weeks (refrigerator conditions) and in hours/days at room temperature.
+    stance=supports target=mRNA-LNP vaccines required an unprecedented ultra-cold chain for deployment etype=empirical num=['weeks refrigerated', 'hours/days room temperature'] ent=['Comirnaty', 'Spikevax'] scope=Applies to liquid mRNA-LNP drug products as marketed 2020-2022
+[1] The dominant mRNA degradation pathway is hydrolytic strand scission via 2'-OH transesterification of the phosphodiester backbone, accelerated by alkaline pH and heat; storage around neutral pH in a freezer (−20°C or −70°C) minimizes it.
+    q: The kinetics of the transesterification reaction are accelerated by alkaline pH and thermal stress. Thus, around pH 7 and through storage in a freezer (-20°C or -70°C), the mRNA degradation by chain breakage will be minimized.
+    stance=supports target=Chemical rationale for frozen cold-chain storage of mRNA products etype=theoretical num=['pH ~7 optimum', '-20°C / -70°C', '>100-fold kinetic differences'] ent=['transesterification', "2'-OH"] scope=Aqueous drug substance and LNP drug product; sequence- and structure-dependent (>100-fold rate variation by site)
+[2] LNPs are a double-edged sword for stability: they protect mRNA from RNase degradation, but reactive lipid impurities — peroxides from PEG-lipids and aldehydes from ionizable-lipid N-oxide pathways — form covalent mRNA-lipid adducts that correlate negatively with protein expression.
+    q: amino lipids, such as those used in the Moderna and Pfizer/BioNTech mRNA-LNP COVID-19 vaccines, are a potential source of reactive electrophilic impurities that can inactivate the mRNA ... aldehydes from the N-oxide degradation pathway of a represent
+    stance=supports target=LNP excipient purity is a load-bearing constraint on mRNA shelf life etype=empirical num=[] ent=['Packer et al.', 'PEG-lipid', 'ionizable lipid', 'EMA'] scope=Packer et al. finding; applies to tertiary-amine ionizable lipids; EMA questioned Moderna/Pfizer on lipid-related impurities
+[3] Comirnaty's buffer switch from phosphate/KCl/NaCl ('purple cap') to Tris ('gray cap') extended refrigerated shelf life from 1 month to 10 weeks (with −80°C depot storage retained), because Tris avoids freezing-induced pH shifts and acts as an 'aldehyde sink' that suppresses mRNA-lipid adduct formati
+    q: The formulation was changed to a second-generation formulation containing Tris buffer with the same solution pH ... A prolonged storage time in the refrigerator was granted by regulatory agencies, from up to 1 month, to 10 weeks at refrigerator condi
+    stance=supports target=Formulation chemistry breakthroughs enabling relaxed cold-chain handling during COVID-19 deployment etype=empirical num=['1 month → 10 weeks at 2–8°C', '-80°C long-term', 'Spikevax 30 days refrigerated', '-20°C Spikevax long-term'] ent=['Comirnaty purple/gray cap', 'Tris buffer', 'Spikevax'] scope=Regulatory agencies granted extension; Spikevax contrast: Tris from inception but only 30 days refrigerated due to −20°C long-term storage
+[4] Computational secondary-structure design stabilizes mRNA against chain scission: minimizing average unpaired probability (AUP) gave two-fold stabilization of SARS-CoV-2 spike RNA, and In-line-seq revealed linkages 5' of uridine are particularly susceptible to cleavage, mitigated by pseudouridine/m1Ψ
+    q: This method revealed that 'linkages 5’ of a uridine residue are particularly susceptible to degradation', which can be mitigated through substitution by pseudouridine or N1-methyl-pseudouridine ... where a two-fold stabilization towards degradation w
+    stance=supports target=mRNA sequence-design strategies as thermostability levers etype=empirical num=['two-fold stabilization', "5' of uridine hotspots"] ent=['Wayment-Steele et al.', 'Leppek et al.', 'PERSIST-seq', 'In-line-seq'] scope=Wayment-Steele et al. AUP work; Leppek et al. PERSIST-seq/In-line-seq; biology (immunogenicity, expression) may override stability in sequence choice
+[5] Shortening the mRNA coding sequence improves frozen-shelf-life-free stability: a 1100-nt mRNA (vs 4000+ nt for BNT162b2/mRNA-1273) retained 76% intact mRNA with unchanged size/PDI/encapsulation and preserved mouse immunogenicity after six months at 2–8°C.
+    q: Zhao et al. employed a shortened mRNA chain length of 1100 nt compared to 4000+ nt for the Pfizer BNT162b2 and Moderna mRNA-1273 vaccines, and showed 76% intact mRNA, no change in particle size-polydispersity index or encapsulation efficiency, and pr
+    stance=supports target=Design routes to non-frozen mRNA storage etype=empirical num=['1100 nt vs 4000+ nt', '76% intact after 6 months at 2–8°C'] ent=['Zhao et al.', 'BNT162b2', 'mRNA-1273'] scope=Zhao et al., preclinical mouse data; different cationic lipid from marketed vaccines
+[6] Drying is the leading route off the deep-freeze chain: India authorized freeze-dried GEMCOVAC-19 (DOTAP + squalene + sucrose); DOTAP-NLC lyophiles retained activity after 21 months at 4°C; Moderna's CMV vaccine is in Phase 3 as a lyophilized product; freeze-dried mRNA-LNP remained stable for weeks a
+    q: In India, GEMCOVAC™-19, a freeze-dried form of an mRNA vaccine encoding for the S-protein of SARS-CoV-2, is authorized for use ... These complexes were freeze-dried and showed preservation of mRNA activity upon reconstitution after storage in the dri
+    stance=supports target=Lyophilization/drying as the key post-pandemic thermostability breakthrough direction etype=empirical num=['21 months at 4°C', 'weeks vs hours at elevated temperature', 'Phase 3 Moderna CMV lyophilized'] ent=['GEMCOVAC-19', 'Moderna CMV vaccine', 'Muramutsu et al.', 'DOTAP'] scope=GEMCOVAC-19 stability profile not public; lyo capacity limited globally; cryo/lyo-induced particle degradation remains the hurdle
+[7] Real-world in-use failures are dominated by mechanical shear rather than temperature within tested ranges: shaking/dropping caused immediate mRNA integrity loss and aggregation, while unintentional subzero excursions and deliberate thaw-refreeze cycles preserved integrity and mouse immunogenicity; t
+    q: only mechanical shear stress caused immediate loss of mRNA integrity and aggregation of the LNP-mRNA complexes ... intentionally thawed and re-froze vials of Comirnaty® and Spikevax® and found that mRNA integrity (by electrophoresis) and immunogenici
+    stance=refutes target=Assumption that any temperature excursion ruins mRNA vaccine potency etype=empirical num=['12 h post-punctuation limit', '1 month −80/−20°C preserved'] ent=['Comirnaty', 'Spikevax'] scope=Electrophoretic integrity assays; hospital freezer-failure case for Spikevax; refreeze studies at −80/−20°C over 1 month
+[8] Per EMA's CHMP assessment report for the Moderna vaccine, mRNA degradation follows Arrhenius behavior with first-order kinetics, making stability profiles predictable and amenable to temperature-excursion modeling — though supporting data remain unpublished.
+    q: data on the degradation rate was provided and shown to demonstrate Arrhenius behavior, with first-order kinetics. The stability profiles were demonstrated to be predictable and amenable to modelling
+    stance=supports target=Cold-chain excursion management is scientifically grounded for mRNA vaccines etype=institutional num=['first-order kinetics'] ent=['EMA CHMP', 'Moderna'] scope=Quoted from EMA-CHMP Moderna assessment report; no public experimental detail
+
+===== acknowledgments =====
+[0] Replacing uridine with N1-methylpseudouridine in mRNA-LNPs produced ~20 times more total luciferase protein with longer measurable expression (13 days) after intradermal mouse injection versus unmodified mRNA-LNPs — nucleoside modification was necessary for high-level protein production.
+    q: replacement of uridine (U) with m1Ψ resulted in ∼20 times more total luciferase protein and a longer duration of measurable protein expression after i.d. mRNA-LNP injection (Fig. 1, D–F).
+    stance=supports target=m1Ψ modification is the key engineering breakthrough for effective mRNA vaccines etype=empirical num=['~20× total luciferase', '13 days expression'] ent=['Pardi et al. 2018', 'm1Ψ', 'luciferase'] scope=Firefly luciferase reporter, intradermal route, mice, FPLC-purified IVT mRNA
+[1] Three m1Ψ-modified, FPLC-purified mRNA-LNP vaccines (HIV-1 Env, Zika prM-E, influenza HA) induced potent durable neutralizing antibody responses (stable to 12 months) driven by robust T follicular helper and germinal-center B cell induction.
+    q: three vaccines consisting of m1Ψ-modified, FPLC-purified mRNA-LNPs encoding HIV-1 envelope (Env), ZIKV prM-E, and influenza virus hemagglutinin (HA), which induce remarkably potent and durable neutralizing antibody responses ... this enhanced neutral
+    stance=supports target=mRNA-LNP platform elicits protective humoral immunity across pathogens etype=empirical num=['12 months durability', '3 pathogen antigens'] ent=['HIV-1 Env', 'Zika prM-E', 'influenza HA'] scope=Preclinical animal models; neutralization titers tracked to 12 months
+[2] The paper explicitly demonstrates that mRNA-LNPs act as highly effective adjuvants independent of antigen coding capacity.
+    q: we demonstrate that mRNA-LNPs act as highly effective adjuvants and that incorporation of the modified-nucleoside m1Ψ is essential for high and sustained protein production from mRNA-LNPs, which was associated with potent Tfh and B cell responses.
+    stance=supports target=LNP carrier is self-adjuvanticing in the mRNA vaccine platform etype=empirical num=[] ent=['mRNA-LNPs', 'Tfh cells'] scope=Same 2018 study; later confirmed mechanistically by Alameh et al. 2021 (empty LNPs)
+[3] DISCREPANCY: Verbeke et al. 2022 review reports Pardi 2018 luciferase data as '~10-fold higher total levels' but the primary paper states ∼20 times more total protein — downstream drafting should cite the primary figure.
+    q: [primary] ∼20 times more total luciferase protein | [Verbeke review] luciferase from m1Ψ-modified mRNA-iLNP is detectable for 13 days and at ∼10-fold higher total levels
+    stance=neutral target=Citation fidelity between review paraphrase and primary source etype=statistical num=['20× primary vs ~10-fold review'] ent=['Pardi et al. 2018', 'Verbeke et al. 2022'] scope=Both refer to same experiment (Fig. 1 D–F); possible difference between peak vs cumulative total or review rounding
+
+===== coronavirus-covid-19-update-fda-allows-more-flexible-storage-transportation-cond =====
+[0] On February 25, 2021, the FDA authorized undiluted frozen Pfizer-BioNTech COVID-19 vaccine vials to be transported and stored at conventional pharmaceutical-freezer temperatures for up to two weeks, as an alternative to the preferred -80°C to -60°C ultra-low-temperature storage.
+    q: the U.S. Food and Drug Administration announced that it is allowing undiluted frozen vials of the Pfizer-BioNTech COVID-19 Vaccine to be transported and stored at conventional temperatures commonly found in pharmaceutical freezers for a period of up 
+    stance=supports target=regulatory stability-data submissions progressively relaxed mRNA vaccine cold-chain requirements during deployment etype=legal num=['up to 2 weeks at conventional freezer temperature', '-80°C to -60°C preferred storage'] ent=['FDA', 'Pfizer-BioNTech', 'Peter Marks', 'CBER'] scope=US FDA EUA fact-sheet update; applies to undiluted frozen vials of Pfizer-BioNTech COVID-19 Vaccine
+[1] Under the Feb 2021 US label, thawed undiluted Pfizer-BioNTech vials could be held refrigerated up to 5 days before dilution, and diluted vials had to be used within 6 hours at refrigerator or room temperature.
+    q: The alternative temperature for storage of frozen vials is not applicable to the storage of thawed vials before dilution (which can be held in the refrigerator for up to 5 days), or on the storage of thawed vials after dilution (which can be held at 
+    stance=supports target=post-thaw handling windows constrained last-mile deployment even after frozen-storage relaxation etype=legal num=['5 days refrigerated pre-dilution', '6 hours post-dilution'] ent=['FDA', 'Pfizer-BioNTech'] scope=US FDA fact sheet as updated Feb 25, 2021
+
+===== dailymed-pfizer-biontech-covid-19-vaccine-bnt162b2-injection-suspension =====
+[0] Per the original January 2021 BNT162b2 label, vials must be stored frozen at −80°C to −60°C protected from light and ship in dry-ice thermal containers holding −90°C to −60°C; storage between −96°C and −60°C is explicitly not an excursion.
+    q: remove the vial cartons immediately from the thermal container and store in an ultra-low temperature freezer between -80ºC to -60ºC (-112ºF to -76ºF). Vials must be kept frozen between -80ºC to -60ºC ... and protected from light until ready to use.
+    stance=supports target=First-generation mRNA vaccine deployment required an unprecedented ultra-cold chain etype=legal num=['−80 to −60°C', '−96 to −60°C non-excursion band', '−90 to −60°C thermal container'] ent=['Pfizer-BioNTech', 'FDA', 'DailyMed'] scope=FDA EUA label revision January 2021 (LAB-1450-5.0); superseded by later flexibility extensions
+[1] The original label allowed thawed undiluted vials 5 days (120 h) at 2–8°C with transport hours at 2–8°C counting against that budget (up to 12 h transport), ≤2 h undiluted at room temperature up to 25°C, and 6 h post-dilution at 2–25°C before mandatory discard; refreezing was prohibited.
+    q: Thaw and then store undiluted vials in the refrigerator [2ºC to 8ºC (35ºF to 46ºF)] for up to 5 days (120 hours) ... After dilution, store vials between 2°C to 25°C (35°F to 77°F) and use within 6 hours from the time of dilution.
+    stance=supports target=In-use handling windows were tightly bounded relative to conventional vaccines etype=legal num=['120 h / 5 days at 2–8°C', '12 h transport budget', '≤2 h undiluted at 25°C', '6 h post-dilution'] ent=['BNT162b2', 'FDA'] scope=Same January 2021 label; the 120-h clock starts at thaw from −80/−60°C conditions
+
+===== data-availability-statement =====
+[0] An optimized mixed-lyoprotectant (sucrose + trehalose + mannitol) lyophilization process for mRNA-LNPs raises the eutectic point and collapse temperature, producing a rigid porous 'ginger root-shaped' cake and shortening the freeze-dry cycle from the typical 40–100 h to 8–18 h.
+    q: an efficient lyophilization method suitable for mRNA-LNPs was designed and optimized, shortening the total length of the lyophilization process to 8–18 h ... When the mixed lyoprotectant composed of sucrose, trehalose, and mannitol was added to mRNA-
+    stance=supports target=Lyophilization as an engineering solution to mRNA-LNP cold-chain burden etype=empirical num=['8–18 h vs 40–100 h', 'sucrose+trehalose+mannitol'] ent=['CanSino Biologics', 'Li et al. 2023'] scope=SARS-CoV-2 mRNA in research-grade LNPs; response-surface/orthogonal process design; not the marketed Pfizer/Moderna formulation
+[1] Lyophilized mRNA-LNPs stored at 2–8 °C retained encapsulation efficiency (87.5% → 87.4% over 30 days) and ~85% mRNA integrity after 4 weeks with stable size/PDI out to 120 days, whereas liquid controls at 2–8 °C degraded (encapsulation 93.33% → 86.21%; integrity 89.4% → 80.2%).
+    q: The lyophilized samples with the optimal protectant formulation ... showed no significant changes in the encapsulation efficiency of mRNA-LNPs after 4 weeks (encapsulation efficiency of 87.5% at Day 1 and 87.4% at Day 30) ... For the non-lyophilized 
+    stance=supports target=Freeze-drying enables refrigerator storage of mRNA vaccines etype=empirical num=['87.5→87.4% encapsulation (lyo)', '93.33→86.21% (liquid control)', '85% vs 80.2% integrity', '120 days tracking'] ent=['mRNA-LNP'] scope=n=3, capillary electrophoresis integrity, RiboGreen encapsulation; research LNP formulation
+[2] Reconstituted lyophilized mRNA-LNPs induced SARS-CoV-2-specific IgG and neutralizing antibodies in BALB/c mice indistinguishable from liquid LNP vaccine at days 14 and 28 post-immunization.
+    q: The immune effects on Day 14 and Day 28 after primary immunization are shown in Fig. 6F, G ... both lyophilized and non-lyophilized mRNA-LNPs induced adequate immune respon[ses]
+    stance=supports target=Freeze-drying preserves in vivo immunogenicity of mRNA vaccines etype=empirical num=['days 14 and 28'] ent=['BALB/c mice'] scope=BALB/c mouse model, intramuscular 50 μL, day 14/28 serum sampling
+[3] The physical basis of non-frozen instability is water inside the particle: the isotropic LNP core contains ~24 vol% water with mRNA located in water cylinders surrounded by cationic lipids (Arteta et al.), so removing water by lyophilization targets the degradation mechanism itself.
+    q: Arteta et al. found that the isotropic LNP core consists of 24% water (volume fraction), and they proposed that mRNA is located inside water cylinders, which are surrounded by cationic lipids. Thus, the mRNA is, at least in part, exposed to water ins
+    stance=supports target=Mechanistic rationale for why drying (not just buffer tweaks) is needed for thermostable mRNA vaccines etype=theoretical num=['~24 vol% core water'] ent=['Arteta et al.', 'Sebastiani et al.'] scope=MD simulation plus Arteta/Sebastiani structural studies
+[4] Deployment-era baseline contrast: BNT162b2 shipped at −80 to −60 °C and mRNA-1273 at −20 °C while traditional vaccines store ≥6 months at 2–8 °C — the stability gap that lyophilization aims to close.
+    q: Sub-zero temperature conditions and transportation are needed for the two current licensed mRNA vaccines, namely, Pfizer-BioNTech BNT162b2 (−80 °C to −60 °C) and Moderna mRNA-1273 (−20 °C)
+    stance=supports target=Ultra-cold chain was the deployment bottleneck for first-generation mRNA vaccines etype=empirical num=['−80 to −60 °C BNT162b2', '−20 °C mRNA-1273', '≥6 months conventional 2–8 °C'] ent=['BNT162b2', 'mRNA-1273', 'FDA', 'EMA'] scope=As licensed circa 2021-2023
+
+===== lock-2 =====
+[0] As of 2025-2026 labels, Comirnaty is stored -90 to -60°C frozen (until labeled expiry) but tolerates up to 10 weeks at 2-8°C after thawing and 12 h total at room temperature, while Spikevax stores at -50 to -15°C with up to 60 days refrigerated — a large relaxation from original ultra-cold-only labe
+    q: Comirnaty (Pfizer-BioNTech), 2025–2026 −90 to −60 °C Until labeled expiry date when stored continuously frozen Up to 10 weeks after thawing Up to 12 h total, including thawing and handling; Spikevax (Moderna), 2025–2026 −50 to −15 °C ... Up to 60 day
+    stance=supports target=stability data accumulated post-deployment progressively loosened mRNA vaccine cold-chain requirements etype=statistical num=['Comirnaty: -90 to -60°C frozen, 10 weeks at 2-8°C, 12h room temp', 'Spikevax: -50 to -15°C frozen, 60 days at 2-8°C'] ent=['Comirnaty', 'Spikevax', 'Pfizer-BioNTech', 'Moderna'] scope=US/EU product labels 2025-2026 as tabulated in Vaccines 14(7):620
+[1] Early-pandemic storage requirements were Pfizer below -70°C and Moderna below -20°C; the early mRNA-1273 label additionally allowed 2-8°C for up to 30 days and ~12h at room temperature, versus only 2-8°C for 5 days / 2h room temperature for Pfizer-BioNTech.
+    q: Current mRNA vaccines require ultra-cold storage; for example, Pfizer’s vaccine must be stored below −70 °C, while Moderna’s must be kept below −20 °C... the Moderna (mRNA-1273) vaccine remains stable at 2–8 °C for up to 30 days and can tolerate room
+    stance=supports target=first-generation mRNA vaccines had asymmetric cold-chain burdens etype=empirical num=['Pfizer < -70°C', 'Moderna < -20°C', 'mRNA-1273: 30 days at 2-8°C, 12h RT', 'BNT162b2: 5 days at 2-8°C, 2h RT'] ent=['Pfizer-BioNTech', 'Moderna mRNA-1273'] scope=Deployment-era labels as reviewed in Khan et al. 2026 citing refs 4,7,8
+[2] Without cryoprotectants such as sucrose or trehalose, just 2-3 freeze-thaw cycles reduce mRNA-LNP potency by more than 50% via LNP rupture and mRNA leakage driven by osmotic stress and salt concentration in unfrozen pockets.
+    q: Without cryoprotectants, even 2–3 freeze–thaw cycles reduce mRNA-LNP potency by more than 50% due to LNP rupture and mRNA leakage, as ice excludes solutes and concentrates salts/lipids in unfrozen pockets, promoting phase separation.
+    stance=supports target=sucrose cryoprotection was a decisive stability breakthrough enabling frozen distribution etype=empirical num=['2-3 freeze-thaw cycles', '>50% potency loss', 'PDI > 0.3 without stabilizers'] ent=['sucrose', 'trehalose'] scope=Aggregated preclinical findings cited in Khan et al. 2026
+[3] Lyophilization can extend mRNA-LNP storage to 2-8°C for weeks-to-months without significant encapsulation-efficiency loss, but no licensed lyophilized mRNA vaccine exists as of 2026 — all approved products remain frozen-liquid formats.
+    q: Lyophilization (freeze-drying) improves stability by reducing moisture content, inhibiting hydrolysis, and enabling refrigerated storage (2–8 °C) for weeks to months without significant loss of encapsulation efficiency. However, to date, there are no
+    stance=supports target=thermostability engineering remains incomplete despite deployment-scale success etype=empirical num=['2-8°C for weeks to months (lyophilized)', '0 licensed lyophilized mRNA vaccines'] ent=[] scope=Regulatory status at time of writing (2026)
+[4] Thermostability is formulation-dependent: C12-200 ionizable-lipid LNPs maintained EGFP expression for 11 weeks at both 2-8°C and 25°C, whereas SM-102 LNPs remained active at 2-8°C but progressively lost transfection activity at 25°C.
+    q: functional stability was formulation dependent, as C12-200 LNPs maintained EGFP expression for 11 weeks at both 2–8 and 25 °C, whereas SM-102 LNPs remained active at 2–8 °C but progressively lost transfection activity at 25 °C.
+    stance=supports target=ionizable lipid choice is an engineering lever for warm-storage tolerance etype=empirical num=['11 weeks at 25°C (C12-200)', 'SM-102 fails at 25°C'] ent=['C12-200', 'SM-102'] scope=Head-to-head formulation comparison cited in Khan et al. 2026 (ref 14)
+[5] Particle size modulates chemical stability during refrigerated storage: larger LNPs (120-150 nm) showed significant DSPC and cholesterol degradation after 6 months at 4°C correlating with potency decline, whereas smaller particles (80-100 nm) maintained integrity.
+    q: UHPLC analysis of stored COVID-19 mRNA-LNP revealed significant DSPC and cholesterol degradation in larger particles (120–150 nm) after 6 months at 4 °C, correlating with potency decline, whereas smaller (80–100 nm) LNPs maintained integrity.
+    stance=supports target=manufacturing quality attributes determine real-world shelf life etype=empirical num=['120-150 nm vs 80-100 nm', '6 months at 4°C'] ent=['DSPC', 'cholesterol'] scope=UHPLC stability study of COVID-19 mRNA-LNP cited in Khan et al. 2026 (ref 45)
+
+===== lock-3 =====
+[0] Deployment-era EMA labels required Moderna mRNA-1273 storage at -15 to -25°C versus BioNTech/Pfizer BNT162b2 at -60 to -90°C, and the ultra-low requirement was a major obstacle to worldwide transport, storage and distribution.
+    q: The current mRNA COVID-19 vaccines of Moderna and BioNTech/Pfizer have to be kept between −15 and −25 °C and between −60 and −90 °C, respectively... Especially, the very low temperature of −60 to −90 °C is a major obstacle when it comes to vaccine tr
+    stance=supports target=first-generation mRNA vaccines imposed asymmetric, distribution-limiting cold-chain burdens etype=empirical num=['Moderna: -15 to -25°C', 'BioNTech/Pfizer: -60 to -90°C'] ent=['EMA', 'Moderna', 'BioNTech/Pfizer'] scope=EMA product labels 2020-2021 as cited in Int J Pharm 601:120586
+[1] At refrigerator temperatures (2-8°C) the Pfizer/BioNTech and Moderna vaccines were stable for 5 and 30 days respectively, while CureVac's CVnCoV candidate reported 3 months of refrigerated stability — a formulation-dependent spread.
+    q: At refrigerator temperatures, 2–8 °C, the Pfizer/BioNTech and Moderna vaccines are stable for 5 and 30 days, respectively... the vaccine candidate by CureVac is reported to be stable for 3 months at refrigerator temperatures and at −60 °C.
+    stance=supports target=refrigerated shelf life varied widely across mRNA platforms even in 2020-21 etype=empirical num=['Pfizer/BioNTech: 5 days at 2-8°C', 'Moderna: 30 days at 2-8°C', 'CureVac: 3 months refrigerated'] ent=['Pfizer/BioNTech', 'Moderna', 'CureVac CVnCoV'] scope=Manufacturer/EMA stability data as compiled early 2021
+[2] Chemical degradation — water-initiated hydrolysis of the mRNA phosphodiester backbone, pH-dependent — dominates over physical instability in stored mRNA vaccines, making reduced water exposure (freezing or drying) the key to longer shelf life.
+    q: An implication of this is that decreasing the exposure to water would be a promising approach for improving mRNA vaccine stability... chemical degradation plays a larger role in the degradation of small nucleic acids than physical instability and tha
+    stance=supports target=mechanistic root cause of mRNA vaccine cold-chain dependence etype=theoretical num=[] ent=['phosphodiester hydrolysis'] scope=Review-level mechanistic synthesis from nucleic-acid stability literature
+[3] Freeze-dried mRNA formulated with trehalose remained stable at 4°C for up to 10 months, indicating lyophilization could allow mRNA-LNP storage well above current frozen requirements.
+    q: shows that freeze-dried mRNA formulated with trehalose is stable at 4 °C for up to 10 months.
+    stance=supports target=lyophilization/drying as a stability breakthrough path toward warm-chain mRNA vaccines etype=empirical num=['4°C for up to 10 months'] ent=['trehalose', 'lyophilization'] scope=Cited study (Jones et al.) on freeze-dried mRNA; pre-commercial data as of 2021
+[4] The wide label differences between Pfizer/BioNTech (-60/-80°C) and Moderna (-20°C) may partly reflect conservative testing protocols and differing acceptance criteria rather than true stability differences; Acuitas Therapeutics CEO Tom Madden stated the two vaccines likely have the same intrinsic st
+    q: Tom Madden, the CEO of Acuitas Therapeutics, stated that the Moderna and Pfizer/BioNTech mRNA vaccines likely have the same stability... Is it possible that the latter use a more conservative approach to ensure stability? Still, it is quite likely th
+    stance=neutral target=whether the ultra-cold requirement reflected physical necessity or regulatory caution etype=expert-opinion num=[] ent=['Acuitas Therapeutics', 'Tom Madden', 'Pfizer/BioNTech', 'Moderna'] scope=Industry commentary quoted via Dolgin 2020 (Nature Biotechnology); unpublished comparative data
+
+===== lock =====
+[0] The two authorized COVID-19 mRNA vaccines differ sharply in frozen-storage requirements despite both using sucrose cryoprotectant: mRNA-1273 at -15°C to -20°C (injected after thawing) versus BNT162b2 at -60°C to -80°C (thawed and diluted with saline before injection).
+    q: mRNA-1273 is stored at −15 °C to −20 °C and is directly injected after thawing, whereas BNT162b2 is stored at −60 °C to −80 °C and requires thawing and dilution by saline before injection.
+    stance=supports target=first-generation mRNA vaccines required freezing; Pfizer-BioNTech required ultra-cold storage etype=empirical num=['mRNA-1273: -15°C to -20°C', 'BNT162b2: -60°C to -80°C', '5% sucrose cryoprotectant'] ent=['Moderna mRNA-1273', 'Pfizer-BioNTech BNT162b2', 'EMA'] scope=Authorized storage conditions as published 2021 (Nat Rev Mater); reflects early-pandemic EUA labels
+[1] In late 2021 the EMA approved BNT162b2 storage at -15°C to -25°C for 2 weeks based on new stability data — a regulatory relaxation of the original -60°C to -80°C ultra-cold requirement.
+    q: Recently, the European Medicines Agency (EMA) has approved storage of BNT162b2 at −15 °C to −25 °C for 2 weeks based on new stability data.
+    stance=supports target=stability data progressively loosened mRNA vaccine cold-chain requirements after deployment began etype=empirical num=['BNT162b2: -15°C to -25°C for 2 weeks'] ent=['EMA', 'Pfizer-BioNTech BNT162b2'] scope=EMA decision reported Nov 2021; applies to BNT162b2
+[2] Storage mode (aqueous, freezing, lyophilized) and cryoprotectant choice (sucrose, trehalose, mannitol) govern long-term LNP-mRNA stability; adding 5% (w/v) sucrose or trehalose with liquid-nitrogen storage preserves mRNA delivery efficacy for at least 3 months in vivo.
+    q: the addition of 5% (w/v) sucrose or trehalose to lipid nanoparticle–mRNA formulations, stored in liquid nitrogen, allows maintenance of mRNA delivery efficacy for at least 3 months in vivo
+    stance=supports target=formulation chemistry is a key stability breakthrough enabling cold-chain deployment etype=empirical num=['5% w/v sucrose or trehalose', '>=3 months efficacy maintenance'] ent=[] scope=Preclinical in vivo finding cited in Nat Rev Mater 2021
+[3] LNP structural components each contribute stability: cholesterol enhances particle stability by modulating membrane integrity and rigidity, and PEG-lipids decrease particle aggregation while prolonging circulation time.
+    q: Cholesterol can enhance particle stability by modulating membrane integrity and rigidity. PEG-lipids can further contribute to particle stability by decreasing particle aggregation.
+    stance=supports target=LNP formulation design underlies mRNA vaccine physical stability etype=theoretical num=[] ent=['lipid nanoparticles', 'cholesterol', 'PEG-lipid'] scope=Mechanistic consensus review statement, Nat Rev Mater 2021
+[4] Both mRNA-1273 and BNT162b2 incorporate N1-methylpseudouridine (m1ψ) replacing uridine — the Karikó-Weissman lineage nucleoside modification that reduces innate immune sensing — and encode a stabilized prefusion spike with two proline substitutions.
+    q: The IVT mRNA molecules used in the mRNA-1273 and BNT162b2 COVID-19 vaccines were prepared by replacing uridine with m1ψ, and their sequences were optimized to encode a stabilized pre-fusion spike protein with two pivotal proline substitutions.
+    stance=supports target=key molecular breakthroughs underlying deployed mRNA vaccines etype=empirical num=['two proline substitutions', 'm1psi full uridine replacement'] ent=['Karikó & Weissman nucleoside modification', 'mRNA-1273', 'BNT162b2', 'prefusion spike'] scope=As manufactured for COVID-19 vaccines authorized 2020-2021
+[5] Cold-chain transportation maintains mRNA-LNP vaccine activity today, but formulations free of cold/frozen storage would reduce production and transportation costs and expedite vaccination — framing thermostability as an open engineering problem as of 2021.
+    q: Although cold-chain transportation can maintain vaccine activity, the development of lipid nanoparticle–mRNA formulations that do not require cold or frozen storage would not only decrease production and transportation costs but also expedite the pro
+    stance=neutral target=future direction of mRNA vaccine thermostability work etype=expert-opinion num=[] ent=[] scope=Review authors' outlook, 2021
+
+===== mrna-vaccines-in-the-covid-19-pandemic-and-beyond-annual-reviews =====
+
+===== references-2 =====
+[0] As of December 5, 2020, manufacturer-published storage profiles were: Moderna −20°C up to 6 months / 30 days at 2–8°C / 12 h room temp; Pfizer-BioNTech −80 to −60°C up to 6 months / only 5 days at 2–8°C / 2 h room temp (6 h after dilution); CureVac ≤−60°C but ≥3 months at 2–8°C.
+    q: Moderna−20 °C, up to 6 months30 daysUp to 12 h ... Pfizer-BioNTech−80 °C to −60 °C, up to 6 monthsup to 5 daysUp to 2 h (up to 6 h after dilution) ... CureVac≤ −60 °C, at least 3 monthsAt least 3 monthsUp to 24 h
+    stance=supports target=Ultra-cold chain was the binding deployment constraint for first-generation mRNA vaccines etype=empirical num=['-20°C/6mo vs -80 to -60°C/6mo', '30 days vs 5 days at 2-8°C', '12 h vs 2 h room temp'] ent=['Moderna', 'Pfizer-BioNTech', 'CureVac'] scope=Manufacturer information only, unconfirmed by regulators at that date; pre-dates Feb/May 2021 FDA flexibility extensions
+[1] mRNA potency is all-or-nothing per molecule: even a minor single strand break anywhere along the ~1000–5000 nt mRNA can severely slow or stop translation of that strand, unlike therapeutic proteins where degradations outside active site/epitope may spare potency.
+    q: Even a minor degradation reaction, anywhere along a mRNA strand, can severely slow or stop proper translation performance of that strand and thus result in the incomplete expression of the target antigen.
+    stance=supports target=Why mRNA shelf life is governed by strict integrity thresholds etype=theoretical num=['~1000–5000 nucleotides'] ent=['Crommelin et al.'] scope=Pharmaceutics reasoning; underlies integrity CQA specifications
+[2] A lyophilized mRNA-protamine rabies vaccine candidate stored for 12 months at 5, 25, 37 and 45°C still gave adequate neutralizing antibodies and protected mice from rabies challenge, with protection observed even after stressed storage at +70°C for 3 months.
+    q: The dried formulation was stored at temperatures ranging from −80 to +70 °C. Under the chosen read-out conditions (1 vaccine dose level), the vaccines stored for 12 months at 5, 25, 37 and 45 °C gave adequate neutralizing antibody levels and protecte
+    stance=supports target=Drying (lyophilization) was already proven pre-pandemic as a route to thermostable mRNA vaccines etype=empirical num=['12 months at 5–45°C', '+70°C × 3 months'] ent=['mRNA-protamine rabies vaccine'] scope=Single dose level read-out; formulation and physicochemical QC details not published
+[3] Theoretical modeling predicts a roughly hundred-fold increase in mRNA cleavage rate upon incorporation into cationic lipid formulations, implying the LNP vehicle itself can accelerate chemical degradation during non-frozen storage.
+    q: in a theoretical study, Wayment-Steele et al. predict a hundred-fold increase in cleavage rate of mRNA when it is incorporated in a cationic lipid formulation.
+    stance=refutes target=Assumption that LNP encapsulation always stabilizes stored mRNA etype=theoretical num=['~100-fold predicted cleavage-rate increase'] ent=['Wayment-Steele et al.', 'cationic lipids'] scope=Wayment-Steele et al. computational prediction cited by Crommelin; consistent with later Alishetty calculations in Oude Blenke 2023
+
+===== references =====
+[0] Replacement of all uridines with N1-methylpseudouridine (m1Ψ) in the IVT mRNA of both BNT162b2 and mRNA-1273 derives from Karikó/Weissman 2005, which showed modified ribonucleosides are how cellular sensors discriminate self from foreign RNA.
+    q: A major breakthrough came via the studies of Karikó, Weissman, and colleagues in the 2000s, who discovered that the presence of certain modified vs. unmodified ribonucleosides works as a molecular mechanism by which cellular RNA sensors discriminate 
+    stance=supports target=Nucleoside modification was the key mRNA-engineering breakthrough enabling effective, non-dose-limiting mRNA vaccines etype=empirical num=['all uridines replaced with m1Ψ'] ent=['Karikó', 'Weissman', 'BNT162b2', 'mRNA-1273'] scope=Applies to nucleoside-modified mRNA-LNP platform; unmodified (CureVac-style sequence-engineered) mRNA is the contrast class
+[1] m1Ψ modification increases protein output and duration: luciferase from m1Ψ-modified mRNA-iLNP in mice was detectable for 13 days at ~10-fold higher total levels vs 8 days for unmodified mRNA-iLNP.
+    q: firefly luciferase expression from unmodified mRNA-iLNP can be detected for 8 days after intradermal injection in mice, while luciferase from m1Ψ-modified mRNA-iLNP is detectable for 13 days and at ∼10-fold higher total levels (Pardi et al., 2018)
+    stance=supports target=Nucleoside modification boosts translation as well as suppressing innate sensing etype=empirical num=['13 days vs 8 days expression', '~10-fold higher total protein'] ent=['Pardi et al. 2018', 'luciferase', 'm1Ψ'] scope=Mouse intradermal model, firefly luciferase reporter, mRNA-iLNP
+[2] The ionizable lipid nanoparticle — not the mRNA — is the primary adjuvant of the platform: empty iLNPs elicit IL-1β, IL-6, GM-CSF and multiple chemokines, LNPs without ionizable lipid fail to induce strong antibody responses, and iLNP-induced IL-6 is required for optimal Tfh and germinal-center B ce
+    q: The ionizable lipid component is critical for this adjuvant effect, as empty LNPs without the ionizable lipid do not induce strong antibody responses
+    stance=supports target=iLNP carrier acts as self-adjuvanting component of mRNA vaccines etype=empirical num=['ionizable lipid pKa ~6.0–6.8'] ent=['SM-102', 'ALC-0315', 'Alameh et al. 2021', 'IL-6', 'Tfh cells'] scope=Mostly murine data plus human PBMC assays; mechanisms incompletely defined
+[3] iLNPs deliver mRNA by pH-switching: the ionizable aminolipid keeps particles neutrally charged at physiological pH but becomes positively charged in the acidifying endosome, disrupting the endosomal membrane and releasing mRNA into the cytosol where ribosomes translate it.
+    q: The ionizable lipid is also essential to achieve a nanoparticle that has a neutral surface charge at physiological pH and after cellular uptake becomes positively charged in the acidifying endosome, facilitating disruption of the endosomal membrane a
+    stance=supports target=Mechanism of cytosolic mRNA delivery etype=theoretical num=['pKa approximately 6.0 to 6.8'] ent=['ALC-0315', 'SM-102', 'Cullis and Hope 2017'] scope=Structural model of iLNP with electron-dense core of mRNA-ionizable lipid complexes
+[4] Three innate-sensing categories constrain synthetic mRNA: uridine-dependent TLR7/8 recognition, dsRNA recognition (TLR3/RIG-I/MDA5/PKR/OAS), and recognition of improperly capped 5' ends (cap0 sensed by RIG-I and IFIT1 vs self-signature cap1).
+    q: The three major categories of innate immune sensing of synthetic mRNA are (1) uridine-dependent recognition of various RNA species, (2) recognition of double-stranded RNA (dsRNA), and (3) recognition of the 5’ end of mRNA if not properly capped
+    stance=neutral target=Taxonomy of innate immune sensors acting on IVT mRNA etype=theoretical num=['TLR7 binds UUU + guanosine', 'TLR8 binds uridine + UG', 'cap0 = m7GpppN', 'cap1 = m7GpppNm'] ent=['TLR7', 'TLR8', 'RIG-I', 'MDA5', 'PKR', 'OAS', 'IFIT1', 'CleanCap'] scope=IVT mRNA manufacturing context; dsRNA byproducts removable by HPLC, cellulose adsorption, or RNase III digestion
+[5] Germinal center B cell and Tfh responses persist up to 6 months after the second mRNA vaccine dose in humans, with spike protein/mRNA detectable in draining lymph node germinal centers up to 60 days post-second dose.
+    q: In the draining LNs of BNT162b2-vaccinated humans, GC B cell and Tfh cell responses persist for as long as 6 months post-second dose with 30 μg mRNA
+    stance=supports target=mRNA-LNP vaccines drive durable adaptive immunity via sustained antigen availability etype=empirical num=['6 months persistence', '60 days antigen detection', '30 μg dose'] ent=['Roltgen et al. 2022', 'Mudd et al. 2022', 'BNT162b2', 'mRNA-1273'] scope=Human lymph node biopsies and blood (30 µg mRNA dose); duration of antigen expression flagged as needing confirmation
+[6] MDA5-IFNα signaling is required for strong CD8+ T cell responses to BNT162b2 in mice while being largely dispensable for antibody responses, implying residual type I IFN activity (likely from manufacturing impurities or mRNA secondary structure) persists even in fully modified vaccines.
+    q: Mda5−/− mice and Ifnar1−/− mice exhibit a massive decrease in the frequency of antigen-specific CD8+ T cells, but only a mild effect on antibody responses, upon BNT162b2 vaccination
+    stance=neutral target=Whether nucleoside-modified mRNA vaccines are truly immunosilent etype=empirical num=['TLR3 deficiency → 2.4-fold decrease in neutralizing titers'] ent=['MDA5', 'IFN-α', 'BNT162b2', 'Li et al. 2022a'] scope=Knockout mouse strains (Mda5-/-, Ifnar1-/-); sensor redundancy caveat
+
+===== the-coldest-cold-chain-chilling-effects-of-covid-19-vaccines =====
+[0] At the time of writing (Nov 25, 2020), the Pfizer-BioNTech COVID-19 vaccine required storage at -70°C or below, defining the ultra-cold-chain deployment problem.
+    q: Taking the Pfizer vaccine, with a storage requirement of -70˚C (-94 F) or below, as our case example, we identify a preliminary list of challenges relating to the feasibility and societal impact of a successful roll-out of an ultra-cold chain depende
+    stance=neutral target=storage-temperature requirements of first-generation mRNA vaccines etype=expert-opinion num=['-70°C (-94°F) storage requirement'] ent=['Pfizer', 'BioNTech'] scope=Pre-EUA status Nov 2020; Pfizer-BioNTech candidate BNT162b2
+[1] Pfizer's thermal shippers maintain the required temperature for only ~72 hours unopened using active (power cell) plus passive (dry ice) cooling before the cooling combination deteriorates.
+    q: The proposed active plus passive cooling in containers will enable keeping vaccines in the required temperature range for 72 hours, after which the combination of power cells (active cooling) and dry ice (passive cooling) deteriorates.
+    stance=supports target=ultra-cold chain imposes hard logistics time constraints etype=expert-opinion num=['72 hours unopened thermal-shipper endurance'] ent=['Pfizer'] scope=Pfizer-designed thermal shipping containers as publicly described Nov 2020
+[2] Vaccine vials remain usable for only about 24 hours after a thermal shipper is opened at a vaccination facility, requiring local ultra-low-temperature freezers to avoid waste.
+    q: The estimated time that vaccines will stay usable after opening a package is 24 hours only. At facilities, including storage, customs, cross-docking, materials handling, and vaccination centers, freezing units will be required to store and appropriat
+    stance=supports target=last-mile feasibility constraints of -70°C vaccines etype=expert-opinion num=['24 hours post-opening usability window'] ent=['Pfizer'] scope=Pfizer cold-chain handling rules as of Nov 2020
+[3] Dry ice used for passive ultra-cold shipping is regulated on aircraft, especially passenger planes, because it sublimes and consumes/displaces oxygen, constraining air-freight capacity for -70°C vaccines.
+    q: Such a short delivery time calls for air transportation; yet carrying dry ice on airplanes, especially passenger planes, is regulated as it consumes oxygen.
+    stance=supports target=ultra-cold chain transport constraints beyond temperature alone etype=expert-opinion num=[] ent=['ICAO', 'Pfizer'] scope=Air-transport dangerous-goods regulation as of Nov 2020
+[4] Proposed vaccine pack sizes of 5,000 or 1,000 doses match long-haul logistics but not usage patterns: administering 1,000 doses within the 24-hour open-package window requires large facilities and manpower, effectively excluding low-population-density locations.
+    q: The proposed package sizes are for 5,000 vs 1,000 units. While optimal for transportation, these sizes do not consider usage patterns... Locations with lower population density may not be able to use such package sizes and de facto be excluded from t
+    stance=supports target=ultra-cold packaging creates distributional exclusion etype=expert-opinion num=['5,000-dose and 1,000-dose minimum pack sizes', '1,000 doses per 24 hours required throughput'] ent=['Pfizer'] scope=Pfizer pack configuration as of Nov 2020; applies where dose throughput is low
+[5] GAVI indicated that the 92 ODA-eligible countries accessing COVID-19 vaccines via the COVAX Advanced Market Commitment might pay co-payments of US$1.60–2.00 per dose, compounding cold-chain costs in constrained health budgets.
+    q: it is likely that the 92 ODA-eligible countries accessing vaccines through the AMC may also be required to share some of the costs of COVID-19 vaccines and delivery, up to US$ 1.60 – US$ 2 per dose – a mirror of the amount paid upfront by self-financ
+    stance=neutral target=cost burden of COVAX vaccine access for LMICs etype=expert-opinion num=['US$1.60–2.00 per dose co-payment', '92 ODA-eligible countries'] ent=['GAVI', 'COVAX', 'UNICEF'] scope=GAVI AMC cost-sharing estimate quoted by the authors, Nov 2020
+[0m
+Claims are rich. Running `sources independence` first (required for consensus counting), then building the graph.
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch sources independence --tag mrna-vaccine-cold-chain-f82458 -j
+{
+  "ok": true,
+  "data": {
+    "scored": 12,
+    "clusters": []
+  },
+  "count": 0,
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T11:01:02.129998+00:00"
+}
+[0m
+All 12 sources independent (no syndication clusters). Writing the contradiction graph and consensus claims.
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/temp/contradiction-graph.json
+Wrote file successfully.
+[0m
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/temp/consensus-claims.json
+Wrote file successfully.
+[0m
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch run step mrna-vaccine-cold-chain-f82458 3 --status done -j | tail -2
+"timestamp": "2026-08-23T11:03:06.352098+00:00"
+}
+[0m
+[0m# [0mTodos
+[✓] Step 1 — Skill: hyperresearch-1-decompose
+[✓] Step 2 — Skill: hyperresearch-2-width-sweep (RE-RUN: no sources fetched yet)
+[✓] Step 3 — Skill: hyperresearch-3-contradiction-graph
+[•] Step 4 — Skill: hyperresearch-4-loci-analysis
+[ ] Step 5 — Skill: hyperresearch-5-depth-investigation
+[ ] Step 6 — Skill: hyperresearch-6-cross-locus-reconcile
+[ ] Step 7 — Skill: hyperresearch-7-source-tensions
+[ ] Step 8 — Skill: hyperresearch-8-corpus-critic
+[ ] Step 9 — Skill: hyperresearch-9-evidence-digest
+[ ] Step 10 — Skill: hyperresearch-10-triple-draft
+[ ] Step 11 — Skill: hyperresearch-11-synthesize
+[ ] Step 12 — Skill: hyperresearch-12-critics
+[ ] Step 13 — Skill: hyperresearch-13-gap-fetch
+[ ] Step 14 — Skill: hyperresearch-14-patcher
+[ ] Step 14.5 — Skill: hyperresearch-14-5-cite-check
+[ ] Step 15 — Skill: hyperresearch-15-polish
+[ ] Step 16 — Skill: hyperresearch-16-readability-audit
+[ ] Ship gate — run finish + integrity checks
+[0m
+Step 3 complete. Marking done and invoking step 4 (loci analysis).
+[0m→ [0mSkill "hyperresearch-4-loci-analysis"
+[0m• [0mLoci analyst A[90m Hyperresearch-Loci-Analyst Agent[0m
+[0m• [0mLoci analyst B[90m Hyperresearch-Loci-Analyst Agent[0m
+Spawning both loci-analysts in parallel.
+[0m✓ [0mLoci analyst B[90m Hyperresearch-Loci-Analyst Agent[0m
+[0m✓ [0mLoci analyst A[90m Hyperresearch-Loci-Analyst Agent[0m
+Both analysts converged on the same four dialectical clusters. Per the smoke-gear clamp, I'm retaining the **two highest-composite loci** (both analysts' top picks), allocating the full 6-source step-5 budget across them.
+[0m
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/loci.json
+Wrote file successfully.
+[0m
+Step 4 exit criteria met (2 dialectical loci, budgets allocated, skip union persisted). Marking done, checking budget, then invoking step 5.
+[0m$ [0mHPR=/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch; $HPR run step mrna-vaccine-cold-chain-f82458 4 --status done -j > /dev/null; $HPR run status -j | python3 -c "import sys,json; d=json.load(sys.stdin)['data']; print('spend:', d.get('spend')); print('status:', d.get('status'))"
+spend: {'estimated_usd': 0.0, 'sources_fetched': 0, 'notes_written': 0, 'agents_spawned': 0}
+status: running
+[0m
+[0m→ [0mSkill "hyperresearch-5-depth-investigation"
+[0m• [0mDepth investigation locus 1[90m Hyperresearch-Depth-Investigator Agent[0m
+[0m• [0mDepth investigation locus 2[90m Hyperresearch-Depth-Investigator Agent[0m
+Spawning both depth-investigators in parallel (one per locus).
+[0m✓ [0mDepth investigation locus 2[90m Hyperresearch-Depth-Investigator Agent[0m
+[0m✓ [0mDepth investigation locus 1[90m Hyperresearch-Depth-Investigator Agent[0m
+Both investigators landed with committed positions. Reading the interim notes now (required input for step 6).
+[0m
+[0m$ [0mHPR=/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch; $HPR note list --tag mrna-vaccine-cold-chain-f82458 --type interim --all --json | python3 -c "import sys,json; [print(n['id']) for n in json.load(sys.stdin)['data']]"
+interim-report-ultracold-necessity-vs-caution
+interim-report-breakthrough-attribution-contest
+[0m
+[0m$ [0mHPR=/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch; $HPR note show interim-report-ultracold-necessity-vs-caution interim-report-breakthrough-attribution-contest --json 2>/dev/null | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+items = d['data'] if isinstance(d.get('data'),list) else [d['data']]
+for n in items:
+    body=n.get('body','')
+    print('='*100)
+    print('NOTE:', n['id'])
+    # print committed position section and last part
+    idx=body.find('## Committed position')
+    print(body[idx:idx+3500] if idx>=0 else body[-3500:])
+"
+Traceback (most recent call last):
+  File "<string>", line 8, in <module>
+    print('NOTE:', n['id'])
+                   ~^^^^^^
+KeyError: 'id'
+====================================================================================================
+[0m
+[0m$ [0mHPR=/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch; $HPR note show interim-report-ultracold-necessity-vs-caution -j 2>/dev/null | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+n=d.get('data',d)
+print(json.dumps({k:(v if k in('id','title','tags','type') else '...') for k,v in n.items()}, indent=1)[:400])
+body=n.get('body') or n.get('content') or ''
+idx=body.find('## Committed position')
+print(body[idx:idx+3800] if idx>=0 else body[-3800:])
+"
+{
+ "id": "interim-report-ultracold-necessity-vs-caution",
+ "title": "Interim report \u2014 ultracold-necessity-vs-caution",
+ "path": "...",
+ "status": "...",
+ "type": "interim",
+ "tags": [
+  "locus-ultracold-necessity-vs-caution",
+  "mrna-vaccine-cold-chain-f82458"
+ ],
+ "tier": "...",
+ "content_type": "...",
+ "created": "...",
+ "updated": "...",
+ "word_count": "...",
+ "source": "...",
+ "parent": "
+## Committed position
+
+The −80/−60°C requirement was substantially overstated relative to physical necessity: it was a conservative, evidence-state-dependent labeling choice layered on top of a real but much milder subzero-storage need — roughly −20°C-class freezing sufficed for the actual 6-month liquid-depot claim (Moderna's label; EMA's approval of the BNT162b2 active substance at −20±5°C), while the additional ~50°C of depth tracked dry-ice shipping engineering and a one-clinical-batch evidence base rather than any measured kinetic cliff, and the requirement's rapid, formulation-unchanged collapse within six months (refrigerated window 6×: 120 h → 30 days; depot excursions to −15°C; Tris-era 10 weeks refrigerated) is the experimental confirmation. The correct synthesis for the draft is a two-level verdict: freezing is chemically necessary for multi-month liquid mRNA-LNP storage (hydrolysis + adduct chemistry + all-or-nothing potency are real, Arrhenius-governed mechanisms — do not let the "conservatism" finding flatten into "mRNA vaccines never needed the cold"), but *ultra*-cold was never physically necessary — it was what could be validated fastest in a pandemic: test at your shipper's temperature, label what you tested. "Breakthrough" against this baseline therefore means two different things: the buffer/cryoprotectant work (sucrose; Tris) bought real thermodynamic margin, while the biggest cold-chain gains of 2021 were bought with paperwork — accumulated stability data converting conservatism into labels.
+
+- **Position:** BNT162b2's −80/−60°C label was not a physical necessity of mRNA chemistry; some subzero storage (~−20°C-class) was necessary for the 6-month liquid claim, but the ultra-cold depth was conservative testing plus dry-ice-logistics alignment, proven by regulator-directed relaxation (EMA REC22) and the 6× refrigerated-window expansion within six months without formulation change.
+- **Confidence:** high (>80%) for the central claim that the specific −80/−60°C depth exceeded chemical necessity; medium-high for the motive decomposition (conservatism vs logistics alignment are entangled — the dry-ice mapping is strongly suggestive inference, not a documented rationale).
+- **Boundary conditions:** Holds for liquid mRNA-LNP presentations of 2020-21 (purple-cap BNT162b2, mRNA-1273) and for multi-month depot claims; it does NOT say refrigerated long-term storage was viable (it wasn't, for these formulations), does not cover post-hoc thermostable platforms (lyophilized GEMCOVAC-19, shortened-mRNA designs), and does not license warm handling of diluted product, where sterility (not stability) binds at hours. Outside the deployment era, drying and sequence-design change the physics and the verdict accordingly.
+- **What would change this position:** Published BNT162b2 potency-vs-time data showing comparable degradation rates at −20°C and −80°C (no Arrhenius benefit across that span) would vindicate deep-freeze necessity; conversely, a Pfizer/EMA document stating −80°C was chosen purely for dry-ice shipper compatibility would upgrade my motive attribution from inference to fact. A validated rebuttal showing Mamontov-type irreversible morphology change occurs below −40°C during normal storage would also force revision.
+- **Evidence weight:** 1 regulatory primary (EMA AR) decisively supports conservatism-on-depth with verbatim language; 1 molecular study ([[lock-4]]) supports real physical sensitivity but explicitly lacks efficacy linkage; 1 news report of the FDA action corroborates the relaxation timeline (FDA primary itself escalated, unreachable this run); corpus reviews supply the mechanism (4 sources, convergent) and the label-variance natural experiment (3 independent products). Against: no source anywhere quantifies
+[0m
+[0m$ [0mHPR=/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch; $HPR note show interim-report-breakthrough-attribution-contest -j 2>/dev/null | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+n=d.get('data',d)
+body=n.get('body') or n.get('content') or ''
+idx=body.find('## Committed position')
+print(body[idx:idx+3200] if idx>=0 else body[-3200:])
+"
+## Committed position
+
+For the cold-chain question actually asked, credit is layered but sharply unequal, and popular accounts invert it: m1Ψ earned product-viability and timing credit (without it, no tolerable, dose-feasible BNT162b2/mRNA-1273 and no Dec-2020 deployment), but approximately zero direct cold-chain credit — the authoritative pharma-science review states base-modification effects on storage stability were never directly compared and that retaining ribose preserves hydrolytic instability, while the best refrigerated claim of the era belonged to unmodified-nucleoside CVnCoV. Formulation chemistry earned the frozen-deployment enablement: sucrose cryoprotection (preventing >50% potency loss within 2–3 freeze–thaw cycles) made frozen distribution physically possible, and the Tris buffer switch alone moved refrigerated shelf life from 1 month to 10 weeks (~3.3×) — the single largest chemistry-attributable jump in the entire timeline. But the dominant share of the observed trajectory belongs to process choices plus regulatory data accumulation: every label movement from −80/−60°C (Jan 2021) to conventional-freezer weeks (Feb 2021, "based on stability data submitted by Pfizer") to the 2025–26 endpoints of 10-weeks-post-thaw/60-days-refrigerated is a dated evidence-and-physical-state event, Spikevax's Tris-invariance proves depot temperature dominates buffer chemistry, and drying — the one intervention that eliminates freezing entirely, validated pre-pandemic to 70°C (Stitz 2017) and for the exact deployed chemistry to ≥24 weeks at 4°C (Muramatsu 2022) — shipped nowhere under a stringent regulator during COVID, demonstrating that deployment lagged chemistry by a regulatory cycle, not a scientific one. Defended weighting for "what enabled cold-chain deployment": necessary preconditions (LNP vehicle ≫ m1Ψ) versus marginal movers of storage performance — roughly 50–55% process/regulatory-data, 35–40% formulation chemistry, ≤10% sequence-level, the last being indirect (timing/dose) rather than stabilizing. The draft should therefore refuse the Nobel-story conflation: the 2023 medicine prize explains why mRNA vaccines work; the sucrose, the Tris swap, the freezer-to-fridge data dossiers, and the still-unshipped lyophile explain how they reached arms.
+
+- **Position:** Causal credit for cold-chain deployment sits primarily with process/regulatory-data accumulation (~50–55%) and formulation chemistry (~35–40%; sucrose cryoprotection + Tris buffer), while sequence-level m1Ψ engineering earns ≤10% — decisive for product viability and timing, negligible for storage stability itself.
+- **Confidence:** medium-high (~75%). The negative attribution for m1Ψ rests on an explicit absence-of-direct-comparison statement (Oude Blenke 2023) plus one natural experiment (CVnCoV); both are strong but neither is a controlled shelf-life trial of m1Ψ-vs-U liquids, which keeps this short of high.
+- **Boundary conditions:** Holds for the 2020–2026 liquid mRNA-LNP drug products deployed under FDA/EMA oversight and for attributing *storage-label* movements to their proximate causes. Outside that scope it weakens: for intracellular functional half-life and immunogenicit
+[0m
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch run step mrna-vaccine-cold-chain-f82458 5 --status done -j | tail -2
+"timestamp": "2026-08-23T11:47:02.010820+00:00"
+}
+[0m
+[0m# [0mTodos
+[✓] Step 1 — Skill: hyperresearch-1-decompose
+[✓] Step 2 — Skill: hyperresearch-2-width-sweep (RE-RUN: no sources fetched yet)
+[✓] Step 3 — Skill: hyperresearch-3-contradiction-graph
+[✓] Step 4 — Skill: hyperresearch-4-loci-analysis
+[✓] Step 5 — Skill: hyperresearch-5-depth-investigation
+[•] Step 6 — Skill: hyperresearch-6-cross-locus-reconcile
+[ ] Step 7 — Skill: hyperresearch-7-source-tensions
+[ ] Step 8 — Skill: hyperresearch-8-corpus-critic
+[ ] Step 9 — Skill: hyperresearch-9-evidence-digest
+[ ] Step 10 — Skill: hyperresearch-10-triple-draft
+[ ] Step 11 — Skill: hyperresearch-11-synthesize
+[ ] Step 12 — Skill: hyperresearch-12-critics
+[ ] Step 13 — Skill: hyperresearch-13-gap-fetch
+[ ] Step 14 — Skill: hyperresearch-14-patcher
+[ ] Step 14.5 — Skill: hyperresearch-14-5-cite-check
+[ ] Step 15 — Skill: hyperresearch-15-polish
+[ ] Step 16 — Skill: hyperresearch-16-readability-audit
+[ ] Ship gate — run finish + integrity checks
+[0m
+Both committed positions held. Step 5 exit criteria met — marking done and invoking step 6 (cross-locus reconcile).
+[0m→ [0mSkill "hyperresearch-6-cross-locus-reconcile"
+[0m
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/comparisons.md
+Wrote file successfully.
+[0m
+Both committed positions are in context. Hunting cross-locus tensions and writing `comparisons.md` — the argumentative spine for drafting.
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch run step mrna-vaccine-cold-chain-f82458 6 --status done -j | tail -2
+"timestamp": "2026-08-23T11:50:14.195481+00:00"
+}
+[0m
+[0m# [0mTodos
+[✓] Step 1 — Skill: hyperresearch-1-decompose
+[✓] Step 2 — Skill: hyperresearch-2-width-sweep (RE-RUN: no sources fetched yet)
+[✓] Step 3 — Skill: hyperresearch-3-contradiction-graph
+[✓] Step 4 — Skill: hyperresearch-4-loci-analysis
+[✓] Step 5 — Skill: hyperresearch-5-depth-investigation
+[✓] Step 6 — Skill: hyperresearch-6-cross-locus-reconcile
+[•] Step 7 — Skill: hyperresearch-7-source-tensions
+[ ] Step 8 — Skill: hyperresearch-8-corpus-critic
+[ ] Step 9 — Skill: hyperresearch-9-evidence-digest
+[ ] Step 10 — Skill: hyperresearch-10-triple-draft
+[ ] Step 11 — Skill: hyperresearch-11-synthesize
+[ ] Step 12 — Skill: hyperresearch-12-critics
+[ ] Step 13 — Skill: hyperresearch-13-gap-fetch
+[ ] Step 14 — Skill: hyperresearch-14-patcher
+[ ] Step 14.5 — Skill: hyperresearch-14-5-cite-check
+[ ] Step 15 — Skill: hyperresearch-15-polish
+[ ] Step 16 — Skill: hyperresearch-16-readability-audit
+[ ] Ship gate — run finish + integrity checks
+[0m
+[0m→ [0mSkill "hyperresearch-7-source-tensions"
+Step 7 requires reading full source bodies for hidden tensions. Let me survey the updated vault and probe the tension-densest reviews directly.
+[0m
+[0m$ [0mHPR=/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch; $HPR note list --tag mrna-vaccine-cold-chain-f82458 --all -j | python3 -c "
+import sys,json
+for n in json.load(sys.stdin)['data']:
+    print(n['id'], '|', n.get('type',''), '|', round((n.get('word_count') or 0))
+)"
+comirnaty-chmp-assessment-report-ema7073832020-initial-ma-19-feb-2021-stability | note | 517
+fda-extends-pfizer-biontech-vaccine-storage-time-to-30-days | note | 635
+lyophilization-provides-long-term-stability-for-a-lipid-nanoparticle-formulated | note | 5816
+lock-4 | note | 5846
+a-thermostable-messenger-rna-based-vaccine-against-rabies-plos-neglected-tropica | note | 4703
+acknowledgments | note | 11082
+references-2 | note | 3915
+dailymed-pfizer-biontech-covid-19-vaccine-bnt162b2-injection-suspension | note | 11842
+data-availability-statement | note | 7783
+acknowledgement | note | 16648
+references | note | 12714
+coronavirus-covid-19-update-fda-allows-more-flexible-storage-transportation-cond | note | 532
+lock-3 | note | 13297
+lock-2 | note | 11392
+lock | note | 15946
+the-coldest-cold-chain-chilling-effects-of-covid-19-vaccines | note | 1965
+mrna-vaccines-in-the-covid-19-pandemic-and-beyond-annual-reviews | note | 7331
+interim-report-ultracold-necessity-vs-caution | interim | 2559
+interim-report-breakthrough-attribution-contest | interim | 2298
+[0m
+[0m$ [0mcd research/notes && python3 - <<'EOF'
+import re
+targets = ['acknowledgement','lock-2','lock-3','references-2','lyophilization-provides-long-term-stability-for-a-lipid-nanoparticle-formulated','comirnaty-chmp-assessment-report-ema7073832020-initial-ma-19-feb-2021-stability','a-thermostable-messenger-rna-based-vaccine-against-rabies-plos-neglected-tropica']
+pat = re.compile(r'[^.]*\b(however|although|but |unclear|conservative|caution|overstat|not necessarily|remains unknown|no direct|lack[s]? of)\b[^.]*\.', re.I)
+for t in targets:
+    try:
+        txt=open(f'{t}.md').read()
+    except FileNotFoundError:
+        print(f'-- MISSING {t}'); continue
+    sents = pat.findall(txt)
+    hits = [m.group(0).strip()[:260].replace('\n',' ') for m in pat.finditer(txt)]
+    print(f'\n===== {t}: {len(hits)} tension-marker sentences')
+    seen=set()
+    for h in hits[:14]:
+        k=h[:60]
+        if k in seen: continue
+        seen.add(k)
+        print(' *', h)
+EOF
+===== acknowledgement: 45 tension-marker sentences
+ * Key findings:   (1) degradation chemistry — 2''-OH transesterification strand scission accelerates   with alkaline pH and heat (>100-fold rate variation by sequence/site), minimized   around pH 7 and at −20/−70°C; depurination/deamination negligible when store
+ * A brief discussion of packaging is also included, mainly due to the lack of published data on this important aspect to date.
+ * Although it might be tempting to equate “modified uridine” mRNA with stabilization, this is in fact, not necessarily the case.
+ * 18 The mRNA molecule, however, is substantially more complex than the dinucleotide setting, given the presence of significant secondary and tertiary structures.
+ * Such statistical factors can only account for part of the mRNA reactivity, however, as the mRNA sequence and the secondary structure also have a large impact on degradation kinetics.
+ * However, in this chemical modification the oxygen is an ether, thereby protecting the base against hydrolysis.
+ * As a final word of caution, RNA structures derived from a crystal structure will not necessarily reflect the dynamics of an RNA molecule's structure in solution, where it may change conformations over various time scales.
+ * However, as a potential drawback the authors recognized that AUP optimization would not predict mRNA function in vivo including effects on immunogenicity.
+ * The currently used replicases are not compatible with modified bases, but because antigen coding RNA strands are de novo synthesized inside the cell, these will contain natural uridines regardless.
+ * Interestingly, although assumed to have a positive effect in terms of innate immune response evasion, mO5U incorporation had a negative effect on thermal stability compared to uridine.
+ * It was noted, however, that the effect may still be context-dependent, so the effect of base substitution may have a bigger impact on folding energies in one situation than the other.
+ * 48 Although the United States Pharmacopeia (USP) has recently released a Draft Chapter on Analytical Procedures for mRNA Vaccine Quality with methods to support the testing of quality attributes for mRNA-based vaccines, the document does not include any accept
+ * 63 , 64 But nowadays, almost all mRNA trials use a delivery system to protect the mRNA cargo in vivo and facilitate uptake in the target cells following more practical injection routes.
+ * However, the lipids used to prepare LNPs can be a source of reactive impurities such as peroxides and aldehydes, that could also degrade the mRNA.
+
+===== lock-2: 22 tension-marker sentences
+ * Documents the regulatory drift from   ultra-cold to refrigerated: current labels Comirnaty -90 to -60°C frozen but up   to 10 weeks at 2-8°C post-thaw and Spikevax -50 to -15°C with 60 days at 2-8°C,   versus original Pfizer-below--70°C/Moderna-below--20°C req
+ * Key numbers:   without cryoprotectants 2-3 freeze-thaw cycles cut potency >50%; unprotected LNPs   in PBS lose near-complete delivery efficacy after two freeze-thaw cycles; lyophilization   enables 2-8°C storage for weeks-to-months but no licensed lyophilized 
+ * However, their limited stability poses significant challenges for storage and global distribution.
+ * mRNA’s rapid biodegradability contributes to its safety because it is inherently transient and does not persist in the body, but at the same time, this instability also limits its shelf life and delivery [5].
+ * These studies not only support regulatory compliance but also enable the development of robust formulations and optimized proper storage conditions [19].
+ * Modified nucleosides such as N1-methylpseudouridine improve translation and reduce immunogenicity but do not, by themselves, confer chemical stability against hydrolysis [23].
+ * Long poly(A) tails (>150 nucleotides) can make RNA more resistant to degradation, but they can also prevent binding to ribosomes, thereby reducing the efficiency of RNA translation [30,31].
+ * This vaccine should not be refrozen after it is thawed and needs to be diluted right before use, whereas the Pfizer-BioNTech (Comirnaty) vaccine is stable at 2–8 °C for 5 days but can only remain stable at room temperature for up to 2 h [7,8].
+ * Under light exposure, eGFP-LNPs retained high encapsulation efficiency but suffered severe mRNA degradation and near-complete loss of transfection activity [56].
+ * However, to date, there are no licensed lyophilized mRNA vaccines, and these considerations are based on pre-clinical and early-development formulations rather than approved products [33].
+ * For MC3-LNP, pH 5 triggers Fd3m cubic-to-hexagonal shifts correlating with endosomal escape efficiency, but storage at imbalanced pHs accelerates degradation.
+ * However, functional stability was formulation dependent, as C12-200 LNPs maintained EGFP expression for 11 weeks at both 2–8 and 25 °C, whereas SM-102 LNPs remained active at 2–8 °C but progressively lost transfection activity at 25 °C [14].
+ * However, drying introduces its own stresses: freezing and dehydration can create osmotic and mechanical stress, leading to aggregation or mRNA leakage if cryoprotectant composition and ionizable lipid chemistry are not co-optimized.
+ * However, no licensed lyophilized mRNA vaccine is currently available at the time of writing, and these approaches remain in late development and are not approved product formats.
+
+===== lock-3: 37 tension-marker sentences
+ * Raises the unresolved question   whether the -70°C requirement reflects true instability or conservative test protocols   (Acuitas CEO Madden: the two vaccines ''likely have the same stability'').
+ * It is currently unclear how water in the LNP core interacts with the mRNA and to what extent the degradation prone sites of mRNA are protected through a coat of ionizable cationic lipids.
+ * DNA vaccines, however, still have a minute chance of potential genome integration.
+ * However, one of the greatest challenges encountered when developing mRNA vaccines is their poor stability.
+ * Although progress has been made to enhance the stability in vivo and efficacy of mRNA-LNP vaccines, much less attention has been paid to their stability during storage (Crommelin et al.
+ * Moreover, it is unclear to what extent entrapping mRNA within LNPs influences the storage stability of the mRNA vaccine.
+ * However, even when these structural elements are optimized, IM injection of naked mRNA through a syringe does not lead to a robust immune response, probably because of the poor cell transfection capacity of naked mRNA and the susceptibility to RNase (Pardi et 
+ * The other type of mRNA vaccines, SAMs, do not only encode the target antigen but also RNA polymerase encoding ‘self-amplifying’ factors derived from Alphavirus.
+ * A key aspect of LNPs and the characteristic that makes them different from liposomes (spherical vesicles with at least one lipid bilayer and an aqueous core) is the presence of lipids in the core, although data from several studies indicate that water is also 
+ * Although their lipid core is a common feature of mRNA-LNPs, characteristics of the exact structure of this core and its dependence on lipid ingredients (molar ratios) and the localization of the mRNA are still under debate (see Fig.
+ * RiboGreen is a dye that exhibits fluorescence when bound to single stranded mRNA, but cannot enter the LNPs.
+ * However, as the ionizable cationic lipids are stacked in the core, they may show polyelectrolyte behavior, leading to deviations of the Henderson-Hasselbalch equation, i.
+ * Analysis of the components of the various mRNA-COVID-19 vaccines has shown that there are common features, but also significant differences (Table 1).
+ * However, to date little information on optimization of the stability of mRNA vaccines can be found in the public domain.
+
+===== references-2: 8 tension-marker sentences
+ * Key content:   (1) manufacturer-published stability profiles as of Dec 5, 2020 — Moderna −20°C/6   mo, 30 days at 2–8°C, 12 h room temp; Pfizer-BioNTech −80 to −60°C/6 mo, only 5   days at 2–8°C, 2 h room temp (+6 h post-dilution); CureVac ≤−60°C but claiming 
+ * Along with the growing clinical promise of mRNA-based COVID-19 vaccines, however, there arose a growing perception that storage, transport and delivery under these conditions would create quite a challenge when hundreds of millions (eventually billions) of dos
+ * , pH, buffers, presence of oxygen) but also on secondary structure formation of the mRNA molecule in solution as well as in the presence of cationic lipids (see below).
+ * , Asn deamidation, Met oxidation) which, if they occur outside the active site or an important epitope, do not necessarily affect potency.
+ * It is now clear, however, that the required storage conditions during manufacturing, shipping and at the end-user site are considered important characteristics of the mRNA vaccine drug product, as they might offer a competitive (dis)advantage.
+ * , on nucleic-acid based macromolecules (NAM), including but not restricted to mRNA vaccines, the authors draw a similar conclusion: ‘there is a need for a comprehensive overview of all the challenges and mitigation strategies for naked NAM stability and formul
+ * ’ However, no justification for such stability specifications were given.
+ * Although detailed efficacy and safety information from the clinical trials as well as required storage conditions are shared with the public through publications in peer reviewed journals and company press releases, no background information on the quality att
+
+===== lyophilization-provides-long-term-stability-for-a-lipid-nanoparticle-formulated: 8 tension-marker sentences
+ * However, the long-term storage of mRNA-LNP vaccines without freezing is still a challenge.
+ * However, lyophilization of LNPs is less than straightforward.
+ * found that siRNA-LNPs can be lyophilized, but they show significantly lower efficacy (gene silencing in cell culture) after reconstitution with water.
+ * However, effective mRNA vaccines require both efficient mRNA delivery to cells and a high level of antigen expression to induce robust immune responses coupled with durable protective immunity.
+ * Under the most accelerated storage condition of 42oC, the lyophilized product exhibited a large increase in particle size between 0 and 4 weeks, but remained stable for at least 24 weeks.
+ * The greatest loss of mRNA integrity (approximately 70%) was reported for the lyophilized samples stored at 42°C; however, this degree of degradation did not completely abrogate in vivo potency.
+ * Although the presence of a cryoprotectant stabilized particle size, they speculated that the nanostructure of these mRNA formulations was altered during the lyophilization and reconstitution process, thereby affecting their delivery efficiency in vivo.
+ * Although Moderna and Pfizer/BioNTech quickly developed very effective nucleoside-modified mRNA-LNP vaccines,, , some critical aspects of vaccine stability have yet to be addressed.
+
+===== comirnaty-chmp-assessment-report-ema7073832020-initial-ma-19-feb-2021-stability: 3 tension-marker sentences
+ * --- title: Comirnaty CHMP assessment report EMA/707383/2020 (initial MA, 19 Feb 2021)   — stability sections recovered via local pdftotext id: comirnaty-chmp-assessment-report-ema7073832020-initial-ma-19-feb-2021-stability tags: - mrna-vaccine-cold-chain-f8245
+ * PDF fetched by hyperresearch but machine text-extraction failed (binary garbage); text recovered locally via pdftotext from the identical official EMA file and curated manually by the step-5 depth investigator (locus-ultracold-necessity-vs-caution).
+ * In addition, the applicant should investigate the possibility to prolong the in-use storage time (before dilution) of 5 days at 2-8°C as well as the possibilities to extend the claims for transport conditions at 2-8°C  ### Clinical trial storage condition (eff
+
+===== a-thermostable-messenger-rna-based-vaccine-against-rabies-plos-neglected-tropica: 5 tension-marker sentences
+ * 0006108  Article  Authors  Metrics  Comments  Media Coverage  Reader Comments  Figures  Figures  Abstract  Although effective rabies virus vaccines have been existing for decades, each year, rabies virus infections still cause around 50.
+ * The reasons for this are the prohibitive high costs of cell culture or egg grown rabies virus vaccines and the lack of a functional cold chain in many regions in which rabies virus is endemic.
+ * challenge (S1 Table), although mice that received mRNA vaccine stored at 5°C showed a transient drop in body weight (Fig 1D).
+ * However, at 80°C RABV-G mRNA lost some efficacy and was not completely protective, with 50% mortality upon challenge infection in this group (Fig 2H).
+ * Hence, data presented here support a scenario, in which an mRNA-based rabies vaccine could circumvent the need for a cold chain, allowing vaccine transport to areas in which a rabies vaccine is needed but its supply remains a logistical challenge.
+[0m
+Nuance scan surfaced strong orphan tensions (mO5U thermal-instability counter-datum, Khan's explicit m1Ψ-no-stability claim, Crommelin's "no justification was given", Muramatsu's lyo-efficacy penalties). Composing `source-tensions.json`.
+[0m✗ [0mInvalid Tool
+The arguments provided to the tool are invalid: Invalid input for tool write: JSON parsing failed: Text: {"content":"{\n  \"tensions\": [\n    {\n      \"name\": \"Ultra-cold necessity vs conservative labeling\",\n      \"side_a\": {\n        \"position\": \"The -80/-60°C requirement reflected genuine mRNA chemistry: water-driven phosphodiester hydrolysis is Arrhenius-governed and a single strand break nearly kills a molecule's translation.\",\n        \"e.
+Error message: JSON Parse error: Unterminated string
+[0m
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/temp/source-tensions.json
+Wrote file successfully.
+[0m
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch run step mrna-vaccine-cold-chain-f82458 7 --status done -j | tail -2
+"timestamp": "2026-08-23T11:53:39.008295+00:00"
+}
+[0m
+[0m# [0mTodos
+[✓] Step 1 — Skill: hyperresearch-1-decompose
+[✓] Step 2 — Skill: hyperresearch-2-width-sweep (RE-RUN: no sources fetched yet)
+[✓] Step 3 — Skill: hyperresearch-3-contradiction-graph
+[✓] Step 4 — Skill: hyperresearch-4-loci-analysis
+[✓] Step 5 — Skill: hyperresearch-5-depth-investigation
+[✓] Step 6 — Skill: hyperresearch-6-cross-locus-reconcile
+[✓] Step 7 — Skill: hyperresearch-7-source-tensions
+[•] Step 8 — Skill: hyperresearch-8-corpus-critic
+[ ] Step 9 — Skill: hyperresearch-9-evidence-digest
+[ ] Step 10 — Skill: hyperresearch-10-triple-draft
+[ ] Step 11 — Skill: hyperresearch-11-synthesize
+[ ] Step 12 — Skill: hyperresearch-12-critics
+[ ] Step 13 — Skill: hyperresearch-13-gap-fetch
+[ ] Step 14 — Skill: hyperresearch-14-patcher
+[ ] Step 14.5 — Skill: hyperresearch-14-5-cite-check
+[ ] Step 15 — Skill: hyperresearch-15-polish
+[ ] Step 16 — Skill: hyperresearch-16-readability-audit
+[ ] Ship gate — run finish + integrity checks
+[0m
+[0m→ [0mSkill "hyperresearch-8-corpus-critic"
+[0m
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/corpus-critic-gaps.json
+Wrote file successfully.
+[0m
+**Pre-flight period-pinned check**: Period 1 (Nov–Dec 2020) is covered by three near-primary documents (DailyMed Jan-2021 original label, Crommelin Dec-5-2020 snapshot table, IHP Nov-2020 commentary). Period 2's *trivalent 10-week 2–8°C (2022)* claim lacks a 2022-dated primary — seeding that gap before spawning the critic.
+[0m• [0mCorpus critic gap analysis[90m Hyperresearch-Corpus-Critic Agent[0m
+[0m✓ [0mCorpus critic gap analysis[90m Hyperresearch-Corpus-Critic Agent[0m
+Critic validated positions (no quote drift) and finalized 4 gaps. Reading its final file, then dispatching the targeted fetch wave.
+[0m
+[0m$ [0mpython3 -c "
+import json
+d=json.load(open('research/runs/mrna-vaccine-cold-chain-f82458/corpus-critic-gaps.json'))
+for g in d['gaps']:
+    print(g['id'], '|', g.get('priority'), '|', g.get('type'))
+    for q in g.get('search_queries',[]): print('   -', q)
+"
+gap-m1psi-vs-u-shelf-life-trial | critical | overturning
+   - controlled comparison N1-methylpseudouridine versus unmodified uridine mRNA-LNP accelerated storage stability potency retention weeks
+   - pseudouridine substitution effect mRNA vaccine shelf life liquid formulation real-time stability study
+   - nucleoside modified versus unmodified mRNA encapsulation integrity degradation rate 25C 4C head-to-head
+gap-period2-trivalent-label-2022 | high | strengthening
+   - FDA Comirnaty fact sheet 2022 bivalent monovalent gray cap "10 weeks" "2 to 8" storage
+   - EMA Comirnaty extension of indication 2022 shelf life 10 weeks refrigerated assessment report
+   - Pfizer BioNTech 2022 announcement Comirnaty refrigerator 10 weeks package insert
+gap-bnt162b2-minus80-vs-minus20-potency-differential | high | overturning
+   - BNT162b2 Comirnaty comparative stability study minus 20 versus minus 80 potency months storage
+   - mRNA lipid nanoparticle Arrhenius degradation rate subzero depot temperature comparison empirical
+   - COVID-19 mRNA vaccine potency retention freezer temperature depth real-world stability testing
+gap-cvncov-fridge-claim-provenance | high | independent-verification
+   - EMA CVnCoV CureVac marketing authorization withdrawn assessment report stability data
+   - CureVac CVnCoV three months 2-8 degrees stability data basis clinical development 2020 2021
+   - CVnCoV WHO regulatory review storage condition refrigerator stability substantiation
+[0m
+[0m• [0mGap-fill regulatory verification[90m Hyperresearch-Fetcher Agent[0m
+[0m✓ [0mGap-fill regulatory verification[90m Hyperresearch-Fetcher Agent[0m
+[0m• [0mGap-fill academic overturning[90m Hyperresearch-Fetcher Agent[0m
+Regulatory gap-fetcher closed both its gaps (Dec-2022 fact sheet pinned; CVnCoV claim downgraded to unsubstantiated). Now the academic overturning fetcher for the remaining two gaps.
+[0m✓ [0mGap-fill academic overturning[90m Hyperresearch-Fetcher Agent[0m
+[0m
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/temp/corpus-critic-results.md
+Wrote file successfully.
+[0m
+All four gaps attempted — one critical **negative result** (upgrades confidence), two new sources, one claim downgrade. Writing the results log and updating `comparisons.md`.
+[0m← [0mEdit research/runs/mrna-vaccine-cold-chain-f82458/comparisons.md
+Index: /tmp/opencode/e2e-smoke/research/runs/mrna-vaccine-cold-chain-f82458/comparisons.md
+===================================================================
+--- /tmp/opencode/e2e-smoke/research/runs/mrna-vaccine-cold-chain-f82458/comparisons.md
++++ /tmp/opencode/e2e-smoke/research/runs/mrna-vaccine-cold-chain-f82458/comparisons.md
+@@ -38,4 +38,13 @@
+ - **Locus A** commits: do not let "conservatism" flatten into "mRNA vaccines never needed the cold" — freezing is chemically necessary; ULTRA-cold was not.
+ - **Locus B** commits: refuse the Nobel-story conflation — the 2023 prize explains why mRNA vaccines work; sucrose, Tris, and data dossiers explain how they reached arms.
+ - **The cross-locus dynamic:** Reinforcement from independent paths. Both investigators, working different loci, attack the same popular conflation (Karikó-Weissman ⇒ cold-chain enablement) while defending different adjacent truths (A: some freezing was necessary; B: m1Ψ still earned viability/timing credit).
+ - **How the draft should engage this:** Make this dual correction the spine of the required Opinionated Synthesis — it is the report's most defensible, most distinctive claim, backed by both loci at medium-high+ confidence.
++
++---
++
++## Post-corpus-critic confidence updates (step 8)
++
++1. **Tension 1 (ultracold necessity):** STRENGTHENED. Grau et al. 2022 (lock-6) supplies the first controlled empirical datum: 1-month refreeze at −20°C vs −80°C left mRNA integrity and mouse immunogenicity unchanged — conservatism confirmed within the tested window; multi-month undiluted-depot data remain confidential (EMA EPAR tables unfetchable headlessly). Motive decomposition (dry-ice alignment) stays inference, medium-high.
++2. **Tension 3 (m1Ψ credit):** UPGRADED CONFIDENCE + DOWNGRADED LEG. Verified absence of any controlled liquid m1Ψ-vs-U shelf-life trial in indexed literature (2005–2026) strengthens the ≤10% attribution. However the CVnCoV "3 months refrigerated" benchmark is now an UNVERIFIED MANUFACTURER CLAIM (EMA rolling review withdrawn Oct 2021 pre-day-120, no assessment report exists) — the draft must present the cap argument on verified-absence grounds, not regulator-endorsed rival data.
++3. **Tension 2 (Tris vs paperwork):** now citable to a 2022-dated primary label (FDA fact sheet revised 8 Dec 2022: verbatim 10-week/2–8°C thawed claim; −90/−60°C depot ≤18 months). Provenance note: manufacturer-hosted official labeling portal.
++4. **Standing evidentiary boundary:** decisive manufacturer stability dossiers (Pfizer CTD 3.2.P.8, EMA EPAR stability tables, Fongaro 2023 thermal-stress data) remain behind paywalls/bot walls/confidentiality — stated once in the synthesis as the run's confidence ceiling.
+
+[0m
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch run step mrna-vaccine-cold-chain-f82458 8 --status done -j | tail -2
+"timestamp": "2026-08-23T12:44:13.434261+00:00"
+}
+[0m
+[0m# [0mTodos
+[✓] Step 1 — Skill: hyperresearch-1-decompose
+[✓] Step 2 — Skill: hyperresearch-2-width-sweep (RE-RUN: no sources fetched yet)
+[✓] Step 3 — Skill: hyperresearch-3-contradiction-graph
+[✓] Step 4 — Skill: hyperresearch-4-loci-analysis
+[✓] Step 5 — Skill: hyperresearch-5-depth-investigation
+[✓] Step 6 — Skill: hyperresearch-6-cross-locus-reconcile
+[✓] Step 7 — Skill: hyperresearch-7-source-tensions
+[✓] Step 8 — Skill: hyperresearch-8-corpus-critic
+[•] Step 9 — Skill: hyperresearch-9-evidence-digest
+[ ] Step 10 — Skill: hyperresearch-10-triple-draft
+[ ] Step 11 — Skill: hyperresearch-11-synthesize
+[ ] Step 12 — Skill: hyperresearch-12-critics
+[ ] Step 13 — Skill: hyperresearch-13-gap-fetch
+[ ] Step 14 — Skill: hyperresearch-14-patcher
+[ ] Step 14.5 — Skill: hyperresearch-14-5-cite-check
+[ ] Step 15 — Skill: hyperresearch-15-polish
+[ ] Step 16 — Skill: hyperresearch-16-readability-audit
+[ ] Ship gate — run finish + integrity checks
+[0m
+[0m→ [0mSkill "hyperresearch-9-evidence-digest"
+Step 9: I hold the original 12 claims files in context from step 3 — scanning only the five newest claims files from the gap-fill wave before assembling the digest.
+[0m
+[0m$ [0mpython3 - <<'EOF'
+import json, glob, os
+base='research/runs/mrna-vaccine-cold-chain-f82458/temp'
+new=['claims-lock-5.json','claims-lock-6.json','claims-showlabelingaspx.json']
+for f in sorted(glob.glob(f'{base}/claims-*.json')):
+    b=os.path.basename(f)
+    if b not in new: continue
+    d=json.load(open(f))
+    claims = d if isinstance(d,list) else d.get('claims',d.get('data',[]))
+    print(f"\n===== {b} ({len(claims)})")
+    for i,c in enumerate(claims):
+        if not isinstance(c,dict): continue
+        txt=(c.get('claim') or '')[:220]
+        q=(c.get('quoted_support') or c.get('quote') or '')[:200].replace('\n',' ')
+        et=c.get('evidence_type'); num=c.get('numbers')
+        print(f"[{i}] {txt}")
+        print(f"    q: {q}")
+        print(f"    etype={et} num={num}")
+EOF
+===== claims-lock-5.json (6)
+[0] BNT162b2's original PBS formulation required ultra-cold storage between -90 C and -60 C (commonly -80 C) for shipment and long-term storage up to 6 months.
+    q: This original PBS formulation of this vaccine requires ultra-cold temperatures of between -90 C and -60 C, commonly -80 C for shipment and longer term storage for up to 6 months
+    etype=historical num=['-90 to -60 C', '-80 C', '6 months']
+[1] Regulators authorized BNT162b2 transport/storage at -25 to -15 C (commonly -20 C) for up to 2 weeks as an alternative to ultracold depot storage.
+    q: the PBS formulated BioNTech/Pfizer COVID-19 mRNA vaccine can also be transported between -25 C and -15 C, commonly -20 C, and the unpunctured vials can be stored at this temperature for up to 2 weeks
+    etype=legal num=['-25 to -15 C', '-20 C', '2 weeks']
+[2] The Tris-buffered BNT162b2 reformulation extended refrigerated shelf life to 10 weeks at 2-8 C and post-puncture handling to 12 h at 2-30 C, doubling administration time vs the PBS formulation.
+    q: Punctured vials containing the Tris formulation of the BioNTech/Pfizer mRNA vaccine can be kept at temperatures between 2 C and 30 C for 12 hours, thus doubling the time available for administration c
+    etype=empirical num=['10 weeks', '2-8 C', '12 hours', '2-30 C']
+[3] mRNA-1273 (Spikevax) is distributed frozen for 6 months at -50 to -15 C (commonly -20 C), holds 30 days at 2-8 C, and a total of 24 h at 8-25 C.
+    q: This vaccines is distributed and stored frozen for 6 months at temperatures between -50 C and -15 C, commonly at -20 C
+    etype=historical num=['6 months', '-50 to -15 C', '-20 C', '30 days', '24 h']
+[4] mRNA degradation in mRNA-LNP vaccines follows Arrhenius behavior with first-order kinetics, per Pfizer-derived kinetic models and Moderna statements, enabling extrapolation of accelerated high-temperature stability data 
+    q: It was also shown that this mRNA degradation reaction follows the Arrhenius behavior [21,24]. Recently, Moderna also stated that the mRNA from their COVID-19 vaccine demonstrated Arrhenius behavior, w
+    etype=theoretical num=['first order', 'k=A*exp(-Ea/RT)', 'R = 3144 J/K/mol units cited as gas constant context']
+[5] Combining distribution temperature-monitoring logs with kinetic CQA models allows computation of remaining mRNA-vaccine shelf life under real excursion profiles, improving deployment to low- and middle-income countries.
+    q: These temperature readings can feed into computational models to quantify mRNA vaccine critical quality attributes (CQAs) and the remaining vaccine shelf life more accurately.
+    etype=theoretical num=[]
+
+===== claims-lock-6.json (6)
+[0] Reconstituted Comirnaty and Spikevax stored 1 month at either -20 C or -80 C showed unaffected mRNA integrity under both conditions.
+    q: We reveal that the mRNA integrity of Comirnaty(R) and Spikevax(R) vaccines remained unaffected after re-freezing during 1 month at -20 C or -80 C.
+    etype=empirical num=['1 month', '-20 C', '-80 C']
+[1] Mouse immune responses after immunization with re-frozen (-20 C or -80 C, 1 month) Comirnaty or Spikevax were unchanged relative to freshly prepared controls, with no apparent side effects.
+    q: The immunological responses also remained unchanged in mice after these re-freezing conditions and no apparent side effects were revealed.
+    etype=empirical num=[]
+[2] The experimental design compared three handling conditions per vaccine: fresh/immediate use, 1-month refreeze at -20 C, and 1-month refreeze at -80 C, always within the vial expiry interval.
+    q: The syringes of a second group of samples were frozen at -20 C during 1 month... The syringes of a third group of samples were frozen at -80 C during 1 month.
+    etype=empirical num=['3 groups per vaccine', '1 month']
+[3] The study used 70 Balb/c mice (35 male, 35 female, aged 2 months) across seven groups with IM immunization.
+    q: A total of 70 Balb/c mice (35 male and 35 female), aged 2 months, were housed in groups of 4 mice per cage in temperature- and humidity-controlled laboratory conditions
+    etype=statistical num=['70', '35 male / 35 female', '2 months', '7 groups']
+[4] Safety after re-frozen vaccine administration was assessed via body weight, Irwin observational test, and locomotor activity, all unaltered.
+    q: The security of immunization was assessed by ensuring that no alterations in body weight, general behavioral state of the mice using the Irwin test, or locomotor activity was produced.
+    etype=empirical num=[]
+[5] Motivation was vaccine wastage from handling complexity; authors position controlled re-freezing as a practical route to reduce losses, implicitly challenging the operational necessity of uninterrupted ultracold chains.
+    q: The preservation of mRNA integrity and immunogenicity under these handling conditions opens the possibility of re-freezing the mRNA COVID-19 vaccine vials to limit their wastage and to facilitate vacc
+    etype=empirical num=[]
+
+===== claims-showlabelingaspx.json (5)
+[0] FDA's December 2022 EUA fact sheet for Pfizer-BioNTech COVID-19 Vaccine (gray cap, primary series 12+) authorizes refrigerator storage at 2-8°C for up to 10 weeks after thawing.
+    q: Once received, frozen vials may be immediately transferred to the refrigerator [2ºC to 8ºC (35ºF to 46ºF)], thawed and stored for up to 10 weeks. The 10-week refrigerated expiry date should be recorde
+    etype=legal num=['10 weeks', '2°C to 8°C (35°F to 46°F)', '6 hours thaw time per carton of 10 vials']
+[1] The same December 2022 gray-cap label retains a deep-freeze envelope of -90°C to -60°C for up to 18 months from date of manufacture and explicitly forbids storage at -25°C to -15°C.
+    q: Alternatively, frozen vials may be stored in an ultra-low temperature freezer at -90ºC to -60ºC (-130ºF to -76ºF) for up to 18 months from the date of manufacture. Do not store vials at -25°C to -15°C
+    etype=legal num=['-90ºC to -60ºC', '18 months from date of manufacture', '-25°C to -15°C forbidden', 'expiry tables: printed mfg date 10/2021 → 31-Mar-2023 through 02/2022 → 31-Jul-2023']
+[2] In-use handling limits under the December 2022 label: 12 hours total at 8-25°C before first puncture and 12 hours post-first-puncture held at 2-25°C, with vial labels stating 6 hours superseded by the fact sheet.
+    q: Pfizer-BioNTech COVID-19 Vaccine multiple dose vials with gray caps and labels with gray borders may be stored at room temperature [8°C to 25°C (46°F to 77°F)] for a total of 12 hours prior to the fir
+    etype=legal num=['12 hours pre-puncture at 8-25°C', '12 hours post-puncture at 2-25°C', 'supersedes 6-hour printed label statement']
+[3] The December 2022 label permits local redistribution transport of gray-cap vials at either -90/-60°C or at 2-8°C, i.e., ordinary refrigerator temperature became an authorized transport condition by end-2022.
+    q: Transportation of Vials If local redistribution is needed, vials may be transported at -90°C to -60°C (-130°F to -76°F) or at 2°C to 8°C (35°F to 46°F).
+    etype=legal num=['transport at -90/-60°C or 2-8°C']
+[4] The December 2022 fact sheet documents that COMIRNATY (licensed) and EUA-authorized Pfizer-BioNTech COVID-19 Vaccine for 12+ are interchangeable when prepared per respective instructions — the licensed/EUA dual-track con
+    q: The FDA-approved COMIRNATY (COVID-19 Vaccine, mRNA) and the EUA-authorized Pfizer-BioNTech COVID-19 Vaccine for individuals 12 years of age and older when prepared according to their respective instru
+    etype=legal num=[]
+[0m
+All claims in context. Assembling `evidence-digest.md` — grouped by atomic item, consensus-marked, contested pairs included.
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/temp/evidence-digest.md
+Wrote file successfully.
+[0m
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch run step mrna-vaccine-cold-chain-f82458 9 --status done -j | tail -2
+"timestamp": "2026-08-23T12:48:18.206815+00:00"
+}
+[0m
+[0m# [0mTodos
+[✓] Step 1 — Skill: hyperresearch-1-decompose
+[✓] Step 2 — Skill: hyperresearch-2-width-sweep (RE-RUN: no sources fetched yet)
+[✓] Step 3 — Skill: hyperresearch-3-contradiction-graph
+[✓] Step 4 — Skill: hyperresearch-4-loci-analysis
+[✓] Step 5 — Skill: hyperresearch-5-depth-investigation
+[✓] Step 6 — Skill: hyperresearch-6-cross-locus-reconcile
+[✓] Step 7 — Skill: hyperresearch-7-source-tensions
+[✓] Step 8 — Skill: hyperresearch-8-corpus-critic
+[✓] Step 9 — Skill: hyperresearch-9-evidence-digest
+[•] Step 10 — Skill: hyperresearch-10-triple-draft
+[ ] Step 11 — Skill: hyperresearch-11-synthesize
+[ ] Step 12 — Skill: hyperresearch-12-critics
+[ ] Step 13 — Skill: hyperresearch-13-gap-fetch
+[ ] Step 14 — Skill: hyperresearch-14-patcher
+[ ] Step 14.5 — Skill: hyperresearch-14-5-cite-check
+[ ] Step 15 — Skill: hyperresearch-15-polish
+[ ] Step 16 — Skill: hyperresearch-16-readability-audit
+[ ] Ship gate — run finish + integrity checks
+[0m
+[0m→ [0mSkill "hyperresearch-10-triple-draft"
+Step 10 begins. Checking the smoke profile's exact word target before defining angles (the gate enforces ±20%).
+[0m
+[0m$ [0mHPR=/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch; $HPR profile list -j 2>/dev/null | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+data=d.get('data',d)
+profs=data.get('profiles',data)
+import re
+def walk(o,path=''):
+    if isinstance(o,dict):
+        for k,v in o.items(): walk(v,f'{path}.{k}')
+    elif isinstance(o,list):
+        if path.endswith(('word','words','length','target')) or 'word' in path.lower():
+            print(path,'=',o)
+    else:
+        if 'word' in path.lower() or 'length' in path.lower(): print(path,'=',o)
+walk(profs)
+" 2>/dev/null || $HPR profile list -j
+(no output)
+[0m
+[91m[1mError: [0mProvider finish_reason: network_error

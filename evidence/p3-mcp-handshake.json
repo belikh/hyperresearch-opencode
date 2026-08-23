@@ -1,0 +1,26 @@
+{
+ "server": {
+  "name": "hyperresearch",
+  "version": "1.29.0"
+ },
+ "tool_count": 13,
+ "tools": [
+  "check_source",
+  "create_note",
+  "fetch_url",
+  "get_backlinks",
+  "get_hubs",
+  "lint_vault",
+  "list_notes",
+  "list_sources",
+  "read_many",
+  "read_note",
+  "search_notes",
+  "update_note",
+  "vault_status"
+ ],
+ "read_roundtrip": {
+  "notes": 28,
+  "tags": 18
+ }
+}

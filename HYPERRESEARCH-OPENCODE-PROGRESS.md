@@ -5,7 +5,7 @@ Live status page for the port of
 (v0.10.0, reference pinned at `15010c5142244b88265f7abadf7b7aa1a8237fde`)
 to opencode. Scope and citations per piece live in [PARITY.md](PARITY.md).
 
-**Last updated:** 2026-08-23 (session 2, cont.) — PHASE 2 COMPLETE: P2-13..P2-17 built + countersigned (four fresh-context SIGN-OFFs in one batch review; residues closed same session incl repo-wide zero-Claude-syntax guard test). Gates at phase close: 1175 passed / 106 skipped, ruff clean, mypy strict clean (96 files). Live E2E feasibility PROBED OK (opencode credentials present; run probe returned PROBE_OK). Entering Phase 3.
+**Last updated:** 2026-08-23 (session 2 final) — PHASE 3 COMPLETE: light-tier E2E PASSED (finish passed:true; plugin denials observed in a natural run); smoke full-tier E2E PASSED all 16 steps incl two interruption->exact-resume recoveries (kill test + provider error) at $0/$5 budget; three ship-gate negatives blocked naming correct checks; MCP stdio handshake live: exactly 13 tools + read roundtrip. P3-21 verifier dossier dispatched.
 
 ## Legend
 
@@ -50,9 +50,9 @@ evidence pointers fill in at first commit touching the piece.
 | P2-15 | Enforcement plugin (tool.execute.before hard-deny) | critic-won | 8/8 deny-matrix cells proven by EXECUTED-ATTEMPT transcripts + fs ground truth (patcher/polish-auditor write DENIED w/ edit+bash allowed; synthesizer edit+bash DENIED); both plugin dir spellings load on opencode 1.18.21, plural standardized; independent countersign re-ran two cells live — SIGN-OFF | evidence/p2-15/, src/hyperresearch/core/opencode_plugin.py |
 | P2-16 | Install flow `hpr install` (--global/--steps-only/--profile) | critic-won | countersign V-D SIGN-OFF: fresh-project tree exact (15/19/plugin/command/AGENTS.md/vault), hash-sweep idempotency zeros, retired-artifact prune w/ user-file survival, smoke profile re-bake proven, UNKNOWN_PROFILE exit 1; live transcript: opencode agent list shows all 15 | evidence/p2-16/, tests/test_cli/test_install.py |
 | P2-17 | Smoke gear profile overlay | critic-won | countersign V-C SIGN-OFF: exact knob values, first-in-GEAR_PROFILES, per-key overlay precedence, init_run->resolve_profile->manifest + render bake proven live; inverted-range rejection intact under smoke base | PORTING-NOTES.md §P2-17, tests/test_core/test_profiles.py |
-| P3-18 | — | pending | — | — |
-| P3-19 | — | pending | — | — |
-| P3-20 | — | pending | — | — |
+| P3-18 | Light-tier E2E (live opencode) | critic-won | PASS: report exists, finish passed:true failed_checks:[], 9/9 verify checks ok incl citations bind + provenance; natural-run plugin denials captured; lint advisory trio (provenance/extract-coverage/instruction-coverage) = designed light-tier skips per rule text, ship-blocking subset clean | evidence/e2e-light/, evidence/p3-mcp-handshake.json |
+| P3-19 | Smoke-gear full-tier E2E + mid-run kill/resume | critic-won | PASS: all steps 1–16 done incl 14.5, finish passed:true, spend $0/$5 cap; kill mid-step-2 -> `run resume` next_step exactly 2 -> continuation completed; SECOND provider-error interruption recovered via resume to exact step 10; all artifact classes on disk (4 critic JSONs, patch-log, polish-log, cite-check findings, readability decisions) | evidence/p3-19-smoke/, evidence/p3-19/kill-resume-proof.md |
+| P3-20 | Ship-gate negatives | critic-won | PASS: hallucinated-quote -> FAIL quote-integrity EXIT1; cited-source retraction -> FAIL retracted-citations EXIT1; over-length -> FAIL length-in-range EXIT1; positive controls green after each restore | evidence/p3-20/negatives-summary.md |
 | P3-21 | — | pending | — | — |
 
 ## Known non-goals (carried on every piece)

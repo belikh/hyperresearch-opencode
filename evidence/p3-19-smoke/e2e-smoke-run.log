@@ -1,0 +1,310 @@
+[0m
+> build · x-preview-f-free
+[0m
+[0m→ [0mSkill "hyperresearch"
+Entry skill loaded. Starting bootstrap: checking vault init state and step-skills install first.
+[0m
+[0m$ [0mls -d .hyperresearch .opencode/skills/hyperresearch-1-decompose 2>&1; ls research/ 2>&1
+.hyperresearch
+.opencode/skills/hyperresearch-1-decompose
+index
+notes
+temp
+[0m
+Vault and step skills exist. Running archive check and looking for legacy prompt files.
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch archive-run --json; ls research/prompt.txt research/wrapper_contract.json 2>&1
+{
+  "ok": true,
+  "data": {
+    "archived": false,
+    "files_moved": 0,
+    "previous_vault_tag": null
+  },
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:04:00.107240+00:00"
+}
+ls: cannot access 'research/prompt.txt': No such file or directory
+ls: cannot access 'research/wrapper_contract.json': No such file or directory
+[0m
+Canonical query = user's verbatim prompt (no legacy files). Minting vault tag now.
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch vault-tag mrna-vaccine-cold-chain --json
+{
+  "ok": true,
+  "data": {
+    "vault_tag": "mrna-vaccine-cold-chain-f82458",
+    "slug": "mrna-vaccine-cold-chain",
+    "suffix": "f82458"
+  },
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:04:17.667572+00:00"
+}
+[0m
+Vault tag minted: `mrna-vaccine-cold-chain-f82458`. Initializing run workspace with smoke gear and budget cap 5.
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch run init mrna-vaccine-cold-chain-f82458 --profile smoke --budget 5 --json
+{
+  "ok": true,
+  "data": {
+    "run_dir": "/tmp/opencode/e2e-smoke/research/runs/mrna-vaccine-cold-chain-f82458",
+    "manifest": {
+      "manifest_version": 1,
+      "vault_tag": "mrna-vaccine-cold-chain-f82458",
+      "profile": "smoke",
+      "profile_steps": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16"
+      ],
+      "status": "running",
+      "started_at": "2026-08-23T10:04:54.398060+00:00",
+      "updated_at": "2026-08-23T10:04:54.398087+00:00",
+      "budget_usd": 5.0,
+      "blocked_on": null,
+      "steps": {},
+      "chapters": {},
+      "spend": {
+        "estimated_usd": 0.0,
+        "sources_fetched": 0,
+        "notes_written": 0,
+        "agents_spawned": 0
+      }
+    }
+  },
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:04:54.398406+00:00"
+}
+[0m
+Run manifest created (smoke profile, all 16 steps, $5 budget). Persisting the canonical query file and writing the scaffold.
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/query.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/scaffold.md
+Wrote file successfully.
+[0m
+[0m# [0mTodos
+[✓] Bootstrap — vault/tag/run-init/query.md/scaffold
+[•] Step 1 — Skill: hyperresearch-1-decompose
+[ ] Step 2 — Skill: hyperresearch-2-width-sweep
+[ ] Step 3 — Skill: hyperresearch-3-contradiction-graph
+[ ] Step 4 — Skill: hyperresearch-4-loci-analysis
+[ ] Step 5 — Skill: hyperresearch-5-depth-investigation
+[ ] Step 6 — Skill: hyperresearch-6-cross-locus-reconcile
+[ ] Step 7 — Skill: hyperresearch-7-source-tensions
+[ ] Step 8 — Skill: hyperresearch-8-corpus-critic
+[ ] Step 9 — Skill: hyperresearch-9-evidence-digest
+[ ] Step 10 — Skill: hyperresearch-10-triple-draft
+[ ] Step 11 — Skill: hyperresearch-11-synthesize
+[ ] Step 12 — Skill: hyperresearch-12-critics
+[ ] Step 13 — Skill: hyperresearch-13-gap-fetch
+[ ] Step 14 — Skill: hyperresearch-14-patcher
+[ ] Step 14.5 — Skill: hyperresearch-14-5-cite-check
+[ ] Step 15 — Skill: hyperresearch-15-polish
+[ ] Step 16 — Skill: hyperresearch-16-readability-audit
+[ ] Ship gate — run finish (integrity gate + verify)
+[0m
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch run step mrna-vaccine-cold-chain-f82458 1 --status running -j
+{
+  "ok": true,
+  "data": {
+    "steps": {
+      "1": {
+        "status": "running",
+        "started_at": "2026-08-23T10:05:54.342706+00:00"
+      }
+    }
+  },
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:05:54.343492+00:00"
+}
+[0m
+[0m→ [0mSkill "hyperresearch-1-decompose"
+Bootstrap complete. Invoking step 1.
+Step 1 procedure loaded. Executing decomposition: writing `prompt-decomposition.json`, coverage matrix, scaffold tier rationale, then rendering lever shims.
+[0m
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/prompt-decomposition.json
+Wrote file successfully.
+[0m
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/temp/coverage-matrix.md
+Wrote file successfully.
+[0m
+[0m← [0mEdit research/runs/mrna-vaccine-cold-chain-f82458/scaffold.md
+Index: /tmp/opencode/e2e-smoke/research/runs/mrna-vaccine-cold-chain-f82458/scaffold.md
+===================================================================
+--- /tmp/opencode/e2e-smoke/research/runs/mrna-vaccine-cold-chain-f82458/scaffold.md
++++ /tmp/opencode/e2e-smoke/research/runs/mrna-vaccine-cold-chain-f82458/scaffold.md
+@@ -30,9 +30,9 @@
+ - No custom wrapper contract file present (`research/wrapper_contract.json` absent; `research/prompt.txt` absent → user-prompt is gospel).
+ 
+ ## Tier rationale
+ 
+-(filled in after step 1) — expected: full tier per user constraint "smoke gear (full 16-step pipeline)". Step 1's decomposition is authoritative; manifest profile is informational.
++**full tier.** The user explicitly constrained the run: "smoke gear (full 16-step pipeline)" — a binding directive, not an inference. Independently, the query qualifies on merit: it asks for causal attribution ("key breakthroughs *enabling* cold-chain deployment"), which is contested-evidence territory (sequence-level vs formulation-level vs process-level candidates each have champions in the literature), and the answer requires evidence chains from primary regulatory documents (EUA fact sheets) plus landmark papers. response_format = argumentative; register = analyze (low confidence — teach-shaped first clause, evaluative second); citation_style = wikilink (no wrapper contract).
+ 
+ ## Budget watch
+ 
+ Hard cap $5. Check `$HPR run status -j` spend at step boundaries; if approaching cap, keep subagent counts at the gear minimums and note it in orchestrator-notes.md.
+
+[0m
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch levers render mrna-vaccine-cold-chain-f82458 -j && ls research/runs/mrna-vaccine-cold-chain-f82458/shims/
+{
+  "ok": true,
+  "data": {
+    "levers": {
+      "register": "analyze",
+      "register_confidence": "low",
+      "domain_notes": "Sourcing: academic APIs first (PubMed, Semantic Scholar, OpenAlex) for mechanism and stability literature; regulatory primary documents (FDA EUA fact sheets, EMA assessment reports) outrank press coverage for any storage-temperature claim; landmark papers (Karikó & Weissman 2005) and authoritative reviews anchor the mechanism story. Recency window: core literature 2005-2024, deployment-era specifics Nov 2020 onward; post-pandemic thermostability work (2023-2026) included where it changes the verdict.",
+      "inference_depth": "standard",
+      "rationale": {
+        "register": "mixed signals: 'how do X work' is teach-shaped, but 'KEY breakthroughs ENABLING' demands evaluative ranking; default analyze wins at low confidence",
+        "inference_depth": "mechanism consensus is rich; the contested part is attribution of deployment success across candidate breakthroughs — revisit at loci analysis"
+      }
+    },
+    "files": [
+      "/tmp/opencode/e2e-smoke/research/runs/mrna-vaccine-cold-chain-f82458/shims/research.md",
+      "/tmp/opencode/e2e-smoke/research/runs/mrna-vaccine-cold-chain-f82458/shims/drafting.md",
+      "/tmp/opencode/e2e-smoke/research/runs/mrna-vaccine-cold-chain-f82458/shims/critics.md",
+      "/tmp/opencode/e2e-smoke/research/runs/mrna-vaccine-cold-chain-f82458/shims/polish.md"
+    ]
+  },
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:08:57.743183+00:00"
+}
+critics.md
+drafting.md
+polish.md
+research.md
+[0m
+Step 1 exit criteria met. Marking done and moving to step 2.
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch run step mrna-vaccine-cold-chain-f82458 1 --status done -j
+{
+  "ok": true,
+  "data": {
+    "steps": {
+      "1": {
+        "status": "done",
+        "started_at": "2026-08-23T10:05:54.342706+00:00",
+        "finished_at": "2026-08-23T10:09:04.417223+00:00"
+      }
+    }
+  },
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:09:04.417804+00:00"
+}
+[0m
+[0m# [0mTodos
+[✓] Bootstrap — vault/tag/run-init/query.md/scaffold
+[✓] Step 1 — Skill: hyperresearch-1-decompose
+[•] Step 2 — Skill: hyperresearch-2-width-sweep
+[ ] Step 3 — Skill: hyperresearch-3-contradiction-graph
+[ ] Step 4 — Skill: hyperresearch-4-loci-analysis
+[ ] Step 5 — Skill: hyperresearch-5-depth-investigation
+[ ] Step 6 — Skill: hyperresearch-6-cross-locus-reconcile
+[ ] Step 7 — Skill: hyperresearch-7-source-tensions
+[ ] Step 8 — Skill: hyperresearch-8-corpus-critic
+[ ] Step 9 — Skill: hyperresearch-9-evidence-digest
+[ ] Step 10 — Skill: hyperresearch-10-triple-draft
+[ ] Step 11 — Skill: hyperresearch-11-synthesize
+[ ] Step 12 — Skill: hyperresearch-12-critics
+[ ] Step 13 — Skill: hyperresearch-13-gap-fetch
+[ ] Step 14 — Skill: hyperresearch-14-patcher
+[ ] Step 14.5 — Skill: hyperresearch-14-5-cite-check
+[ ] Step 15 — Skill: hyperresearch-15-polish
+[ ] Step 16 — Skill: hyperresearch-16-readability-audit
+[ ] Ship gate — run finish (integrity gate + verify)
+[0m
+Tier classified: `full` — all 16 steps run. Invoking step 2.
+[0m$ [0m/home/io/Projects/hyperresearch-opencode/.venv/bin/hyperresearch run step mrna-vaccine-cold-chain-f82458 2 --status running -j
+{
+  "ok": true,
+  "data": {
+    "steps": {
+      "1": {
+        "status": "done",
+        "started_at": "2026-08-23T10:05:54.342706+00:00",
+        "finished_at": "2026-08-23T10:09:04.417223+00:00"
+      },
+      "2": {
+        "status": "running",
+        "started_at": "2026-08-23T10:09:31.620597+00:00"
+      }
+    }
+  },
+  "vault": "/tmp/opencode/e2e-smoke",
+  "timestamp": "2026-08-23T10:09:31.621594+00:00"
+}
+[0m
+[0m→ [0mSkill "hyperresearch-2-width-sweep"
+[0m
+[0m← [0mWrite research/runs/mrna-vaccine-cold-chain-f82458/temp/search-plan.md
+Wrote file successfully.
+[0m
+Step 2 loaded. Writing the multi-lens search plan first.
+[0m$ [0mcurl -s --max-time 30 "https://api.semanticscholar.org/graph/v1/paper/search?query=mRNA+vaccine+stability+lipid+nanoparticle+cold+chain&fields=title,year,citationCount,externalIds,url&limit=10" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+for p in d.get('data',[]):
+    print(p['year'], '|', p.get('citationCount'), '|', p['title'], '|', p.get('url'))
+"
+(no output)
+[0m
+[0m$ [0mcurl -s --max-time 30 "https://export.arxiv.org/api/query?search_query=all:%22mRNA+vaccine%22+AND+all:stability&sortBy=relevance&max_results=8" | python3 -c "
+import sys,re
+t=sys.stdin.read()
+for m in re.finditer(r'<entry>.*?<title>(.*?)</title>.*?<id>(.*?)</id>', t, re.S):
+    print(m.group(1).strip().replace(chr(10),' ')[:110], '|', m.group(2).strip())
+"
+Algorithm for Optimized mRNA Design Improves Stability and Immunogenicity | http://arxiv.org/abs/2412.10411v1
+Joint Design of 5' Untranslated Region and Coding Sequence of mRNA | http://arxiv.org/abs/2502.13420v1
+Real-time Estimation of Bound Water Concentration during Lyophilization with Temperature-based State Observers | http://arxiv.org/abs/2409.06251v3
+[0m
+Executing searches — academic APIs first, in parallel.
+[0m$ [0mcurl -s --max-time 30 "https://api.openalex.org/works?search=lyophilized%20mRNA%20lipid%20nanoparticle%20thermostability&sort=cited_by_count:desc&per-page=8&mailto=research@example.com" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+for w in d.get('results',[]):
+    print(w.get('publication_year'), '|', w.get('cited_by_count'), '|', w.get('title'), '|', w.get('doi') or w.get('id'))
+"
+2021 | 1536 | mRNA-lipid nanoparticle COVID-19 vaccines: Structure and stability | https://doi.org/10.1016/j.ijpharm.2021.120586
+2022 | 1294 | Drug delivery systems for RNA therapeutics | https://doi.org/10.1038/s41576-021-00439-4
+2007 | 1093 | Polymeric nanoparticle-encapsulated curcumin ("nanocurcumin"): a novel strategy for human cancer therapy | https://doi.org/10.1186/1477-3155-5-3
+2019 | 680 | Advances in mRNA Vaccines for Infectious Diseases | https://doi.org/10.3389/fimmu.2019.00594
+2020 | 678 | COVID-19 vaccine development and a potential nanomaterial path forward | https://doi.org/10.1038/s41565-020-0737-y
+2018 | 596 | New Vaccine Technologies to Combat Outbreak Situations | https://doi.org/10.3389/fimmu.2018.01963
+2020 | 565 | A systematic review of SARS-CoV-2 vaccine candidates | https://doi.org/10.1038/s41392-020-00352-y
+2020 | 529 | Addressing the Cold Reality of mRNA Vaccine Stability | https://doi.org/10.1016/j.xphs.2020.12.006
+[0m
+OpenAlex returned strong canonical hits. Now web searches across all lenses, in parallel.
+[0m◈ [0mExa Web Search "how mRNA vaccines work mechanism LNP antigen presentation immune response review"
+[0m◈ [0mExa Web Search "BNT162b2 storage -70°C December 2020 FDA fact sheet -20°C February 2021 update"
+Strong hits on mechanism and period-pinned regulatory docs. Running adversarial-lens and remaining depth searches.
+[0m◈ [0mExa Web Search "lyophilized freeze-dried mRNA lipid nanoparticle stability room temperature thermostable vaccine"
+[0m◈ [0mExa Web Search "ultracold freezer requirement worsened vaccine inequity low income countries mRNA cold chain criticism"
+One more depth search for the canonical Karikó & Weissman 2005 paper, then scoring.
+[0m
+[0m$ [0mcurl -s --max-time 30 "https://api.openalex.org/works?search=Suppression%20of%20RNA%20recognition%20by%20Toll-like%20receptors%20nucleoside%20modification&per-page=3&mailto=research@example.com" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+for w in d.get('results',[]):
+    print(w.get('publication_year'),'|',w.get('cited_by_count'),'|',w.get('title'),'|',w.get('doi'))
+    loc = (w.get('best_oa_location') or {})
+    print('   OA:', loc.get('pdf_url') or loc.get('landing_page_url'))
+"
+2005 | 2697 | Suppression of RNA Recognition by Toll-like Receptors: The Impact of Nucleoside Modification and the Evolutionary Origin of RNA | https://doi.org/10.1016/j.immuni.2005.06.008
+   OA: http://www.cell.com/article/S1074761305002116/pdf
+2006 | 1113 | Toll-like receptors in systemic autoimmune disease | https://doi.org/10.1038/nri1957
+   OA: https://www.nature.com/articles/nri1957.pdf
+2008 | 922 | Sequence- and target-independent angiogenesis suppression by siRNA via TLR3 | https://doi.org/10.1038/nature06765
+   OA: https://www.nature.com/articles/nature06765.pdf
+[0m
