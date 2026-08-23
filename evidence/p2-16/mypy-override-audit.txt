@@ -1,0 +1,32 @@
+# P2-16 pyproject mypy-override audit (mission item 5)
+
+Question: can the [[tool.mypy.overrides]] entry for hyperresearch.core.hooks
+finally go?
+
+grep first — live references to core.hooks remaining in src/ (outside this
+piece's boundary; setup/profile_cmd are P1-10/P2-17-owned, lint.py carries a
+guarded fallback import):
+
+  src/hyperresearch/cli/setup.py:124:    from hyperresearch.core.hooks import install_hooks
+  src/hyperresearch/cli/profile_cmd.py:160:    from hyperresearch.core.hooks import install_hooks
+  src/hyperresearch/cli/lint.py:25:        from hyperresearch.core.hooks import (SCAFFOLD_ONLY_SECTION_HEADERS,)
+
+Empirical falsification probe — override removed, mypy re-run:
+
+  $ .venv/bin/python -m mypy src   (override temporarily emptied)
+  src/hyperresearch/cli/setup.py:124: error: Skipping analyzing "hyperresearch.core.hooks": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+  src/hyperresearch/cli/profile_cmd.py:160: error: Skipping analyzing "hyperresearch.core.hooks": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+  Found 2 errors in 2 files (checked 96 source files)
+  (override restored -> Success: no issues found in 96 source files)
+
+VERDICT: NOT superseded — the entry stays until setup/profile_cmd/lint stop
+referencing core.hooks (those modules are outside the P2-16 boundary).
+
+test_prompt_golden skipif audit: its condition is
+`from hyperresearch.core.hooks import ...` -> ImportError -> skipped.
+core/hooks.py was deliberately NOT ported (its renderer is Claude-targeted),
+so the dependency did NOT truly resolve -> skip stays SKIPPED honestly.
+Equivalent end-to-end golden coverage runs ACTIVE elsewhere:
+tests/test_core/test_opencode_skills.py (skill goldens, re-pinned P2-14) and
+tests/test_core/test_opencode_install.py (agent goldens incl. frozen
+upstream-installed bytes).

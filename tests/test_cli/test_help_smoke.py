@@ -10,8 +10,9 @@ Two mechanisms:
   registered (a new registration without a smoke entry fails loudly);
 - a parametrized --help sweep over every name (exit 0 required).
 
-`install` is intentionally absent (P2-16 deferral); `show` is registered but
-hidden and still gets swept.
+`install` was intentionally absent until P2-16 (its renderer had not landed);
+P2-16 flips that: the verb is registered upstream-first and swept here like
+the rest. `show` is registered but hidden and still gets swept.
 """
 
 from __future__ import annotations
@@ -23,11 +24,11 @@ from hyperresearch.cli import app
 
 runner = CliRunner()
 
-# Upstream root-level command order minus `install` (P2-16 deferral).
+# Upstream root-level command order (`install` included since P2-16).
 EXPECTED_ROOT = [
-    "setup", "init", "status", "sync", "search", "fetch", "fetch-batch",
-    "research", "tags", "show", "dedup", "archive-run", "vault-tag",
-    "import", "repair", "watch", "serve", "mcp",
+    "install", "setup", "init", "status", "sync", "search", "fetch",
+    "fetch-batch", "research", "tags", "show", "dedup", "archive-run",
+    "vault-tag", "import", "repair", "watch", "serve", "mcp",
 ]
 
 # Sub-apps in upstream add_typer order.
@@ -65,7 +66,9 @@ def test_subapp_help(name: str):
     assert result.exit_code == 0, result.output
 
 
-def test_install_is_deferred_not_registered():
-    """Coordinator decision: `install` lands with P2-16. It must NOT answer
-    today — a silent early registration would ship without its renderer."""
-    assert "install" not in _registered_root_names()
+def test_install_landed_and_is_registered():
+    """P2-16 closed the deferral the old guard pinned: `install` must answer
+    today — registered upstream-first, backed by the opencode renderers."""
+    assert "install" in _registered_root_names()
+    # And it sits in the upstream-first slot, before every other root verb.
+    assert _registered_root_names()[0] == "install"

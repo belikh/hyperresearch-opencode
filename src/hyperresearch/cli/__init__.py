@@ -4,9 +4,9 @@ Delta vs upstream (P0-2, kept): the Python-version stderr guard and the
 Windows cp1252 UTF-8 reconfigure shim are dropped — 3.14 is supported by
 design here and Crawl4AI's rich logger is not a core dependency.
 
-Assembly mirrors upstream `cli/__init__.py` registration order exactly,
-with one coordinator-approved exclusion: the `install` root command lands
-with P2-16, where the opencode renderer exists (PORTING-NOTES §P1-10).
+Assembly mirrors upstream `cli/__init__.py` registration order exactly; the
+`install` root command landed with P2-16 on top of the opencode renderers
+(PORTING-NOTES §P1-10 planned the deferral, §P2-16 closes it).
 """
 
 import typer
@@ -40,9 +40,7 @@ from hyperresearch.cli.archive import archive_run as _archive_run
 from hyperresearch.cli.dedup import dedup as _dedup
 from hyperresearch.cli.fetch import fetch as _fetch
 from hyperresearch.cli.import_cmd import import_vault as _import
-
-# Delta vs upstream (P2-16): `install` is imported and registered here in
-# upstream; it lands with the opencode renderer piece instead.
+from hyperresearch.cli.install import install as _install
 from hyperresearch.cli.main import init as _init
 from hyperresearch.cli.main import status as _status
 from hyperresearch.cli.main import sync as _sync
@@ -52,13 +50,12 @@ from hyperresearch.cli.repair import repair as _repair
 from hyperresearch.cli.research import research as _research
 from hyperresearch.cli.search import search as _search
 from hyperresearch.cli.serve import serve as _serve
-
-# app.command("install")(_install)  # Delta vs upstream (P2-16): deferred with the opencode renderer piece.
 from hyperresearch.cli.setup import setup as _setup
 from hyperresearch.cli.tag import tag_list as _tags
 from hyperresearch.cli.vault_tag import vault_tag as _vault_tag
 from hyperresearch.cli.watch import watch as _watch
 
+app.command("install")(_install)
 app.command("setup")(_setup)
 app.command("init")(_init)
 app.command("status")(_status)

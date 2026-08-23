@@ -1,0 +1,2 @@
+$ .venv/bin/python -m pytest
+1171 passed, 106 skipped in 73.33s (0:01:13)

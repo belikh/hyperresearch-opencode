@@ -102,6 +102,7 @@ ignore = [
 "src/hyperresearch/core/citecheck.py" = ["RUF001"]
 "tests/test_core/test_render.py" = ["RUF001", "RUF002"]
 "tests/test_core/test_prompt_golden.py" = ["RUF001", "RUF002"]
+"tests/test_cli/test_install.py" = ["RUF001", "RUF002"]
 "tests/test_cli/test_install_profile.py" = ["RUF001", "RUF002"]
 
 [tool.mypy]

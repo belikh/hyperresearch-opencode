@@ -1,0 +1,117 @@
+# P2-16 live install sanity — 2026-08-23T07:37:23Z
+## binary: hyperresearch v0.10.0.post1 / opencode 1.18.21
+
+$ hpr install /tmp/opencode/p216-live
+Installed hyperresearch: /tmp/opencode/p216-live/.opencode
+  mode: project   profile: full
+  Vault created: /tmp/opencode/p216-live
+  Agents: +15 =0 -0 pruned
+  Skills: +19 =0 -0 pruned
+  Plugin: +1 =0 -0 pruned
+  Command: +1 =0 -0 pruned
+  AGENTS.md: section injected
+
+Ready. Run `/hyperresearch <query>` in opencode.
+
+$ hpr install /tmp/opencode/p216-live -j   (idempotency re-run, envelope counts)
+{
+  "ok": true,
+  "data": {
+    "target": "/tmp/opencode/p216-live",
+    "opencode_dir": "/tmp/opencode/p216-live/.opencode",
+    "mode": "project",
+    "profile": "full",
+    "vault": {
+      "path": "/tmp/opencode/p216-live",
+      "state": "existing"
+    },
+    "agents": {
+      "written": 0,
+      "unchanged": 15,
+      "pruned": 0
+    },
+    "skills": {
+      "written": 0,
+      "unchanged": 19,
+      "pruned": 0
+    },
+    "plugin": {
+      "written": 0,
+      "unchanged": 1,
+      "pruned": 0
+    },
+    "command": {
+      "written": 0,
+      "unchanged": 1,
+      "pruned": 0
+    },
+    "agents_md": {
+      "written": 0,
+      "unchanged": 1,
+      "pruned": 0
+    },
+    "pruned_paths": []
+  },
+  "timestamp": "2026-08-23T07:37:24.735364+00:00"
+}
+
+$ find /tmp/opencode/p216-live/.opencode -maxdepth 2 | sort
+/tmp/opencode/p216-live/.opencode
+/tmp/opencode/p216-live/.opencode/agents
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-cite-checker.md
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-corpus-critic.md
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-depth-critic.md
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-depth-investigator.md
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-dialectic-critic.md
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-draft-orchestrator.md
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-fetcher.md
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-instruction-critic.md
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-loci-analyst.md
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-patcher.md
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-polish-auditor.md
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-readability-recommender.md
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-source-analyst.md
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-synthesizer.md
+/tmp/opencode/p216-live/.opencode/agents/hyperresearch-width-critic.md
+/tmp/opencode/p216-live/.opencode/commands
+/tmp/opencode/p216-live/.opencode/commands/hyperresearch.md
+/tmp/opencode/p216-live/.opencode/plugins
+/tmp/opencode/p216-live/.opencode/plugins/hyperresearch-lockdown.js
+/tmp/opencode/p216-live/.opencode/skills
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-10-triple-draft
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-11-synthesize
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-12-critics
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-13-gap-fetch
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-14-5-cite-check
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-14-patcher
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-1-5-chapter-partition
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-15-polish
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-16-readability-audit
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-1-decompose
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-2-width-sweep
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-3-contradiction-graph
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-4-loci-analysis
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-5-depth-investigation
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-6-cross-locus-reconcile
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-7-source-tensions
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-8-corpus-critic
+/tmp/opencode/p216-live/.opencode/skills/hyperresearch-9-evidence-digest
+
+$ cd /tmp/opencode/p216-live && opencode agent list | grep -E "^hyperresearch[a-z0-9-]* \("
+hyperresearch-cite-checker (subagent)
+hyperresearch-corpus-critic (subagent)
+hyperresearch-depth-critic (subagent)
+hyperresearch-depth-investigator (subagent)
+hyperresearch-dialectic-critic (subagent)
+hyperresearch-draft-orchestrator (subagent)
+hyperresearch-fetcher (subagent)
+hyperresearch-instruction-critic (subagent)
+hyperresearch-loci-analyst (subagent)
+hyperresearch-patcher (subagent)
+hyperresearch-polish-auditor (subagent)
+hyperresearch-readability-recommender (subagent)
+hyperresearch-source-analyst (subagent)
+hyperresearch-synthesizer (subagent)
+hyperresearch-width-critic (subagent)
+--- count: 15/15 roster agents live-loaded by opencode 1.18.21 (all mode: subagent)
