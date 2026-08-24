@@ -3441,6 +3441,55 @@ be pruned in a hygiene pass.
   therefore advisory under the smoke gear in practice — recorded here so nobody reads
   them as enforced.
 
+## P4-A — `parallel` named web provider (api.parallel.ai) (2026-08-24)
+
+New EXTRA web source; nothing replaced or demoted — builtin stays the
+default floor provider, tavily/exa/crawl4ai keep their get_provider branches
+verbatim, crawl4ai stays optional. `src/hyperresearch/web/parallel_provider.py`
+implements the WebProvider protocol (`web/base.py`): fetch -> POST /v1/extract
+as a single-URL batch with `advanced_settings.full_content` (chunked <=20 URLs
+for fetch_many, per-result ExtractError partial failures recorded on
+`last_extract_errors` without failing the batch); search -> POST /v1/search
+(objective=query, search_queries=[query], mode from config, excerpt sizing to
+fit WebResult). Auth is spec-literal `x-api-key` from PARALLEL_API_KEY env
+(ctor override allowed); missing key raises ParallelAuthError at CALL time,
+never at import/construction. Responses map faithfully into WebResult
+(url/title/content; publish_date -> metadata["published_date"]; provider
+stamped "parallel"). SSRF guard runs before any request. The Parallel error
+envelope parses into ParallelApiError(status_code); malformed-200 becomes
+ParallelApiError(200). Deltas vs sibling providers, documented in-file:
+no pip-extra ImportError hint (httpx is already a core dep), typed
+auth/error exceptions shared with the P4-B chain. Blind gauntlet r1 ACCEPT;
+5 low dispositions fixed same session (spec-literal header, malformed-200
+guard, fetch_many dedupe, ref_id in envelope message, negative
+authorization-header assert). Tests: tests/test_web/test_parallel_provider.py,
+zero network via httpx MockTransport + factory seams.
+
+## P4-B — ordered provider fallback chain (2026-08-24)
+
+`[web] provider` now accepts a single name OR an ordered list, e.g.
+`provider = ["parallel", "builtin"]`: try in order; fall through ONLY on
+transport errors, HTTP 5xx/429, missing-auth config errors, and junk/empty
+results — 4xx schema errors and plain RuntimeErrors SURFACE (no masking).
+ONE shared helper `resolve_web_provider` (web/base.py) resolves every call
+site — cli/fetch.py, cli/fetch_batch.py (both waves), cli/research.py,
+core/fetcher.py, and later cli/search_web.py — so behavior cannot drift;
+whichever candidate serves is recorded in the sources table `provider`
+column exactly as before. Typed signals: ProviderAuthError base (P4-A's
+ParallelAuthError subclasses it); construction-time failures always fall
+through while an all-fail chain re-raises the identical last error.
+Documented limitation: SDK-wrapped 5xx (tavily/exa) surfaces rather than
+falls through — fail-visible, never guessed. Backward compat: plain string
+behaves identically to the old get_provider path; default stays "builtin".
+Config: coerce_web_provider validates str|list[str] incl. JSON-quoted-scalar
+rejection; parse/serialize round-trips byte-stably through _toml_value;
+config show/set verbs know the key. Blind gauntlet r1 ACCEPT (fresh-context
+judge); linchpin ParallelAuthError<ProviderAuthError verified post-verdict
+at parallel_provider.py:55 with pin test test_provider_chain.py:373.
+Tests: tests/test_web/test_provider_chain.py +
+tests/test_core/test_config_chain.py; fetch-batch seam retargeted to
+resolve_web_provider with assertions byte-identical.
+
 ## P4-C — agent-visible Parallel search lane (`hpr search-web` + gated template sentence) (2026-08-24)
 
 Opt-in lane that makes the Parallel search visible to pipeline AGENTS without
