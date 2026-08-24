@@ -1,0 +1,6 @@
+{
+  "ok": false,
+  "error": "web search failed: PARALLEL_API_KEY is not set. Get a key at https://parallel.ai and export it.",
+  "error_code": "SEARCH_ERROR",
+  "timestamp": "2026-08-24T06:49:26.956226+00:00"
+}

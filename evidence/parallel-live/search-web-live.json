@@ -1,0 +1,55 @@
+{
+  "ok": true,
+  "data": [
+    {
+      "url": "http://parallel.ai/",
+      "title": "Parallel",
+      "content": "# Where agents find answers\n## Production-grade trust\n### Production-grade trust\n[API Playground](https://platform.parallel.ai/) [[API Playground] (https://platform.parallel.ai/)](https://platform.parallel.ai/)\nThe World Wide Web was invented by Tim Berners Lee [1] at CERN [2] in 1989 [3] .\nHIGH CONFIDENCE\n“Tim Berners-Lee”\n0.99\n[1] cern.ch\n“CERN”\n0.94\n[2] britannica.com\n“1989”\n0.98\n[3] w3.org\n\n...\n\n## Built for enterprise, secure by design\nBuild trust with the [[Basis framework] (https://docs.parallel.ai/task-api/guides/access-research-basis)](https://docs.parallel.ai/task-api/guides/access-research-basis) , unique to Parallel: calibrated confidence scores, citations, source excerpts, and reasoning traces.\n\n...\n\n## FAQs\nFor teams with stricter requirements, enterprise controls are available. See our terms of service for more information.\n* **How do I connect Parallel to my agent or existing stack?**\nYou have a few options. Call the REST API directly, or use the Python (parallel-web) or TypeScript SDK.\n\n...\n\nOn Parallel’s agentic APIs (Web Agents), every output supports [Basis](https://docs.parallel.ai/task-api/guides/access-research-basis) , our verifiability framework, which attaches citations, the reasoning behind a result, and a calibrated confidence score to each fact.\n\n...\n\nIf you already use the OpenAI SDK, point your base URL at the Chat API and swap your key; everything else works the same. Parallel also integrates with LangChain, the Vercel AI SDK, and Google Vertex AI, and delivers async results over webhooks. Start at [docs.parallel.ai](https://docs.parallel.ai) .",
+      "provider": "parallel",
+      "metadata": {
+        "provider": "parallel"
+      }
+    },
+    {
+      "url": "http://docs.parallel.ai/getting-started/overview",
+      "title": "Parallel API Overview - Parallel",
+      "content": "# Parallel API Overview\nname: 'Claude Code',\nkind: 'Run in terminal',\nicon: <img noZoom src=\"/images/logos/claude-code-color-logo.svg\" alt=\"Claude Code\" className=\"h-7 w-7\" />,\ncommand: 'claude mcp add --transport http parallel-search https://search.parallel.ai/mcp',\ninstallNote: 'This adds Parallel Search as a remote MCP server in Claude Code.',\nverify: <>\nIn Claude Code, run <span className={codeChip}>/mcp</span> to see “parallel-search” in your connected servers.\n</>\n}, {\nid: 'codex',\nname: 'Codex',\nkind: 'Run in terminal',\nicon: <img noZoom src=\"/images/logos/codex-color-logo.svg\" alt=\"Codex\" className=\"h-7 w-7\" />,\ncommand: 'codex mcp add parallel-search --url https://search.parallel.ai/mcp',\ninstallNote: 'This adds Parallel Search as a remote MCP server in Codex.',\nverify: <>\n\n...\n\nicon: <img noZoom src=\"/images/logos/vscode-color-logo.svg\" alt=\"VS Code\" className=\"h-7 w-7\" />,\nactionLabel: 'Add to VS Code',\nhref: 'https://insiders.vscode.dev/redirect/mcp/install?name=Parallel%20Search%20MCP&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fsearch.parallel.ai%2Fmcp%22%7D',\ninstallNote: 'One click installs Parallel Search as a remote MCP server in VS Code.',\nverify: <>Confirm the install when VS Code opens. The server then appears under MCP Servers in your settings.</>\n}];\nconst current = tabs.find(t => t.id === active) || tabs[0];\nconst isDeepLink = Boolean(current.href);\n\n...\n\n<div className=\"sr-only\" aria-hidden=\"false\">\nFor AI agents: a documentation index is available at [https://docs.parallel.ai/llms.txt](https://docs.parallel.ai/llms.txt). The full text of all docs is at [https://docs.parallel.ai/llms-full.txt](https://docs.parallel.ai/llms-full.txt).",
+      "provider": "parallel",
+      "metadata": {
+        "provider": "parallel"
+      }
+    },
+    {
+      "url": "https://ai-sdk.dev/resources/tools/parallel",
+      "title": "Parallel - AI SDK",
+      "content": "[](https://vercel.com/oss) * AiSdk AiSdk\n* Docs\n* Resources\n* [AI Gateway Gateway](https://vercel.com/ai-gateway)\n[Parallel](https://parallel.ai)\n[npm](https://www.npmjs.com/package/@parallel-web/ai-sdk-tools)\nsearch web extraction\n\n...\n\n# Installation\npnpm npm yarn bun\n```\n1\n\npnpm add @parallel-web/ai-sdk-tools\n```\n\n## API Key\n[Get API Key](https://platform.parallel.ai)\n```\n1\n\n# Add to your .env file 2\n\nPARALLEL_API_KEY = your_api_key_here\n```\n\n## Usage\n```\n1\n\nimport { generateText , stepCountIs } from 'ai' ; 2\n\nimport { searchTool , extractTool } from '@parallel-web/ai-sdk-tools' ; 3 4\n\nconst { text } = await generateText ( { 5\n\nmodel : 'google/gemini-3-pro-preview' , 6\n\nprompt : 'When was Vercel Ship AI?' , 7\n\ntools : { 8\n\nwebSearch : searchTool , 9\n\nwebExtract : extractTool , 10\n\n} , 11\n\nstopWhen : stepCountIs ( 3 ) , 12\n\n} ) ; 13 14\n\nconsole . log ( text ) ;\n```",
+      "provider": "parallel",
+      "metadata": {
+        "provider": "parallel"
+      }
+    },
+    {
+      "url": "https://medium.com/@astropomeai/multi-ai-agent-parallel-processing-and-automatic-summarization-using-multiple-llms-ad80f410ae21",
+      "title": "Multi-AI Agent: Parallel processing and automatic summarization using ...",
+      "content": "Sep 28, 2024 · To address this, we explored a method using LangGraph to obtain responses from multiple models with a single query and automatically summarize ... Implementation · Setting up API Keys",
+      "provider": "parallel",
+      "metadata": {
+        "provider": "parallel",
+        "published_date": "2024-09-28"
+      }
+    },
+    {
+      "url": "https://sebgnotes.substack.com/p/ai-agent-parallel-processing-workflow",
+      "title": "AI Agent Parallel Processing Workflow",
+      "content": "# AI Agent Parallel Processing Workflow\n## My thoughts on the article.\"Multi-AI Agent: Parallel processing and automatic summarization using multiple LLMs.\"\nFreeman](https://unsplash.com/photos/a-close-up-of-a-blue-wall-with-vertical-lines-cVGNBJJFNds)_\n\n## **Link**\n**[Multi-AI Agent: Parallel processing and automatic summarization using multiple LLMs](https://medium.com/@astropomeai/multi-ai-agent-parallel-processing-and-automatic-summarization-using-multiple-llms-ad80f410ae21)**\n\n...\n\n## **My thoughts**\nThe article sets up an example where LLMs are processed sequentially and then explains how to implement them so that they are run in a parallel process using LangGraph.\n**[LangGraph](https://langchain-ai.github.io/langgraph/)** describes itself as:\n\n...\n\nIn the example, they create the following structure:\n* **Supervisor** to control the process and assign tasks to each AI Agent\n* **AI Agent** to complete the assigned task and send the result to a summarizer\n* **Summarizer** to get the results from all the AI Agents and generate a final output.\n\n...\n\n### **The Core Challenge when working with multiple LLMs**\nFor example, if each LLM call takes 2 seconds, three models would take 6+ seconds to complete.\nBut if we run them in parallel, it’ll take 2 seconds.\n\n### **Their Solution Using LangGraph**\nThe article implements a graph-based solution with three components:\n1. A supervisor to manage tasks\n2. Multiple agents (one per LLM) running in parallel\n3. A summarizer to combine results",
+      "provider": "parallel",
+      "metadata": {
+        "provider": "parallel",
+        "published_date": "2025-06-17"
+      }
+    }
+  ],
+  "count": 5,
+  "vault": "/tmp/opencode/smoke-vault",
+  "timestamp": "2026-08-24T06:48:32.042890+00:00"
+}

@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "data": {
+    "note_id": "extract-transform-load-wikipedia",
+    "title": "Extract, transform, load - Wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Extract,_transform,_load",
+    "domain": "en.wikipedia.org",
+    "provider": "parallel",
+    "path": "research/notes/extract-transform-load-wikipedia.md",
+    "word_count": 6312,
+    "assets": [],
+    "raw_file": null
+  },
+  "vault": "/tmp/opencode/smoke-vault",
+  "timestamp": "2026-08-24T06:48:53.867181+00:00"
+}
