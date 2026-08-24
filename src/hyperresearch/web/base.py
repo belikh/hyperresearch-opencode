@@ -241,6 +241,15 @@ def get_provider(
 
         return ExaProvider()
 
+    if name == "parallel":
+        # httpx is a core dependency, so unlike the crawl4ai/tavily lanes
+        # there is no optional-install ImportError to translate into a
+        # pip-extra hint here. Auth is enforced at call time, so no env key
+        # is needed merely to construct the provider.
+        from hyperresearch.web.parallel_provider import ParallelProvider
+
+        return ParallelProvider()
+
     if name == "tavily":
         try:
             from hyperresearch.web.tavily_provider import TavilyProvider
@@ -249,4 +258,4 @@ def get_provider(
         except ImportError:
             raise ImportError("tavily provider requires: pip install \"hyperresearch[tavily]\"")
 
-    raise ValueError(f"Unknown web provider: {name!r}. Available: builtin, crawl4ai, exa, tavily")
+    raise ValueError(f"Unknown web provider: {name!r}. Available: builtin, crawl4ai, exa, parallel, tavily")

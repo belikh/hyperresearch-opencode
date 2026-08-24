@@ -5,7 +5,7 @@ Live status page for the port of
 (v0.10.0, reference pinned at `15010c5142244b88265f7abadf7b7aa1a8237fde`)
 to opencode. Scope and citations per piece live in [PARITY.md](PARITY.md).
 
-**LAST UPDATED (job close):** ALL 21 PLAN PIECES COMPLETE — Phases 0-3 done. Final gates 1179 passed / 106 skipped, ruff clean, mypy strict clean (96 files); working tree clean @ 42+ commits pushed to origin/main. Independent verifier verdict: VERIFIED WITH CAVEATS; both caveats closed immediately after verdict (see PORTING-NOTES §Phase 3 evidence notes). Blind gauntlet record: ours won every completed comparison (P0-1 lost r1->fixed->r2 PASS; two VOID rounds disclosed w/ protocol fixes; all others ours blind).
+**LAST UPDATED:** Phase 4 (Parallel integration) in progress — P4-A landed; P4-B/P4-C next. Phases 0-3: ALL 21 PLAN PIECES COMPLETE. Final gates 1179 passed / 106 skipped, ruff clean, mypy strict clean (96 files); working tree clean @ 42+ commits pushed to origin/main. Independent verifier verdict: VERIFIED WITH CAVEATS; both caveats closed immediately after verdict (see PORTING-NOTES §Phase 3 evidence notes). Blind gauntlet record: ours won every completed comparison (P0-1 lost r1->fixed->r2 PASS; two VOID rounds disclosed w/ protocol fixes; all others ours blind).
 
 ## Legend
 
@@ -54,6 +54,19 @@ evidence pointers fill in at first commit touching the piece.
 | P3-19 | Smoke-gear full-tier E2E + mid-run kill/resume | critic-won | PASS: all steps 1–16 done incl 14.5, finish passed:true, spend $0/$5 cap; kill mid-step-2 -> `run resume` next_step exactly 2 -> continuation completed; SECOND provider-error interruption recovered via resume to exact step 10; all artifact classes on disk (4 critic JSONs, patch-log, polish-log, cite-check findings, readability decisions) | evidence/p3-19-smoke/, evidence/p3-19/kill-resume-proof.md |
 | P3-20 | Ship-gate negatives | critic-won | PASS: hallucinated-quote -> FAIL quote-integrity EXIT1; cited-source retraction -> FAIL retracted-citations EXIT1; over-length -> FAIL length-in-range EXIT1; positive controls green after each restore | evidence/p3-20/negatives-summary.md |
 | P3-21 | Verifier dossier | critic-won | INDEPENDENT VERIFIER: VERIFIED WITH CAVEATS (fresh re-runs R1-R9: gates 1179p/106s ruff+mypy clean; fresh install tree exact; ship-gate positive+negative re-executed w/ byte-identical restore; MCP handshake 13 tools; CLI helps; untrusted+forged-fence green; evidence audit; honesty sweep). Both caveats (spend-$0 rationale, per-draft word-target advisory) closed same session in PORTING-NOTES §Phase 3 evidence notes | verifier session records R1-R9, PORTING-NOTES §Phase 3 evidence notes |
+| P4-A | `parallel` named provider (api.parallel.ai search+extract) | critic-won | BLIND R1 WIN — ACCEPT, no blockers; 5 open low dispositions fixed same session (spec-literal `x-api-key`, malformed-200 guard -> ParallelApiError(200), fetch_many dedupe, ref_id in envelope message, negative authorization-header assert); judge verified securitySchemes header, additionalProperties:false nesting (max_results under advanced_settings), partial ExtractError tolerance, SSRF-before-request, call-time PARALLEL_API_KEY error with pytest.fail transport guard; tavily/exa/crawl4ai untouched; gates on final state: full suite exit 0 (25 pre-existing skips), ruff clean, mypy --strict clean (97 files); live smoke BLOCKED: no PARALLEL_API_KEY in env (recorded) | src/hyperresearch/web/parallel_provider.py, tests/test_web/test_parallel_provider.py, evidence/gauntlet/P4-A-verdict-r1.md |
+
+## Phase 4 — Parallel integration
+
+Extra web source via api.parallel.ai. Nothing existing replaced or demoted:
+builtin stays the default floor provider; tavily/exa/crawl4ai untouched;
+crawl4ai remains optional. Three pieces, each builder+critic gauntlet:
+
+| Piece | Scope | State |
+|---|---|---|
+| P4-A | `parallel` named provider (`WebProvider` protocol; fetch->`/v1/extract` single-URL batch w/ full_content, search->`/v1/search`; x-api-key auth per spec securitySchemes; call-time PARALLEL_API_KEY error; SSRF-guarded; typed ParallelAuthError/ParallelApiError(.status_code); fetch_many <=20-URL chunking w/ per-result ExtractError tolerance) | critic-won |
+| P4-B | Provider fallback chain: `[web] provider` accepts str OR ordered list; fall through ONLY on transport errors, HTTP 5xx/429, auth-config errors, junk/empty; 4xx surface; shared chain-resolution helper for every get_provider call site; TOML round-trip; config show/set verbs | pending |
+| P4-C | `hpr search-web` verb (JSON results, no notes saved) + opt-in `[web] parallel_search_lane` flag gating one rendered sentence in width-sweep + fetcher agent templates (render/golden pipeline) | pending |
 
 ## Known non-goals (carried on every piece)
 
