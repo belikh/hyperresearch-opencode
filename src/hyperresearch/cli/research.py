@@ -36,7 +36,7 @@ def research(
     from hyperresearch.core.sync import compute_sync_plan, execute_sync
     from hyperresearch.core.vault import Vault, VaultError
     from hyperresearch.models.note import slugify
-    from hyperresearch.web.base import get_provider
+    from hyperresearch.web.base import resolve_web_provider
 
     try:
         vault = Vault.discover()
@@ -49,7 +49,7 @@ def research(
 
     vault.auto_sync()
     conn = vault.db
-    prov = get_provider(
+    prov = resolve_web_provider(
         provider_name or vault.config.web_provider,
         profile=vault.config.web_profile,
         magic=vault.config.web_magic,

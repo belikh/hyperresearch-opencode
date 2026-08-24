@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 from hyperresearch.core.config import FetchSettings, JunkGates
+
+_T = TypeVar("_T")
 
 # Whitespace that is legitimate in extracted text.
 _TEXT_WHITESPACE = "\t\n\r\f\v"
@@ -208,6 +211,27 @@ class WebProvider(Protocol):
         ...
 
 
+# Registry of valid web-provider names, in canonical order. Shared by
+# get_provider()'s unknown-name error and resolve_web_provider()'s up-front
+# spec validation so the advertised set cannot drift between the two.
+KNOWN_PROVIDER_NAMES: tuple[str, ...] = (
+    "builtin",
+    "crawl4ai",
+    "exa",
+    "parallel",
+    "tavily",
+)
+
+# Names whose provider class implements a batched fetch_many (P4-B review
+# F2). Static ON PURPOSE: _ChainedProvider exposes fetch_many only when a
+# declared candidate name is in this set, so cli/fetch_batch.py's
+# hasattr(prov, "fetch_many") duck-type keeps meaning "this chain can serve a
+# batched wave" — a capability-less chain must take the per-URL branch, not
+# discover at call time that the batch lane is missing. tests/test_web/
+# test_provider_chain.py pins this set against reality; rot fails loudly.
+_FETCH_MANY_PROVIDERS: frozenset[str] = frozenset({"parallel", "crawl4ai"})
+
+
 def get_provider(
     name: str | None = None,
     profile: str | None = None,
@@ -216,7 +240,13 @@ def get_provider(
     settings: FetchSettings | None = None,
     gates: JunkGates | None = None,
 ) -> WebProvider:
-    """Load a web provider by name. Falls back to builtin if none specified."""
+    """Load a web provider by name. Falls back to builtin if none specified.
+
+    Single-name factory. For the ``[web] provider`` config setting — which
+    may be a name OR an ordered fallback chain like
+    ``["parallel", "builtin"]`` — use :func:`resolve_web_provider`, which
+    wraps this factory (P4-B).
+    """
     if name is None or name == "builtin":
         from hyperresearch.web.builtin import BuiltinProvider
 
@@ -258,4 +288,368 @@ def get_provider(
         except ImportError:
             raise ImportError("tavily provider requires: pip install \"hyperresearch[tavily]\"")
 
-    raise ValueError(f"Unknown web provider: {name!r}. Available: builtin, crawl4ai, exa, parallel, tavily")
+    raise ValueError(
+        f"Unknown web provider: {name!r}. Available: {', '.join(KNOWN_PROVIDER_NAMES)}"
+    )
+
+
+class ProviderAuthError(RuntimeError):
+    """A provider's credentials are missing or unusable (auth-config error).
+
+    Typed fall-through signal for the provider chain (P4-B review F1): a
+    candidate that cannot authenticate cannot serve at all, which is exactly
+    what the next candidate is for. Raised at call time (e.g.
+    :class:`~hyperresearch.web.parallel_provider.ParallelAuthError`) or
+    construction time. Plain RuntimeErrors still SURFACE — only this typed
+    signal (and transport/5xx/429) falls through; 4xx schema errors surface.
+    """
+
+
+def _is_fall_through_error(exc: BaseException) -> bool:
+    """Classify a CALL-time exception for chain fall-through (P4-B).
+
+    Fall through ONLY on exact typed signals:
+
+    * ``httpx.TransportError`` (connect/DNS/read failures, incl. timeouts);
+    * :class:`ProviderAuthError` (call-time auth-config errors — e.g.
+      ``ParallelAuthError`` when PARALLEL_API_KEY is missing);
+    * :class:`~hyperresearch.web.parallel_provider.ParallelApiError` carrying
+      status 429 or >= 500.
+
+    Everything else surfaces untouched — plain RuntimeErrors, 4xx schema
+    errors, and unknown exception types are bugs to show the user, not walls
+    to route around. Construction-time failures are handled separately in
+    ``_ChainedProvider._serve`` (they ALWAYS fall through: a missing optional
+    SDK or a construct-time auth/config error means this candidate cannot
+    serve at all, which is exactly what the next candidate is for).
+
+    Documented limitation: tavily/exa wrap their SDKs, whose internal
+    server/transport errors raise SDK-specific types that are deliberately
+    NOT guessed-classified here — they surface rather than fall through.
+    Chain fall-through is exact for the builtin+parallel pair; honest, no
+    masking.
+    """
+    import httpx
+
+    if isinstance(exc, httpx.TransportError):
+        return True
+
+    if isinstance(exc, ProviderAuthError):
+        return True
+
+    from hyperresearch.web.parallel_provider import ParallelApiError
+
+    if isinstance(exc, ParallelApiError):
+        status = exc.status_code
+        return status is not None and (status == 429 or status >= 500)
+
+    return False
+
+
+def _result_is_junk(result: WebResult, gates: JunkGates | None) -> bool:
+    """Result-quality gate for chain fall-through (P4-B).
+
+    A result counts as junk/empty when its content strips to "" OR
+    ``WebResult.looks_like_junk`` returns a reason. A merely login-wall-looking
+    result is NOT junk here unless the junk gates also fire — login walls
+    belong to the escalation lane, not to the chain.
+    """
+    if not (result.content or "").strip():
+        return True
+    return result.looks_like_junk(gates or DEFAULT_GATES) is not None
+
+
+def _results_are_junk(results: list[WebResult], gates: JunkGates | None) -> bool:
+    """List-quality gate for search()/fetch_many() chain fall-through.
+
+    Empty output, or output where EVERY result fails the junk gate, triggers
+    fall-through. A mixed batch (any real content) is accepted as-is.
+    """
+    if not results:
+        return True
+    return all(_result_is_junk(r, gates) for r in results)
+
+
+@runtime_checkable
+class _BatchCapableProvider(Protocol):
+    """Structural view of the duck-typed ``fetch_many`` extension.
+
+    ``fetch_many`` deliberately extends (rather than joins) the public
+    WebProvider Protocol — cli/fetch_batch.py consumes it via hasattr.
+    This runtime-checkable protocol turns that duck-type into a real
+    isinstance guard so chain delegation needs neither getattr nor casts.
+    """
+
+    def fetch_many(self, urls: list[str]) -> list[WebResult]:
+        ...
+
+
+class _ChainedProvider:
+    """Ordered provider fallback chain behind the WebProvider protocol (P4-B).
+
+    Not public API — build chains through :func:`resolve_web_provider`.
+
+    Semantics:
+
+    * Candidates are constructed LAZILY, one per turn, so a missing optional
+      SDK in slot 2 never breaks slot 1. ANY construction failure falls
+      through to the next candidate; if every construction fails, the LAST
+      construction error is raised so the message matches what single-provider
+      mode raises today.
+    * Call-time exceptions fall through only when
+      :func:`_is_fall_through_error` says so; anything else surfaces.
+    * After every successful call ``self.name`` becomes the SERVING provider's
+      name — the value recorded in the sources table / ``fetch_provider``
+      frontmatter. The initial name is the first candidate's.
+    * Each call starts again from the FIRST candidate (stateless), so a
+      recovered upstream is retried on the next call.
+    * Junk/empty outcomes try the next candidate. When every candidate yielded
+      junk/empty, the LAST junk outcome is RETURNED as-is (never wrapped in a
+      synthetic error), so caller-side junk gates produce their normal
+      actionable error + escalation path. When every candidate RAISED, the
+      last exception is re-raised.
+
+    Provenance stability (P4-B review F3): a synchronous re-entrancy guard —
+    nested calls made on this SAME instance while a top-level call is still
+    in flight (e.g. an OA-rescue lane re-using the provider mid-processing)
+    do NOT update the serving-name. Only a completed top-level call publishes
+    its server. CONSEQUENTLY: consumers must read ``prov.name`` promptly
+    after the call whose provenance they care about (all current call sites
+    already do), and sequential later calls legitimately update it again.
+    """
+
+    def __init__(
+        self,
+        entries: list[tuple[str, Callable[[], WebProvider]]],
+        gates: JunkGates | None,
+    ) -> None:
+        self._entries = entries
+        self._gates = gates
+        self.name = entries[0][0]
+        #: Re-entrancy flag for serving-name bookkeeping (F3). While True,
+        #: any _serve frame that did not OPEN the top-level window (i.e. a
+        #: nested call on this same instance) is bookkeeping-suppressed.
+        self._in_top_level = False
+        # Duck-type preservation (P4-B review F2): expose fetch_many on the
+        # INSTANCE only when some declared candidate can batch, so
+        # cli/fetch_batch.py's hasattr(prov, "fetch_many") keeps routing
+        # capability-less chains to per-URL fetching instead of discovering
+        # at call time that the batch lane is missing. Never defined
+        # unconditionally on the class.
+        if any(name in _FETCH_MANY_PROVIDERS for name, _ in entries):
+            self.fetch_many = self._fetch_many_batchable
+
+    def _top_level(
+        self,
+        call: Callable[[WebProvider], _T],
+        is_junk: Callable[[_T], bool],
+        supports: Callable[[WebProvider], bool] | None = None,
+    ) -> _T:
+        """Run one chain operation inside a top-level window (F3).
+
+        The frame that OPENS the window owns the serving-name bookkeeping;
+        nested frames opened while the window is up do not touch ``name``.
+        """
+        owns_frame = not self._in_top_level
+        outer = self._in_top_level
+        self._in_top_level = True
+        try:
+            return self._serve(call, is_junk, supports=supports, record=owns_frame)
+        finally:
+            self._in_top_level = outer
+
+    def _serve(
+        self,
+        call: Callable[[WebProvider], _T],
+        is_junk: Callable[[_T], bool],
+        supports: Callable[[WebProvider], bool] | None = None,
+        record: bool = True,
+    ) -> _T:
+        """Run `call` against candidates in order with the chain semantics.
+
+        `record` gates serving-name bookkeeping (success and junk paths use
+        the SAME mechanism): True only for the frame that owns the top-level
+        window, so nested/re-entrant calls cannot clobber the provenance of
+        the in-flight outer call.
+        """
+        last_junk: tuple[str, _T] | None = None
+        last_error: Exception | None = None
+        for cand_name, factory in self._entries:
+            try:
+                provider = factory()
+            except Exception as exc:
+                # Construction failure == auth-config/import error for this
+                # candidate; the next one takes the turn.
+                last_error = exc
+                continue
+            if supports is not None and not supports(provider):
+                # Capability mismatch (e.g. no fetch_many): this candidate
+                # cannot serve THIS call shape at all. Not an error against
+                # its other capabilities — skip without recording anything.
+                continue
+            try:
+                outcome = call(provider)
+            except Exception as exc:
+                if _is_fall_through_error(exc):
+                    last_error = exc
+                    continue
+                raise
+            if is_junk(outcome):
+                # Unified bookkeeping: junk records the candidate name too,
+                # because its outcome is what the caller-side gates will see.
+                last_junk = (cand_name, outcome)
+                continue
+            if record:
+                self.name = cand_name
+            return outcome
+        if last_junk is not None:
+            junk_name, junk_outcome = last_junk
+            if record:
+                self.name = junk_name
+            return junk_outcome
+        if last_error is None:
+            # Only reachable when every candidate was capability-skipped.
+            raise NotImplementedError(
+                "no provider in the chain supports this operation: "
+                + ", ".join(name for name, _ in self._entries)
+            )
+        raise last_error
+
+    def fetch(self, url: str) -> WebResult:
+        return self._top_level(
+            lambda p: p.fetch(url),
+            lambda r: _result_is_junk(r, self._gates),
+        )
+
+    def search(self, query: str, max_results: int = 5) -> list[WebResult]:
+        return self._top_level(
+            lambda p: p.search(query, max_results=max_results),
+            lambda rs: _results_are_junk(rs, self._gates),
+        )
+
+    def _fetch_many_batchable(self, urls: list[str]) -> list[WebResult]:
+        """Batched fetch delegated to the first capable candidate.
+
+        Attached to instances by __init__ ONLY when a declared candidate
+        name is in _FETCH_MANY_PROVIDERS — see the F2 note there.
+        """
+
+        def call(provider: WebProvider) -> list[WebResult]:
+            # supports= below guarantees the isinstance holds; this guard is
+            # defense-in-depth for direct callers of _serve.
+            if not isinstance(provider, _BatchCapableProvider):  # pragma: no cover
+                raise NotImplementedError(
+                    f"provider {provider.name!r} does not implement fetch_many"
+                )
+            return provider.fetch_many(urls)
+
+        return self._top_level(
+            call,
+            lambda rs: _results_are_junk(rs, self._gates),
+            supports=lambda p: isinstance(p, _BatchCapableProvider),
+        )
+
+
+def _default_provider_factory(
+    name: str,
+    *,
+    profile: str | None,
+    magic: bool,
+    headless: bool,
+    settings: FetchSettings | None,
+    gates: JunkGates | None,
+) -> Callable[[], WebProvider]:
+    """Zero-arg factory resolving `name` through get_provider.
+
+    get_provider is looked up via module globals at CALL time, so tests that
+    monkeypatch ``hyperresearch.web.base.get_provider`` keep working unchanged
+    through the chain.
+    """
+
+    def make() -> WebProvider:
+        return get_provider(
+            name,
+            profile=profile,
+            magic=magic,
+            headless=headless,
+            settings=settings,
+            gates=gates,
+        )
+
+    return make
+
+
+def resolve_web_provider(
+    spec: str | list[str],
+    *,
+    profile: str | None = None,
+    magic: bool = False,
+    headless: bool = True,
+    settings: FetchSettings | None = None,
+    gates: JunkGates | None = None,
+    _factories: Mapping[str, Callable[[], WebProvider]] | None = None,
+) -> WebProvider:
+    """Resolve the ``[web] provider`` config setting into ONE usable provider.
+
+    Accepts EITHER the classic single name (``"parallel"``) OR an ordered
+    fallback chain (``["parallel", "builtin"]``). A plain string behaves
+    identically to :func:`get_provider` — it becomes a single-candidate
+    chain. This is THE shared entry point for every call site that resolves
+    a provider from config, so chain behavior cannot drift between them.
+
+    Chain semantics live on :class:`_ChainedProvider`: lazy candidate
+    construction, fall-through on transport errors / HTTP 5xx+429 /
+    auth-config errors / junk-or-empty results, everything else surfaces.
+    Whichever candidate serves a call becomes ``prov.name`` AFTER the call —
+    that is the value recorded in the sources table and ``fetch_provider``
+    frontmatter.
+
+    Raises:
+        ValueError: empty spec, a non-string entry, or an unknown provider
+            name (the error names the offending position and lists the
+            available names). Unknown names fail up front — before any
+            network activity — rather than silently falling through.
+
+    Test seam: ``_factories`` replaces the built-in name→factory registry so
+    tests can inject fake providers with zero network and zero monkeypatching.
+    """
+    names = [spec] if isinstance(spec, str) else list(spec)
+    if not names:
+        raise ValueError(
+            "[web] provider resolved to an empty candidate list. Name at least "
+            'one provider, e.g. provider = ["parallel", "builtin"]. '
+            f"Available: {', '.join(KNOWN_PROVIDER_NAMES)}"
+        )
+    known = set(_factories) if _factories is not None else set(KNOWN_PROVIDER_NAMES)
+    available = ", ".join(sorted(known))
+    for pos, entry in enumerate(names):
+        if not isinstance(entry, str) or not entry.strip():
+            raise ValueError(
+                f"[web] provider entry at position {pos} must be a non-empty "
+                f"string; got {entry!r}"
+            )
+        if entry not in known:
+            raise ValueError(
+                f"Unknown web provider {entry!r} at position {pos} of the "
+                f"[web] provider chain. Available: {available}"
+            )
+
+    entries: list[tuple[str, Callable[[], WebProvider]]] = []
+    for name in names:
+        if _factories is not None:
+            entries.append((name, _factories[name]))
+        else:
+            entries.append(
+                (
+                    name,
+                    _default_provider_factory(
+                        name,
+                        profile=profile,
+                        magic=magic,
+                        headless=headless,
+                        settings=settings,
+                        gates=gates,
+                    ),
+                )
+            )
+    return _ChainedProvider(entries, gates=gates)

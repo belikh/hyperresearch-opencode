@@ -43,7 +43,9 @@ def test_fetch_batch_reports_failed_urls(vault_dir: Path, monkeypatch):
     failed_urls with its phase — if it silently vanishes, a caller sees a
     short success list and never learns a source was lost."""
     os.chdir(vault_dir)
-    monkeypatch.setattr("hyperresearch.web.base.get_provider", lambda *a, **k: _FakeProvider())
+    monkeypatch.setattr(
+        "hyperresearch.web.base.resolve_web_provider", lambda *a, **k: _FakeProvider()
+    )
 
     result = runner.invoke(
         app,

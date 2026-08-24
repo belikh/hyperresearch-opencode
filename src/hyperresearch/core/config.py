@@ -12,6 +12,83 @@ from typing import Any, TypeVar
 _SettingsT = TypeVar("_SettingsT")
 
 
+def coerce_web_provider(value: object) -> str | list[str]:
+    """Validate/coerce a ``[web] provider`` value into ``str | list[str]`` (P4-B).
+
+    Accepts:
+
+    * a plain string (``"parallel"``) — stripped of surrounding whitespace
+      and returned;
+    * a JSON-array STRING (``'["parallel", "builtin"]'``) — the form
+      ``hyperresearch config set web.provider ...`` receives from argv,
+      parsed with json.loads;
+    * a real list of strings (what tomllib hands :meth:`VaultConfig.load`
+      for a TOML array) — each entry stripped of surrounding whitespace,
+      otherwise verbatim.
+
+    Every entry must be a non-empty string after stripping; the offending
+    entry is named in the error. A JSON-quoted scalar (``'"parallel"'``,
+    literal quote characters) is rejected with an actionable error instead
+    of storing the quotes as part of the name. Round-trip fidelity: lists
+    stay lists (never collapsed to their first element) and strings stay
+    strings.
+
+    Raises:
+        ValueError: malformed JSON array, a JSON-quoted scalar, wrong entry
+            shapes, or an empty spec.
+    """
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if cleaned.startswith("["):
+            try:
+                parsed: object = json.loads(cleaned)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"web.provider: {value!r} looks like a JSON array but does "
+                    f"not parse: {exc.msg} (line {exc.lineno}, column {exc.colno})"
+                ) from exc
+            return coerce_web_provider(parsed)
+        if cleaned.startswith('"'):
+            # '"parallel"' — a quoting mistake, not a provider name. Reject
+            # cleanly instead of storing literal quote characters that fail
+            # later at provider resolution.
+            try:
+                unquoted: object = json.loads(cleaned)
+            except json.JSONDecodeError:
+                unquoted = None
+            raise ValueError(
+                "web.provider: got a JSON-quoted scalar "
+                f"{value!r}; pass the bare provider name without quotes "
+                + (
+                    f'(e.g. {unquoted!r})'
+                    if isinstance(unquoted, str)
+                    else "(e.g. parallel)"
+                )
+            )
+        if not cleaned:
+            raise ValueError("web.provider: provider name must be a non-empty string")
+        return cleaned
+    if isinstance(value, list):
+        if not value:
+            raise ValueError(
+                "web.provider: the provider chain is empty; name at least one "
+                'provider, e.g. ["parallel", "builtin"]'
+            )
+        cleaned_entries: list[str] = []
+        for pos, entry in enumerate(value):
+            if not isinstance(entry, str) or not entry.strip():
+                raise ValueError(
+                    "web.provider: chain entries must be non-empty strings; "
+                    f"got {entry!r} at position {pos}"
+                )
+            cleaned_entries.append(entry.strip())
+        return cleaned_entries
+    raise ValueError(
+        f"web.provider: expected a string or a list of strings; "
+        f"got {type(value).__name__}: {value!r}"
+    )
+
+
 @dataclass(frozen=True)
 class FetchSettings:
     """Network/browser behavior for web fetching ([fetch] section)."""
@@ -226,8 +303,11 @@ class VaultConfig:
         ]
     )
 
-    # Web provider
-    web_provider: str = "builtin"
+    # Web provider (P4-B): a single name ("builtin") or an ORDERED fallback
+    # chain (["parallel", "builtin"]) tried in order on transport errors,
+    # HTTP 5xx/429, auth-config errors, and junk/empty results. Resolution
+    # semantics: hyperresearch.web.base.resolve_web_provider.
+    web_provider: str | list[str] = "builtin"
     web_profile: str = ""  # crawl4ai browser profile name (created via `crwl profiles`)
     web_magic: bool = False  # crawl4ai magic mode (anti-bot stealth)
 
@@ -289,7 +369,7 @@ class VaultConfig:
             search_default_limit=search.get("default_limit", cls.search_default_limit),
             search_chars_per_token=search.get("chars_per_token", cls.search_chars_per_token),
             search_snippet_len=search.get("snippet_len", cls.search_snippet_len),
-            web_provider=web.get("provider", cls.web_provider),
+            web_provider=coerce_web_provider(web.get("provider", cls.web_provider)),
             web_profile=web.get("profile", cls.web_profile),
             web_magic=web.get("magic", cls.web_magic),
             pipeline_profile=pipeline.get("profile", cls.pipeline_profile),
@@ -369,6 +449,8 @@ class VaultConfig:
             f"snippet_len = {self.search_snippet_len}",
             "",
             "[web]",
+            "# provider: a single name or an ordered fallback chain tried in order",
+            '# provider = ["parallel", "builtin"]',
             f"provider = {self._toml_value(self.web_provider)}",
             f"profile = {self._toml_value(self.web_profile)}",
             f"magic = {'true' if self.web_magic else 'false'}",

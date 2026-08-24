@@ -41,7 +41,7 @@ from typing import Any
 import httpx
 
 from hyperresearch.web._netguard import validate_url_public
-from hyperresearch.web.base import WebResult
+from hyperresearch.web.base import ProviderAuthError, WebResult
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +52,14 @@ _EXTRACT_BATCH_LIMIT = 20
 _VALID_MODES = frozenset({"turbo", "fast", "basic", "advanced"})
 
 
-class ParallelAuthError(RuntimeError):
-    """PARALLEL_API_KEY was missing at call time (not at construction)."""
+class ParallelAuthError(ProviderAuthError):
+    """PARALLEL_API_KEY was missing at call time (not at construction).
+
+    Subclasses :class:`~hyperresearch.web.base.ProviderAuthError` (P4-B
+    review F1) so the fallback chain recognizes it as an auth-config error
+    and falls through to the next candidate; the historical name stays
+    exported here.
+    """
 
 
 class ParallelApiError(RuntimeError):

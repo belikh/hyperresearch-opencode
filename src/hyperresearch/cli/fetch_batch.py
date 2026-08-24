@@ -39,7 +39,7 @@ def fetch_batch(
     from hyperresearch.core.scholar import extract_doi
     from hyperresearch.core.sync import compute_sync_plan, execute_sync
     from hyperresearch.core.vault import Vault, VaultError
-    from hyperresearch.web.base import get_provider
+    from hyperresearch.web.base import resolve_web_provider
 
     # Collect URLs from args and/or stdin
     all_urls = list(urls or [])
@@ -74,7 +74,7 @@ def fetch_batch(
         domain = urlparse(fetch_url).netloc.lower()
         return any(d in domain for d in vault.config.fetch.visible_browser_domains)
 
-    prov = get_provider(
+    prov = resolve_web_provider(
         provider_name or vault.config.web_provider,
         profile=vault.config.web_profile,
         magic=vault.config.web_magic,
@@ -139,7 +139,7 @@ def fetch_batch(
 
     # Fetch auth-aggressive URLs with visible browser (sequential)
     if visible_urls:
-        visible_prov = get_provider(
+        visible_prov = resolve_web_provider(
             provider_name or vault.config.web_provider,
             profile=vault.config.web_profile,
             magic=vault.config.web_magic,

@@ -75,9 +75,21 @@ def config_set(
     # Type coercion
     # Delta vs upstream (naming only): upstream rebound `value` (str) to a
     # bool; strict mypy rejects the rebinding. Zero behavior change.
-    coerced: str | bool = value
+    # P4-B: web.provider accepts a bare word ("parallel") or a JSON array
+    # string ('["parallel", "builtin"]') via the shared coercion helper, so
+    # set and load() accept exactly the same shapes.
+    coerced: str | bool | list[str] = value
     if attr in ("auto_sync", "auto_build_index", "web_magic"):
         coerced = value.lower() in ("true", "1", "yes")
+    elif attr == "web_provider":
+        from hyperresearch.core.config import coerce_web_provider
+
+        try:
+            coerced = coerce_web_provider(value)
+        except ValueError as exc:
+            # Clean error BEFORE any write: no partial config state.
+            console.print(f"[red]{exc}[/]")
+            raise typer.Exit(1)
 
     setattr(config, attr, coerced)
     config.save(vault.config_path)

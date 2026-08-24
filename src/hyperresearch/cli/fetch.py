@@ -236,7 +236,7 @@ def fetch(
     from hyperresearch.core.note import write_note
     from hyperresearch.core.sync import compute_sync_plan, execute_sync
     from hyperresearch.core.vault import Vault, VaultError
-    from hyperresearch.web.base import get_provider
+    from hyperresearch.web.base import resolve_web_provider
 
     try:
         vault = Vault.discover()
@@ -303,8 +303,9 @@ def fetch(
         if any(d in domain for d in vault.config.fetch.visible_browser_domains):
             visible = True
 
-    # Fetch content
-    prov = get_provider(
+    # Fetch content. resolve_web_provider (P4-B): config may name ONE provider
+    # or an ordered fallback chain; a --provider override stays single-candidate.
+    prov = resolve_web_provider(
         provider_name or vault.config.web_provider,
         profile=vault.config.web_profile,
         magic=vault.config.web_magic,
