@@ -5,7 +5,7 @@ from __future__ import annotations
 import typer
 
 from hyperresearch.cli._output import console, output
-from hyperresearch.models.output import success
+from hyperresearch.models.output import error, success
 
 app = typer.Typer()
 
@@ -27,6 +27,7 @@ def config_show(
         "web_provider": config.web_provider,
         "web_profile": config.web_profile or "(none)",
         "web_magic": config.web_magic,
+        "web_parallel_search_lane": config.web_parallel_search_lane,
         "auto_sync": config.auto_sync,
         "auto_build_index": config.auto_build_index,
         "search_boost_evergreen": config.search_boost_evergreen,
@@ -60,6 +61,7 @@ def config_set(
         "web.provider": "web_provider",
         "web.profile": "web_profile",
         "web.magic": "web_magic",
+        "web.parallel_search_lane": "web_parallel_search_lane",
         "search.boost_evergreen": "search_boost_evergreen",
         "search.penalize_deprecated": "search_penalize_deprecated",
         "sync.auto_sync": "auto_sync",
@@ -68,8 +70,17 @@ def config_set(
 
     attr = key_map.get(key)
     if not attr:
-        console.print(f"[red]Unknown config key:[/] {key}")
-        console.print(f"[dim]Valid keys: {', '.join(key_map.keys())}[/]")
+        msg = (
+            f"Unknown config key: {key}. Valid keys: {', '.join(key_map.keys())}"
+        )
+        # FIX-L6: same envelope discipline as the bad-value path below —
+        # JSON consumers get ok=false + error_code, rich console only when
+        # NOT --json. Emitted BEFORE any write (nothing was touched anyway).
+        if json_output:
+            output(error(msg, "UNKNOWN_KEY"), json_mode=True)
+        else:
+            console.print(f"[red]Unknown config key:[/] {key}")
+            console.print(f"[dim]Valid keys: {', '.join(key_map.keys())}[/]")
         raise typer.Exit(1)
 
     # Type coercion
@@ -81,6 +92,27 @@ def config_set(
     coerced: str | bool | list[str] = value
     if attr in ("auto_sync", "auto_build_index", "web_magic"):
         coerced = value.lower() in ("true", "1", "yes")
+    elif attr == "web_parallel_search_lane":
+        # P4-C: strict here (unlike the legacy bool keys above, which map any
+        # unrecognized spelling to False) — a typo'd flag must fail loudly,
+        # because a silently-disabled lane looks identical to no lane at all.
+        lowered = value.strip().lower()
+        if lowered in ("true", "1", "yes"):
+            coerced = True
+        elif lowered in ("false", "0", "no"):
+            coerced = False
+        else:
+            msg = (
+                f"web.parallel_search_lane expects true or false; got {value!r}"
+            )
+            # FIX-F8: JSON consumers get the same error envelope shape as
+            # every other verb's failure path — rich console only when not
+            # --json. Emitted BEFORE any write, so the TOML is untouched.
+            if json_output:
+                output(error(msg, "INVALID_VALUE"), json_mode=True)
+            else:
+                console.print(f"[red]{msg}[/]")
+            raise typer.Exit(1)
     elif attr == "web_provider":
         from hyperresearch.core.config import coerce_web_provider
 
@@ -88,7 +120,13 @@ def config_set(
             coerced = coerce_web_provider(value)
         except ValueError as exc:
             # Clean error BEFORE any write: no partial config state.
-            console.print(f"[red]{exc}[/]")
+            # FIX-L4-adjacent: same envelope discipline as the bad-value and
+            # unknown-key paths above — JSON consumers get ok=false +
+            # error_code, rich console only when NOT --json.
+            if json_output:
+                output(error(str(exc), "INVALID_VALUE"), json_mode=True)
+            else:
+                console.print(f"[red]{exc}[/]")
             raise typer.Exit(1)
 
     setattr(config, attr, coerced)
@@ -117,6 +155,7 @@ def config_get(
         "web.provider": "web_provider",
         "web.profile": "web_profile",
         "web.magic": "web_magic",
+        "web.parallel_search_lane": "web_parallel_search_lane",
         "search.boost_evergreen": "search_boost_evergreen",
         "search.penalize_deprecated": "search_penalize_deprecated",
         "sync.auto_sync": "auto_sync",
@@ -125,7 +164,13 @@ def config_get(
 
     attr = key_map.get(key)
     if not attr:
-        console.print(f"[red]Unknown config key:[/] {key}")
+        # FIX-L4-adjacent: mirror `config set`'s unknown-key envelope — under
+        # --json emit ok=false + error_code instead of bare rich output.
+        msg = f"Unknown config key: {key}"
+        if json_output:
+            output(error(msg, "UNKNOWN_KEY"), json_mode=True)
+        else:
+            console.print(f"[red]Unknown config key:[/] {key}")
         raise typer.Exit(1)
 
     value = getattr(config, attr)

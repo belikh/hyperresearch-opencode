@@ -241,8 +241,13 @@ class TestConfigVerbs:
         )
 
         assert result.exit_code == 1
-        combined = result.stdout + (result.stderr or "")
-        assert "does not parse" in combined
+        # FIX-L4-adjacent: under --json the bad-provider-value path emits the
+        # same error envelope as every other failure path (ok=false +
+        # error_code), BEFORE any write.
+        envelope = json.loads(result.stdout)
+        assert envelope["ok"] is False
+        assert envelope["error_code"] == "INVALID_VALUE"
+        assert "does not parse" in envelope["error"]
         assert config_path.read_bytes() == before  # no partial write
 
     def test_invalid_entries_fail_clean_without_partial_write(
@@ -256,7 +261,34 @@ class TestConfigVerbs:
         )
 
         assert result.exit_code == 1
+        # FIX-L4-adjacent: entry-shape rejection follows the same envelope
+        # discipline — ok=false + INVALID_VALUE, TOML untouched.
+        envelope = json.loads(result.stdout)
+        assert envelope["ok"] is False
+        assert envelope["error_code"] == "INVALID_VALUE"
+        assert "web.provider" in envelope["error"]
         assert config_path.read_bytes() == before
+
+    def test_get_unknown_key_emits_error_envelope_under_json(
+        self, tmp_vault: Vault, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FIX-L4-adjacent: `config get` mirrors `config set`'s unknown-key
+        discipline — under --json it emits ok=false + error_code
+        (UNKNOWN_KEY) instead of bare rich-console output; human mode keeps
+        the rich message."""
+        result = self._invoke(
+            monkeypatch, tmp_vault, "config", "get", "bogus.key", "--json"
+        )
+        assert result.exit_code == 1
+        envelope = json.loads(result.stdout)
+        assert envelope["ok"] is False
+        assert envelope["error_code"] == "UNKNOWN_KEY"
+        assert "bogus.key" in envelope["error"]
+        assert "Unknown config key" in envelope["error"]
+
+        rich = self._invoke(monkeypatch, tmp_vault, "config", "get", "bogus.key")
+        assert rich.exit_code == 1
+        assert "Unknown config key" in rich.output
 
     def test_show_displays_list_verbatim_for_humans(
         self, tmp_vault: Vault, monkeypatch: pytest.MonkeyPatch

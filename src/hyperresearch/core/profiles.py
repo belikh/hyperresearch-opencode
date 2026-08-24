@@ -120,6 +120,14 @@ class Profile(BaseModel):
     wave3_fetchers: Range
     adversarial_searches_min: int
     utility_scoring: bool
+    # P4-C delta (coordinator-adjudicated): per-profile Parallel search lane
+    # opt-in. Defaults to False so every shipped profile behaves exactly as
+    # before the lane existed; setting `parallel_search_lane = true` under
+    # `[profile.<name>]` enables the lane for operations resolved at that
+    # profile even while the vault-global `[web] parallel_search_lane` stays
+    # false. Effective lane = web flag OR this field — consumed by
+    # cli/search_web.py (verb gate) and cli/install.py (render gate).
+    parallel_search_lane: bool = False
     source_analyst_cap: int
     source_analyst_word_trigger: int
     fetcher_chase: Range

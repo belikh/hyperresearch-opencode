@@ -3440,3 +3440,141 @@ be pruned in a hygiene pass.
   ship-gate length-in-range check passed on both E2E finals. Per-draft targets were
   therefore advisory under the smoke gear in practice — recorded here so nobody reads
   them as enforced.
+
+## P4-C — agent-visible Parallel search lane (`hpr search-web` + gated template sentence) (2026-08-24)
+
+Opt-in lane that makes the Parallel search visible to pipeline AGENTS without
+letting a search write to the vault. Three surfaces, one flag:
+
+- **Flag** — `[web] parallel_search_lane` (default `false`) in
+  `.hyperresearch/config.toml`, field `web_parallel_search_lane` on
+  `VaultConfig` (parse: `web.get("parallel_search_lane")`; serialize:
+  `_toml_value` bool branch, so save->load round-trips). `config set/get/show`
+  know the key; `set` is STRICT for this key (true/1/yes, false/0/no) — any
+  other spelling exits 1 with no partial write. Deliberate delta vs the
+  legacy bool keys (`web.magic`, `sync.auto_sync`, ...), which silently map
+  unrecognized spellings to False: a typo'd lane flag must fail loudly,
+  because a silently-disabled lane looks identical to no lane at all.
+
+- **Verb** — `hpr search-web <query...> [--provider NAME] [-n MAX] [-j]`
+  (new module `cli/search_web.py`, registered after `fetch-batch`). Joins the
+  positional words, resolves ONE provider through the shared P4-B helper
+  `resolve_web_provider` (`--provider` overrides `[web] provider` as a single
+  string; chains flow through unmolested), calls
+  `prov.search(query, max_results=n)` (default n=5), and prints an ok
+  envelope whose `data` is a list of `{url, title, content, provider}` rows —
+  `provider` from the result's own metadata stamp (chain-aware post-call
+  name as fallback), plus `metadata` ONLY when non-empty. NO note writes, NO
+  sources rows, not even `auto_sync()`. Flag off => LANE_DISABLED envelope,
+  exit 1, with the exact enable text (`hpr config set
+  web.parallel_search_lane true` + re-run `hpr install`). Provider failures
+  surface as SEARCH_ERROR exit 1; unknown provider names fail up front
+  inside the resolver (P4-B semantics), before any network. The verb takes
+  `[--profile NAME]` following install's resolution convention (explicit >
+  `[pipeline] profile` gear > "full"); an unknown name exits UNKNOWN_PROFILE
+  and any other ProfileError (e.g. invalid overlay type) exits PROFILE_ERROR,
+  discriminated by list-membership, never message-sniffing. EMPTY_QUERY is
+  evaluated AFTER the lane gate — deliberate, documented trade-off so the
+  disabled-lane message always wins in an off-vault.
+
+- **Conditional template sentences** — TWO role-scoped constants (skill:
+  `_WIDTH_SWEEP_LANE_SENTENCE` in `core/opencode_skills.py`; agent:
+  `PARALLEL_SEARCH_LANE_SENTENCE` in `core/opencode_install.py`), injected
+  into their gated render targets only when the installer derives
+  `parallel_lane=true` from the EFFECTIVE flag (see the per-profile bullet
+  below). Final wording after blind-gauntlet rounds r1-r4 (see history
+  below) — width-sweep (orchestrator context, `$HPR` literal per its own
+  file's convention — NOT the corpus-critic `{hpr_path}` accident, which is
+  byte-replication of bundled sources only and licenses no new prose):
+
+  > **Parallel search lane:** when `[web] parallel_search_lane` (or your
+  > profile) is enabled, ALSO run one additional `$HPR search-web <atomic
+  > item keywords> --provider parallel -j` query per atomic item alongside
+  > native search and academic APIs; treat hits as extra URL candidates and
+  > fetch them through the normal fetch path.
+
+  fetcher agent (scout-and-report; `{hpr_path}` substituted via the existing
+  prep path; exclusivity scoped to candidate-discovery so Phase-2 WebSearch
+  for assigned targets stays outside the clause):
+
+  > **Parallel search lane:** when `[web] parallel_search_lane` (or your
+  > profile) enables it, ALSO run one `PYTHONIOENCODING=utf-8 {hpr_path}
+  > search-web <keywords from your assignment> --provider parallel -j` query
+  > up front, then LIST any newly surfaced candidate URLs in your report
+  > WITHOUT fetching them — the orchestrator dedups, scores, and assigns
+  > them under the normal wave contract — and using this lane to discover
+  > new candidate URLs beyond your assigned URL list is the ONLY sanctioned
+  > exception to the stay-within-your-assignment constraint of the wave
+  > contract you were spawned with.
+
+  Targets + anchors (unique static strings): width-sweep skill Step 2.2 item
+  2 tail ("before deduplication for `full` tier.") — sentence appended as a
+  3-space-indented continuation paragraph; fetcher agent template before
+  "## Untrusted content policy — read before summarizing any fetched page". A missing anchor raises
+   `OpencodeInstallError` instead of silently dropping the sentence.
+   Threading is keyword-only with default False on
+   `_render_skill`/`render_skills`/`render_agents`; the `install` verb
+   computes the effective flag as `[web] parallel_search_lane` OR the
+   resolved profile's `parallel_search_lane` (`prof.parallel_search_lane`,
+   resolved with the same config path as the gear, so `[profile.*]`
+   overlays apply; global installs carry no vault config -> both inputs
+   False -> lane off).
+
+- **Per-profile override (coordinator-adjudicated MUST-FIX; supersedes the
+  build-time decision recorded in the progress ledger)** — the lane is now
+  settable PER PROFILE, not config-only. `Profile` gains
+  `parallel_search_lane: bool = False` (core/profiles.py, next to
+  `utility_scoring`; default False keeps every shipped profile and all frozen
+  goldens byte-identical), legal as a `[profile.<name>]` overlay key through
+  the existing `_load_user_overlays` path — so `hpr config set` (vault-global
+  `[web] parallel_search_lane`) AND per-profile TOML both work, per the
+  dispatch. EFFECTIVE-FLAG SEMANTICS: the lane is enabled iff the vault-global
+  `[web] parallel_search_lane` flag is true OR the operation's resolved
+  profile enables its own key. Profile resolution follows each surface's
+  existing convention: `install` already resolves explicit `--profile` >
+  persisted gear > "full" with the target's config path before rendering, so
+  the OR rides that resolved object; `hpr search-web` gains a `--profile`
+  option following the same verb convention (explicit `--profile` >
+  `[pipeline] profile`, i.e. the gear persisted by `hpr profile use`,
+  defaulting to "full") via `resolve_profile(<name>, vault.config_path)`.
+  The OR short-circuits on the config flag, so the profile — and any broken
+  overlay in it — is only consulted when the global flag alone doesn't
+  already enable the lane; an unknown/invalid `--profile` fails cleanly
+  (UNKNOWN_PROFILE exit 1) before any provider work. Both inputs default
+  False, so default-off behavior and rendered bytes are unchanged.
+
+- **Golden regeneration (the one deliberate pass)** — default-state goldens
+  are UNTOUCHED: `git diff tests/fixtures/skill_goldens
+  tests/fixtures/agent_goldens_opencode` is empty at close, and the frozen
+  golden suites (19 skill files byte-compared, 15 agent files byte-compared)
+  pass unchanged, proving off-state renders are byte-identical to pre-P4-C.
+  NEW fixtures captured once from this renderer over the full gear
+  (determinism re-checked byte-for-byte):
+  `tests/fixtures/skill_goldens_lane_on/hyperresearch-2-width-sweep.md` and
+  `tests/fixtures/agent_goldens_opencode_lane_on/hyperresearch-fetcher.md`.
+  Separate directories ON PURPOSE: both golden inventory tests pin their dirs
+  to exactly the chain/roster file sets, so extra files inside them would
+  fail inventory. Lane-on renders also assert zero collateral drift: every
+  OTHER skill/agent file stays byte-identical to its default golden with the
+  lane enabled.
+
+- **README** — the intro feature list gains ONE bullet (after the
+  academic-APIs line) covering the provider protocol surface: builtin /
+  tavily / exa / crawl4ai / parallel, the ordered `[web] provider` fallback
+  chain, and the opt-in `hpr search-web` lane. (Build-time note that README
+  had no providers line was true then; the adjudicated closure added it.)
+
+Gates at close: pytest exit 0 (**1371 passed, 107 skipped** — all skips
+pre-existing), ruff clean, mypy --strict clean (98 files).
+
+Blind-gauntlet record for this piece: r1 REJECT (shipped skill golden carried
+a literal `{hpr_path}` against that file's `$HPR` convention); r2 REJECT
+(fetcher sentence licensed searching while its own template forbade it);
+r3 REJECT (sentence cited a no-searcher rule that exists nowhere in its
+rendered file; skill side lacked the profile clause); r4 ACCEPT with zero
+high findings — all remaining dispositions accepted/bundle-limitation and
+recorded on the progress page. Adjacent consistency fixes folded in during
+the waves: `--json` error envelopes extended to config set bad-value /
+unknown-key and config get unknown-key paths. Zero network in
+new tests (provider seam monkeypatched at
+`hyperresearch.web.base.resolve_web_provider`, the test_fetch_batch.py seam).

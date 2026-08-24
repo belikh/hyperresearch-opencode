@@ -298,11 +298,31 @@ def install(
         config_path = vault_root / ".hyperresearch" / "config.toml"
 
     # --- Profile resolution (validated BEFORE any artifact lands) ---------
+    # Deliberate (DOC-F7): install has always required a valid profile — it
+    # bakes the gear into every rendered prompt — so a broken [profile.*]
+    # overlay aborts the install even when the vault-global
+    # [web] parallel_search_lane flag alone would have enabled the lane;
+    # unlike search-web there is no lazy-resolution escape hatch here.
     profile_name = _resolve_profile_name(profile, config_path)
     try:
         prof = resolve_profile(profile_name, config_path)
     except ProfileError as exc:
         _fail(str(exc), "UNKNOWN_PROFILE", json_output)
+
+    # P4-C (closure): the Parallel search lane rides an OR of two
+    # default-false inputs — the vault's `[web] parallel_search_lane` flag and
+    # the resolved profile's own `parallel_search_lane` overlay
+    # (`[profile.<name>]` in the vault config, applied by resolve_profile
+    # above). Both default False, so an unconfigured install renders
+    # byte-identical to the pre-P4-C goldens. Global installs carry no vault
+    # config: neither input can be set there, so the lane stays off.
+    parallel_lane = prof.parallel_search_lane
+    if config_path is not None and config_path.exists():
+        from hyperresearch.core.config import VaultConfig
+
+        parallel_lane = (
+            VaultConfig.load(config_path).web_parallel_search_lane or parallel_lane
+        )
 
     agents_dir = oc_dir / AGENTS_SUBDIR
     skills_dir = oc_dir / SKILLS_SUBDIR
@@ -318,7 +338,9 @@ def install(
     skills_pruned: list[Path] = []
     try:
         if full_mode:
-            agent_manifest = render_agents(agents_dir, prof, prof.models, hpr_path=hpr_path)
+            agent_manifest = render_agents(
+                agents_dir, prof, prof.models, hpr_path=hpr_path, parallel_lane=parallel_lane
+            )
             agent_written = len(agent_manifest.written)
             agent_unchanged = len(agent_manifest.unchanged)
             plugin_manifest = write_plugin(plugins_dir)
@@ -332,7 +354,7 @@ def install(
         render_command(commands_dir)
         cmd_changed = cmd_path.read_text(encoding="utf-8") != cmd_before
 
-        skill_manifest = render_skills(skills_dir, prof)
+        skill_manifest = render_skills(skills_dir, prof, parallel_lane=parallel_lane)
         agents_md_changed = inject_agents_md(agents_md_path, hpr_path=hpr_path)
 
         # --- Prune retired artifacts (only AFTER rendering succeeded) -----

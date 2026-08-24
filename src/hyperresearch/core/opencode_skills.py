@@ -81,7 +81,10 @@ from hyperresearch.core.agent_docs import (
     HYPERRESEARCH_SECTION_END,
     HYPERRESEARCH_SECTION_MARKER,
 )
-from hyperresearch.core.opencode_install import OpencodeInstallError, _atomic_write
+from hyperresearch.core.opencode_install import (
+    OpencodeInstallError,
+    _atomic_write,
+)
 from hyperresearch.core.profiles import Profile
 from hyperresearch.core.render import insert_after_frontmatter, render_prompt
 
@@ -289,6 +292,51 @@ had), still honoring their per-locus `source_budget`.
 # Renderer
 # ---------------------------------------------------------------------------
 
+# P4-C lane sentence for the width-sweep skill (SKILL side). Width-sweep keeps
+# its orchestrator-context wording ("per atomic item" fits the step that owns
+# the decomposition); the fetcher AGENT carries a separately-worded, role-
+# appropriate sentence in core/opencode_install.py.
+#
+# The CLI path is `$HPR`, LITERALLY — this file's own convention. Every CLI
+# invocation in this rendered skill uses `$HPR`-style invocation: 12 in the
+# bundled source, 13 once the degraded-mode clause appends its `$HPR
+# fetch-batch` fallback, 14 with this sentence (one lowercase prose mention
+# of `hpr run resume` survives rendering as-is and follows suit). Nothing in
+# this renderer substitutes path placeholders for skills; the new prose
+# simply follows the file it lands in, not any other file's habit.
+#
+# GAUNTLET r3 FIX-M2: the trigger names "(or your profile)" like the agent
+# side does — injection fires under a profile-only enable too, so conditioning
+# on `[web] parallel_search_lane` alone would state a false precondition in
+# the shipped bytes.
+_WIDTH_SWEEP_LANE_SENTENCE = (
+    "**Parallel search lane:** when `[web] parallel_search_lane` (or your "
+    "profile) is enabled, "
+    "ALSO run one additional `$HPR search-web <atomic item keywords> "
+    "--provider parallel -j` query per atomic item alongside native search "
+    "and academic APIs; treat hits as extra URL candidates and fetch them "
+    "through the normal fetch path."
+)
+
+# Injection anchor: the static tail of Step 2.2 item 2 ("Web searches from
+# the plan."). Unique in that skill; the sentence lands right after it as a
+# 3-space-indented continuation paragraph, matching how the Wikipedia SOURCE
+# HUB rule continues item 3.
+_WIDTH_SWEEP_LANE_ANCHOR = "before deduplication for `full` tier."
+
+
+def _inject_lane_sentence_after(text: str, anchor: str) -> str:
+    """Append the P4-C lane sentence as an indented paragraph AFTER ``anchor``.
+
+    Missing anchor is a renderer bug — raise instead of silently dropping
+    the sentence.
+    """
+    if anchor not in text:
+        raise OpencodeInstallError(
+            f"parallel-lane sentence anchor not found: {anchor[:60]!r}..."
+        )
+    return text.replace(anchor, anchor + "\n\n   " + _WIDTH_SWEEP_LANE_SENTENCE, 1)
+
 
 @dataclass(frozen=True)
 class SkillManifest:
@@ -303,8 +351,13 @@ class SkillManifest:
         return self.written + self.unchanged
 
 
-def _render_skill(spec: SkillSpec, profile: Profile) -> str:
-    """Full SKILL.md bytes for one skill: render -> deltas -> clause -> header."""
+def _render_skill(spec: SkillSpec, profile: Profile, *, parallel_lane: bool = False) -> str:
+    """Full SKILL.md bytes for one skill: render -> deltas -> clause -> header.
+
+    P4-C: with ``parallel_lane=True`` the width-sweep skill gains exactly one
+    extra sentence (_WIDTH_SWEEP_LANE_SENTENCE, ``$HPR`` literal per this
+    file's convention); every other skill renders byte-identically either way.
+    """
     from hyperresearch import __version__
     from hyperresearch.core.opencode_install import _render_context
     from hyperresearch.core.render import render_header
@@ -314,13 +367,17 @@ def _render_skill(spec: SkillSpec, profile: Profile) -> str:
         raise OpencodeInstallError(f"{spec.name}: bundled skill source missing")
     rendered = render_prompt(src, _render_context(profile))
     rendered = _apply_deltas(rendered)
+    if parallel_lane and spec.name == "hyperresearch-2-width-sweep":
+        rendered = _inject_lane_sentence_after(rendered, _WIDTH_SWEEP_LANE_ANCHOR)
     if spec.degraded and DEGRADED_MODE_HEADING not in rendered:
         rendered += _DEGRADED_MODE_CLAUSE
     header = render_header(profile.name, __version__)
     return insert_after_frontmatter(rendered, header)
 
 
-def render_skills(skills_dir: Path, profile: Profile) -> SkillManifest:
+def render_skills(
+    skills_dir: Path, profile: Profile, *, parallel_lane: bool = False
+) -> SkillManifest:
     """Render the 19-skill chain into ``skills_dir`` as ``<name>/SKILL.md``.
 
     Deterministic and idempotent: identical inputs produce byte-identical
@@ -329,10 +386,12 @@ def render_skills(skills_dir: Path, profile: Profile) -> SkillManifest:
     :func:`hyperresearch.core.opencode_install.render_agents`. There is no
     whole-set transaction: an injected failure mid-render leaves complete
     files behind and the next run converges the set.
+
+    P4-C: ``parallel_lane`` threads through to :func:`_render_skill`.
     """
     plan: list[tuple[Path, str]] = []
     for spec in SKILL_SPECS:
-        content = _render_skill(spec, profile)
+        content = _render_skill(spec, profile, parallel_lane=parallel_lane)
         plan.append((skills_dir / spec.name / "SKILL.md", content))
 
     skills_dir.mkdir(parents=True, exist_ok=True)

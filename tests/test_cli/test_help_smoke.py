@@ -24,11 +24,12 @@ from hyperresearch.cli import app
 
 runner = CliRunner()
 
-# Upstream root-level command order (`install` included since P2-16).
+# Upstream root-level command order (`install` included since P2-16;
+# `search-web` is a port-only P4-C verb, registered after fetch-batch).
 EXPECTED_ROOT = [
     "install", "setup", "init", "status", "sync", "search", "fetch",
-    "fetch-batch", "research", "tags", "show", "dedup", "archive-run",
-    "vault-tag", "import", "repair", "watch", "serve", "mcp",
+    "fetch-batch", "search-web", "research", "tags", "show", "dedup",
+    "archive-run", "vault-tag", "import", "repair", "watch", "serve", "mcp",
 ]
 
 # Sub-apps in upstream add_typer order.

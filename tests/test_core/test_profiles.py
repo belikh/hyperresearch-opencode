@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from hyperresearch.core.config import VaultConfig
 from hyperresearch.core.profiles import (
     BUILTIN_PROFILES,
     ProfileError,
@@ -345,6 +346,30 @@ class TestUserOverlay:
     def test_missing_config_is_fine(self, tmp_path: Path):
         p = resolve_profile("full", tmp_path / "nope.toml")
         assert p.source_min == 45
+
+    def test_parallel_search_lane_overlay_round_trips(self, tmp_path: Path):
+        """P4-C closure: `parallel_search_lane` is a legal [profile.*] overlay
+        key — hand-written TOML resolves it, and VaultConfig.save() round-trips
+        the overlay verbatim so a later config write cannot silently strip it.
+        Profiles without the key keep the False default."""
+        p = self._write(
+            tmp_path,
+            '[pipeline]\nprofile = "full"\n\n'
+            "[profile.full]\nparallel_search_lane = true\n",
+        )
+        assert resolve_profile("full", p).parallel_search_lane is True
+
+        cfg = VaultConfig.load(p)
+        cfg.save(p)
+
+        assert VaultConfig.load(p).profile_overlays == {
+            "full": {"parallel_search_lane": True}
+        }
+        # The saved bytes still resolve as the enabled profile...
+        assert resolve_profile("full", p).parallel_search_lane is True
+        # ...while profiles that never set the key stay at the default.
+        assert resolve_profile("premier", p).parallel_search_lane is False
+        assert resolve_profile("light", p).parallel_search_lane is False
 
     def test_models_overlay_swaps_one_agent(self, tmp_path: Path):
         cfg = self._write(tmp_path, '[profile.full]\nmodels = { fetcher = "haiku" }\n')

@@ -60,6 +60,7 @@ from hyperresearch.core.render import (
 
 __all__ = [
     "AGENT_SPECS",
+    "PARALLEL_SEARCH_LANE_SENTENCE",
     "SCAFFOLD_ONLY_SECTION_HEADERS",
     "AgentManifest",
     "AgentSpec",
@@ -3374,6 +3375,81 @@ For each assigned pair:
 
 PrepFn = Callable[[str, str, str], str]
 
+# ---------------------------------------------------------------------------
+# P4-C: fetcher-visible Parallel search lane sentence (AGENT side).
+#
+# ONE sentence, injected into the hyperresearch-fetcher agent at render time
+# ONLY when the caller passes parallel_lane=True — which the `hpr install`
+# verb derives from the vault's `[web] parallel_search_lane` flag (OR the
+# resolved profile's own overlay key). Default-off renders are byte-identical
+# to the frozen pre-P4-C goldens; a lane-on render adds exactly one occurrence.
+#
+# Wording is FETCHER-ROLE specific, scout-and-report semantics (GAUNTLET r2
+# FIX-H1): this is a fetch-only agent whose spawn/wave contract forbids
+# fetcher searches, so the trigger references "keywords from your assignment"
+# and the licensed action ends at REPORTING surfaced candidates — the fetcher
+# must NOT fetch them itself, because lane-surfaced URLs would otherwise
+# bypass the step 2.2/2.3 dedup + utility scoring that only the orchestrator
+# applies when it hands out batches under the normal wave contract. The
+# command carries this file's standing PYTHONIOENCODING=utf-8 Windows-prefix
+# rule inside the snippet itself (FIX-L7), matching every other command
+# example in the roster templates. Pipeline-orchestration vocabulary ("per
+# atomic item") would mean nothing here. The width-sweep SKILL carries its
+# own separately-worded sentence (orchestrator context) defined in
+# core/opencode_skills.py; the two share only the bold lead-in.
+#
+# GAUNTLET r3 FIX-H1: exclusivity must not cite an in-file rule ("above") —
+# no such rule exists anywhere in THIS rendered file (the no-fetcher-searches
+# rule lives in width-sweep's SPAWN template text, a different artifact that
+# depth-investigator-spawned fetchers never receive). The binding constraint
+# a spawned fetcher actually holds is the assignment/wave contract it was
+# spawned with, so the sentence names THAT as the constraint source and
+# scopes the exclusivity to DISCOVERING NEW candidate URLs beyond the
+# assigned URL list — Phase 2's WebSearch-for-already-identified-targets
+# stays untouched and outside this clause.
+#
+# `{hpr_path}` follows the agent files' own substitution convention: it is
+# replaced with the resolved executable path exactly like every other
+# occurrence in the roster templates. (Skill renders never substitute — that
+# file's convention is `$HPR`; see core/opencode_skills.py.)
+# ---------------------------------------------------------------------------
+
+PARALLEL_SEARCH_LANE_SENTENCE = (
+    "**Parallel search lane:** when `[web] parallel_search_lane` (or your "
+    "profile) enables it, ALSO run one "
+    "`PYTHONIOENCODING=utf-8 {hpr_path} search-web <keywords from your "
+    "assignment> --provider parallel -j` query up front, then LIST any newly "
+    "surfaced candidate URLs in your report WITHOUT fetching them — the "
+    "orchestrator dedups, scores, and assigns them under the normal wave "
+    "contract — and using this lane to discover new candidate URLs beyond "
+    "your assigned URL list is the ONLY sanctioned exception to the "
+    "stay-within-your-assignment constraint of the wave contract you were "
+    "spawned with."
+)
+
+# Injection anchors — static strings that survive profile rendering and carry
+# exactly one occurrence in their respective template.
+_FETCHER_LANE_ANCHOR = (
+    "## Untrusted content policy — read before summarizing any fetched page"
+)
+
+
+def _inject_lane_sentence_before(text: str, anchor: str, hpr_path: str) -> str:
+    """Insert the P4-C lane sentence as its own paragraph BEFORE ``anchor``.
+
+    Agent-side injection: ``{hpr_path}`` is substituted the same way the
+    template's own occurrences are. Missing anchor is a renderer bug — raise
+    instead of silently dropping the sentence.
+    """
+    if anchor not in text:
+        raise OpencodeInstallError(
+            f"parallel-lane sentence anchor not found: {anchor[:60]!r}..."
+        )
+    sentence = PARALLEL_SEARCH_LANE_SENTENCE.replace(
+        "{hpr_path}", hpr_path.replace("\\", "/")
+    )
+    return text.replace(anchor, sentence + "\n\n" + anchor, 1)
+
 
 def _prep_format_hpr(template: str, hpr_path: str, _scaffold: str) -> str:
     # Upstream formats with the backslash-normalized POSIX form.
@@ -3654,6 +3730,7 @@ def render_agents(
     model_map: ModelMap,
     *,
     hpr_path: str = "hyperresearch",
+    parallel_lane: bool = False,
 ) -> AgentManifest:
     """Render the 15-agent roster into ``target_dir`` (idempotent, per-file atomic).
 
@@ -3664,6 +3741,10 @@ def render_agents(
     already written in place (each one complete, never torn) alongside the
     not-yet-written ones; a subsequent run converges the set. Files already
     byte-identical are left untouched and reported under ``unchanged``.
+
+    P4-C: with ``parallel_lane=True`` the hyperresearch-fetcher agent gains
+    exactly one extra sentence (PARALLEL_SEARCH_LANE_SENTENCE); every other
+    roster file renders byte-identically either way.
     """
     from hyperresearch import __version__
 
@@ -3675,6 +3756,10 @@ def render_agents(
     for spec in AGENT_SPECS:
         prepared = spec.prep(spec.template, hpr_path, scaffold_bullets)
         rendered = render_prompt(prepared, context)
+        if parallel_lane and spec.filename == "hyperresearch-fetcher.md":
+            rendered = _inject_lane_sentence_before(
+                rendered, _FETCHER_LANE_ANCHOR, hpr_path
+            )
         frontmatter = _build_frontmatter(spec, rendered, _model_for(model_map, spec.model_role))
         _, body = _split_frontmatter(rendered, spec.filename)
         content = insert_after_frontmatter(frontmatter + body, header)

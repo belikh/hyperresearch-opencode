@@ -10,6 +10,7 @@ Same deep-research machine, rebuilt on opencode primitives:
 - Persistent vault: markdown notes as truth, SQLite index as cache (search, lint, graph, PageRank)
 - Resumable budgeted runs with ship-gate lint battery
 - Academic-APIs-first fetch lane with Unpaywall/Europe PMC open-access recovery and untrusted-source fencing
+- Extra web sources behind one provider protocol: builtin (default floor), tavily, exa, crawl4ai (optional), parallel (api.parallel.ai) — with an ordered fallback chain (`[web] provider = ["parallel", "builtin"]`) and an opt-in parallel search lane (`hpr search-web`)
 - MCP server and local web UI
 
 Public contract preserved: `hyperresearch <cmd>` / `hpr <cmd>` CLI and `/hyperresearch <prompt>` inside opencode.

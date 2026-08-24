@@ -310,6 +310,13 @@ class VaultConfig:
     web_provider: str | list[str] = "builtin"
     web_profile: str = ""  # crawl4ai browser profile name (created via `crwl profiles`)
     web_magic: bool = False  # crawl4ai magic mode (anti-bot stealth)
+    # P4-C: agent-visible Parallel search lane. When True, `hpr search-web`
+    # works AND the installer bakes one extra sentence into the width-sweep
+    # skill + fetcher agent telling agents to run one additional
+    # `{hpr_path} search-web ... --provider parallel -j` query per atomic
+    # item. Default False: the verb errors with LANE_DISABLED and rendered
+    # templates are byte-identical to the pre-P4-C goldens.
+    web_parallel_search_lane: bool = False
 
     # Pipeline scale gear ([pipeline] section) — the profile whose numbers are
     # rendered into installed skills/agents. Set via `hpr profile use <name>`.
@@ -372,6 +379,9 @@ class VaultConfig:
             web_provider=coerce_web_provider(web.get("provider", cls.web_provider)),
             web_profile=web.get("profile", cls.web_profile),
             web_magic=web.get("magic", cls.web_magic),
+            web_parallel_search_lane=web.get(
+                "parallel_search_lane", cls.web_parallel_search_lane
+            ),
             pipeline_profile=pipeline.get("profile", cls.pipeline_profile),
             profile_overlays=data.get("profile", {}),
             model_overrides=data.get("models", {}),
@@ -454,6 +464,10 @@ class VaultConfig:
             f"provider = {self._toml_value(self.web_provider)}",
             f"profile = {self._toml_value(self.web_profile)}",
             f"magic = {'true' if self.web_magic else 'false'}",
+            # P4-C: opt-in agent-visible Parallel search lane (search-web verb
+            # + one conditional template sentence). _toml_value renders bools
+            # as bare true/false, so save->load round-trips.
+            f"parallel_search_lane = {self._toml_value(self.web_parallel_search_lane)}",
             "",
             "[pipeline]",
             f"profile = {self._toml_value(self.pipeline_profile)}",
