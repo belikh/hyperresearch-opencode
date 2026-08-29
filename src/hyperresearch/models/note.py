@@ -124,6 +124,14 @@ class NoteMeta(BaseModel):
     # read at all, so the ENTIRE note (title and authors included) is the
     # open-access copy and nothing in it came from `source`.
     oa_recovery_kind: str | None = None
+    # P5 repository-source lane provenance. `repo` names the GitHub repo a
+    # DeepWiki note documents (owner/repo); `wiki_page` distinguishes the
+    # per-page child notes of one repo-wiki pull; `repo_map_lane` records
+    # which extraction lane (tree-sitter | regex) built a repo-map note.
+    # Additive optional fields — absent on every pre-P5 note.
+    repo: str | None = None
+    wiki_page: str | None = None
+    repo_map_lane: str | None = None
 
     @field_validator("tags", mode="before")
     @classmethod

@@ -324,18 +324,45 @@ _WIDTH_SWEEP_LANE_SENTENCE = (
 # HUB rule continues item 3.
 _WIDTH_SWEEP_LANE_ANCHOR = "before deduplication for `full` tier."
 
+# P5: repository-source Lens-E paragraph for the width-sweep skill (SKILL
+# side). Same injection mechanics and same "(or your profile)" precondition
+# honesty as the P4-C sentence above (a profile-only enable must fire the
+# injection too). The paragraph teaches agents the two repository
+# understandings available as SOURCES — the DeepWiki of an indexed GitHub
+# repo (one vault note per wiki page, citable like any web source) and the
+# structural map of a local checkout — plus the grounded-QA escape hatch
+# that deliberately saves nothing.
+_WIDTH_SWEEP_REPO_PARAGRAPH = (
+    "**Repository source lane (Lens E):** when `[web] repo_source_lane` (or "
+    "your profile) is enabled and an atomic item concerns a specific codebase "
+    "or repository, treat the repository itself as a research source: "
+    "(1) `$HPR repo wiki <owner/repo> -j` pulls the repo's DeepWiki into "
+    "the vault as linked notes (one per wiki page — citable like any fetched "
+    "source, `tier: practitioner`, `content_type: code`); (2) for a local "
+    "checkout, `$HPR repo map <path> -j` writes a PageRank-ranked structural "
+    "map note (tree-sitter or regex lane — the note records which); "
+    "(3) `$HPR repo ask <owner/repo>... --question \"...\" -j` answers "
+    "grounded questions about up to 10 indexed repos and saves nothing — "
+    "cite the wiki note, not the raw answer."
+)
 
-def _inject_lane_sentence_after(text: str, anchor: str) -> str:
-    """Append the P4-C lane sentence as an indented paragraph AFTER ``anchor``.
+# Anchor: the Lens D period-pinned block's closing sentence (static tail of
+# the Lens D bullet list, unique in the skill).
+_WIDTH_SWEEP_REPO_ANCHOR = "not a paraphrase of it."
+
+
+def _inject_lane_sentence_after(text: str, anchor: str, payload: str) -> str:
+    """Append a lane paragraph AFTER ``anchor`` as an indented continuation.
 
     Missing anchor is a renderer bug — raise instead of silently dropping
-    the sentence.
+    the sentence. ``payload`` is the lane's own sentence/paragraph (P5:
+    each lane passes its own text; the function no longer assumes which).
     """
     if anchor not in text:
         raise OpencodeInstallError(
-            f"parallel-lane sentence anchor not found: {anchor[:60]!r}..."
+            f"lane-sentence anchor not found: {anchor[:60]!r}..."
         )
-    return text.replace(anchor, anchor + "\n\n   " + _WIDTH_SWEEP_LANE_SENTENCE, 1)
+    return text.replace(anchor, anchor + "\n\n   " + payload, 1)
 
 
 @dataclass(frozen=True)
@@ -351,12 +378,23 @@ class SkillManifest:
         return self.written + self.unchanged
 
 
-def _render_skill(spec: SkillSpec, profile: Profile, *, parallel_lane: bool = False) -> str:
+def _render_skill(
+    spec: SkillSpec,
+    profile: Profile,
+    *,
+    parallel_lane: bool = False,
+    repo_lane: bool = False,
+) -> str:
     """Full SKILL.md bytes for one skill: render -> deltas -> clause -> header.
 
     P4-C: with ``parallel_lane=True`` the width-sweep skill gains exactly one
     extra sentence (_WIDTH_SWEEP_LANE_SENTENCE, ``$HPR`` literal per this
     file's convention); every other skill renders byte-identically either way.
+
+    P5: with ``repo_lane=True`` the width-sweep skill gains exactly one
+    extra Lens-E paragraph (_WIDTH_SWEEP_REPO_PARAGRAPH, same injection
+    mechanics); the two flags are independent — a vault can enable either
+    lane alone. Every other skill renders byte-identically regardless.
     """
     from hyperresearch import __version__
     from hyperresearch.core.opencode_install import _render_context
@@ -368,7 +406,13 @@ def _render_skill(spec: SkillSpec, profile: Profile, *, parallel_lane: bool = Fa
     rendered = render_prompt(src, _render_context(profile))
     rendered = _apply_deltas(rendered)
     if parallel_lane and spec.name == "hyperresearch-2-width-sweep":
-        rendered = _inject_lane_sentence_after(rendered, _WIDTH_SWEEP_LANE_ANCHOR)
+        rendered = _inject_lane_sentence_after(
+            rendered, _WIDTH_SWEEP_LANE_ANCHOR, _WIDTH_SWEEP_LANE_SENTENCE
+        )
+    if repo_lane and spec.name == "hyperresearch-2-width-sweep":
+        rendered = _inject_lane_sentence_after(
+            rendered, _WIDTH_SWEEP_REPO_ANCHOR, _WIDTH_SWEEP_REPO_PARAGRAPH
+        )
     if spec.degraded and DEGRADED_MODE_HEADING not in rendered:
         rendered += _DEGRADED_MODE_CLAUSE
     header = render_header(profile.name, __version__)
@@ -376,7 +420,11 @@ def _render_skill(spec: SkillSpec, profile: Profile, *, parallel_lane: bool = Fa
 
 
 def render_skills(
-    skills_dir: Path, profile: Profile, *, parallel_lane: bool = False
+    skills_dir: Path,
+    profile: Profile,
+    *,
+    parallel_lane: bool = False,
+    repo_lane: bool = False,
 ) -> SkillManifest:
     """Render the 19-skill chain into ``skills_dir`` as ``<name>/SKILL.md``.
 
@@ -388,10 +436,13 @@ def render_skills(
     files behind and the next run converges the set.
 
     P4-C: ``parallel_lane`` threads through to :func:`_render_skill`.
+    P5: ``repo_lane`` threads through likewise, independently.
     """
     plan: list[tuple[Path, str]] = []
     for spec in SKILL_SPECS:
-        content = _render_skill(spec, profile, parallel_lane=parallel_lane)
+        content = _render_skill(
+            spec, profile, parallel_lane=parallel_lane, repo_lane=repo_lane
+        )
         plan.append((skills_dir / spec.name / "SKILL.md", content))
 
     skills_dir.mkdir(parents=True, exist_ok=True)

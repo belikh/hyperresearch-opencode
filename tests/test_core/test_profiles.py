@@ -118,11 +118,14 @@ class TestBuiltins:
         # One field per installed agent role (the four critics share `critics`).
         # If an agent is added to hooks.py, it needs a ModelMap field too —
         # otherwise its `model: << p.models.X >>` template line can't render.
+        # P5: repo_analyst joined the roster (conditional 16th member,
+        # rendered only when the effective repo_source_lane is on).
         assert set(ModelMap.model_fields) == {
-            "fetcher", "source_analyst", "loci_analyst", "depth_investigator",
-            "corpus_critic", "cite_checker", "browser_fetcher",
-            "draft_orchestrator", "synthesizer", "critics", "patcher",
-            "polish_auditor", "readability_recommender",
+            "fetcher", "source_analyst", "repo_analyst", "loci_analyst",
+            "depth_investigator", "corpus_critic", "cite_checker",
+            "browser_fetcher", "draft_orchestrator", "synthesizer",
+            "critics", "patcher", "polish_auditor",
+            "readability_recommender",
         }
 
     def test_no_cost_estimates_anywhere(self):

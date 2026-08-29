@@ -253,7 +253,7 @@ def install(
     retired hyperresearch artifacts are pruned.
     """
     from hyperresearch.core.agent_docs import _resolve_executable
-    from hyperresearch.core.opencode_install import AGENT_SPECS, OpencodeInstallError, render_agents
+    from hyperresearch.core.opencode_install import OpencodeInstallError, render_agents
     from hyperresearch.core.opencode_plugin import PLUGIN_FILENAME, write_plugin
     from hyperresearch.core.opencode_skills import (
         COMMAND_NAME,
@@ -324,6 +324,17 @@ def install(
             VaultConfig.load(config_path).web_parallel_search_lane or parallel_lane
         )
 
+    # P5: the repository source lane rides the same OR of two default-false
+    # inputs — the vault's `[web] repo_source_lane` flag and the resolved
+    # profile's own `repo_source_lane` overlay. Independent of the P4-C
+    # flag: a vault can enable either lane alone, both, or neither. An
+    # unconfigured install renders byte-identical to the pre-P5 goldens.
+    repo_lane = prof.repo_source_lane
+    if config_path is not None and config_path.exists():
+        from hyperresearch.core.config import VaultConfig
+
+        repo_lane = VaultConfig.load(config_path).web_repo_source_lane or repo_lane
+
     agents_dir = oc_dir / AGENTS_SUBDIR
     skills_dir = oc_dir / SKILLS_SUBDIR
     plugins_dir = oc_dir / PLUGINS_SUBDIR
@@ -339,7 +350,12 @@ def install(
     try:
         if full_mode:
             agent_manifest = render_agents(
-                agents_dir, prof, prof.models, hpr_path=hpr_path, parallel_lane=parallel_lane
+                agents_dir,
+                prof,
+                prof.models,
+                hpr_path=hpr_path,
+                parallel_lane=parallel_lane,
+                repo_lane=repo_lane,
             )
             agent_written = len(agent_manifest.written)
             agent_unchanged = len(agent_manifest.unchanged)
@@ -354,13 +370,19 @@ def install(
         render_command(commands_dir)
         cmd_changed = cmd_path.read_text(encoding="utf-8") != cmd_before
 
-        skill_manifest = render_skills(skills_dir, prof, parallel_lane=parallel_lane)
+        skill_manifest = render_skills(
+            skills_dir, prof, parallel_lane=parallel_lane, repo_lane=repo_lane
+        )
         agents_md_changed = inject_agents_md(agents_md_path, hpr_path=hpr_path)
 
         # --- Prune retired artifacts (only AFTER rendering succeeded) -----
         if full_mode:
+            # P5: the keep-set derives from the RENDERED roster (the
+            # manifest's files), not the static AGENT_SPECS — a lane-off
+            # install must prune the repo-analyst file a lane-on install
+            # previously wrote, not orphan it.
             agents_pruned = _prune_retired_agents(
-                agents_dir, {spec.filename for spec in AGENT_SPECS}
+                agents_dir, {p.name for p in agent_manifest.files}
             )
             plugins_pruned = _prune_retired_plugins(plugins_dir, PLUGIN_FILENAME)
         # Skills are managed in EVERY mode (steps-only exists to ship them).

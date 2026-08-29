@@ -62,6 +62,7 @@ class ModelMap(BaseModel):
 
     fetcher: str = ""
     source_analyst: str = ""
+    repo_analyst: str = ""
     loci_analyst: str = ""
     depth_investigator: str = ""
     corpus_critic: str = ""
@@ -128,6 +129,11 @@ class Profile(BaseModel):
     # false. Effective lane = web flag OR this field — consumed by
     # cli/search_web.py (verb gate) and cli/install.py (render gate).
     parallel_search_lane: bool = False
+    # P5: per-profile repository-understanding source lane opt-in, same
+    # contract as parallel_search_lane above. Effective lane = web flag OR
+    # this field — consumed by cli/repo.py (verb gate) and the P5 render
+    # gate for the Lens-E width-sweep paragraph + repo-analyst agent.
+    repo_source_lane: bool = False
     source_analyst_cap: int
     source_analyst_word_trigger: int
     fetcher_chase: Range

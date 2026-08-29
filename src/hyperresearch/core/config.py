@@ -317,6 +317,15 @@ class VaultConfig:
     # item. Default False: the verb errors with LANE_DISABLED and rendered
     # templates are byte-identical to the pre-P4-C goldens.
     web_parallel_search_lane: bool = False
+    # P5: repository-understanding source lane. When True, the `hpr repo`
+    # verbs work AND the installer bakes the Lens-E repository-sources
+    # paragraph into the width-sweep skill + a `hyperresearch-repo-analyst`
+    # agent spawn path, telling agents they can pull a repo's DeepWiki into
+    # the vault (`hpr repo wiki`) or map a local checkout (`hpr repo map`)
+    # as research sources. Default False: the verbs error with
+    # LANE_DISABLED and rendered templates stay byte-identical to the
+    # pre-P5 goldens.
+    web_repo_source_lane: bool = False
 
     # Pipeline scale gear ([pipeline] section) — the profile whose numbers are
     # rendered into installed skills/agents. Set via `hpr profile use <name>`.
@@ -381,6 +390,9 @@ class VaultConfig:
             web_magic=web.get("magic", cls.web_magic),
             web_parallel_search_lane=web.get(
                 "parallel_search_lane", cls.web_parallel_search_lane
+            ),
+            web_repo_source_lane=web.get(
+                "repo_source_lane", cls.web_repo_source_lane
             ),
             pipeline_profile=pipeline.get("profile", cls.pipeline_profile),
             profile_overlays=data.get("profile", {}),
@@ -468,6 +480,10 @@ class VaultConfig:
             # + one conditional template sentence). _toml_value renders bools
             # as bare true/false, so save->load round-trips.
             f"parallel_search_lane = {self._toml_value(self.web_parallel_search_lane)}",
+            # P5: opt-in repository-understanding source lane (hpr repo verbs
+            # + conditional Lens-E width-sweep paragraph + repo-analyst
+            # agent). Same bool round-trip contract as the P4-C flag.
+            f"repo_source_lane = {self._toml_value(self.web_repo_source_lane)}",
             "",
             "[pipeline]",
             f"profile = {self._toml_value(self.pipeline_profile)}",

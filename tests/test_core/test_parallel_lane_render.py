@@ -35,7 +35,6 @@ from typer.testing import CliRunner
 from hyperresearch.cli import app
 from hyperresearch.core.config import VaultConfig
 from hyperresearch.core.opencode_install import (
-    AGENT_SPECS,
     PARALLEL_SEARCH_LANE_SENTENCE,
     OpencodeInstallError,
     render_agents,
@@ -107,10 +106,15 @@ class TestDefaultStateByteIdentity:
         agents_b = tmp_path / "ab"
         render_agents(agents_a, PROFILE, ModelMap())
         render_agents(agents_b, PROFILE, ModelMap(), parallel_lane=False)
-        for spec in AGENT_SPECS:
-            a = (agents_a / spec.filename).read_bytes()
-            b = (agents_b / spec.filename).read_bytes()
-            assert a == b, spec.filename
+        # P5: AGENT_SPECS now holds the conditional 16th member
+        # (repo-analyst), which a default render correctly omits — compare
+        # what each render actually PRODUCED, via the manifests.
+        files_a = render_agents(agents_a, PROFILE, ModelMap()).files
+        files_b = render_agents(agents_b, PROFILE, ModelMap(), parallel_lane=False).files
+        assert len(files_a) == len(files_b) == 15
+        for path_a, path_b in zip(files_a, files_b, strict=True):
+            assert path_a.name == path_b.name
+            assert path_a.read_bytes() == path_b.read_bytes(), path_a.name
 
 
 # ---------------------------------------------------------------------------
@@ -156,12 +160,16 @@ class TestLaneOnRenders:
         self, tmp_path: Path
     ) -> None:
         agents_dir = _render_agents(tmp_path, lane=True)
-        for spec in AGENT_SPECS:
-            if spec.filename == AFFECTED_AGENT:
+        # P5: iterate the RENDERED set (the manifest), not the static
+        # AGENT_SPECS — a parallel-lane render carries the 15 default
+        # members; the conditional repo-analyst is not its concern.
+        rendered = sorted(agents_dir.glob("hyperresearch-*.md"))
+        assert len(rendered) == 15
+        for path in rendered:
+            if path.name == AFFECTED_AGENT:
                 continue
-            got = (agents_dir / spec.filename).read_bytes()
-            golden = (AGENT_GOLDENS_DIR / spec.filename).read_bytes()
-            assert got == golden, f"{spec.filename} drifted under parallel_lane=True"
+            golden = (AGENT_GOLDENS_DIR / path.name).read_bytes()
+            assert path.read_bytes() == golden, f"{path.name} drifted under parallel_lane=True"
 
     def test_lane_off_vs_on_diff_is_exactly_the_sentence_block(
         self, tmp_path: Path
@@ -299,8 +307,11 @@ class TestSubstitutionConventions:
 def test_missing_skill_anchor_raises_instead_of_dropping() -> None:
     from hyperresearch.core.opencode_skills import _inject_lane_sentence_after
 
+    # P5: the injector takes its payload as an argument (each lane passes
+    # its own sentence/paragraph); the guard still fires on a missing
+    # anchor regardless of payload.
     with pytest.raises(OpencodeInstallError, match="anchor not found"):
-        _inject_lane_sentence_after("no anchor here", "MISSING")
+        _inject_lane_sentence_after("no anchor here", "MISSING", "any payload")
 
 
 def test_missing_agent_anchor_raises_instead_of_dropping() -> None:

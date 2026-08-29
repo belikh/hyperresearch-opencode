@@ -37,6 +37,8 @@ EXPECTED_SUBAPPS = [
     "note", "graph", "index", "lint", "export", "config", "topic", "batch",
     "template", "git", "tag", "profile", "claims", "embed", "run",
     "escalation", "citecheck", "levers", "sources", "assets", "link",
+    # P5: repository-understanding source lane (repo wiki/map/ask).
+    "repo",
 ]
 
 

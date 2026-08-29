@@ -47,7 +47,15 @@ from hyperresearch.core.opencode_skills import COMMAND_NAME, SKILL_SPECS
 
 runner = CliRunner()
 
-EXPECTED_AGENT_FILES = frozenset(spec.filename for spec in AGENT_SPECS)
+# P5: the DEFAULT install renders the 15-file roster (repo lane OFF); the
+# 16th member (hyperresearch-repo-analyst.md) appears only when the
+# effective repo_source_lane is on. BASE_AGENT_FILES pins the default;
+# lane-on tests assert the extra file explicitly.
+_REPO_ANALYST_FILE = "hyperresearch-repo-analyst.md"
+BASE_AGENT_FILES = frozenset(
+    spec.filename for spec in AGENT_SPECS if spec.filename != _REPO_ANALYST_FILE
+)
+EXPECTED_AGENT_FILES = BASE_AGENT_FILES  # default (lane-off) contract
 EXPECTED_SKILL_DIRS = frozenset(spec.name for spec in SKILL_SPECS)
 
 MARKER_START = "<!-- hyperresearch:start -->"

@@ -114,6 +114,7 @@ from hyperresearch.cli.escalation_cmd import app as escalation_app
 from hyperresearch.cli.levers_cmd import app as levers_app
 from hyperresearch.cli.link import app as link_app
 from hyperresearch.cli.profile_cmd import app as profile_app
+from hyperresearch.cli.repo import app as repo_app
 from hyperresearch.cli.run_cmd import app as run_app
 from hyperresearch.cli.sources import app as sources_app
 
@@ -128,3 +129,6 @@ app.add_typer(levers_app, name="levers", help="Run levers (register/domain/infer
 app.add_typer(sources_app, name="sources", help="Fetched web sources.")
 app.add_typer(assets_app, name="assets", help="Downloaded images, screenshots, and media.")
 app.add_typer(link_app, name="link", help="Auto-discover and insert wiki-links.")
+# P5: repository-understanding source lane (DeepWiki provider + local
+# repo-map analysis), gated by the effective repo_source_lane flag.
+app.add_typer(repo_app, name="repo", help="Repository research sources (wiki/map/ask).")

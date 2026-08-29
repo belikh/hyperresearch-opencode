@@ -49,8 +49,15 @@ AGENT_GOLDENS_DIR = Path(__file__).parent.parent / "fixtures" / "agent_goldens_o
 
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
+# P5: the DEFAULT render is the 15-file roster (repo lane OFF). The
+# conditional 16th member (hyperresearch-repo-analyst) is pinned by
+# tests/test_cli/test_install_repo_lane.py in both lane states — here the
+# matrix covers exactly what a default install ships.
+_REPO_ANALYST_STEM = "hyperresearch-repo-analyst"
 EXPECTED_STEMS: frozenset[str] = frozenset(
-    spec.filename.removesuffix(".md") for spec in AGENT_SPECS
+    spec.filename.removesuffix(".md")
+    for spec in AGENT_SPECS
+    if spec.filename.removesuffix(".md") != _REPO_ANALYST_STEM
 )
 
 # S0-3 (as amended by countersign F-CS2): patcher/polish-auditor keep Edit
@@ -354,6 +361,13 @@ def test_agent_golden_fixtures_inventory_is_exactly_the_roster() -> None:
     )
 
 
+def _render_repo_lane(tmp_path: Path) -> Path:
+    """Lane-ON render — used only by the P5 repo-analyst golden pin."""
+    agents_dir = tmp_path / ".opencode" / "agents"
+    render_agents(agents_dir, PROFILE, ModelMap(), repo_lane=True)
+    return agents_dir
+
+
 @pytest.mark.parametrize(
     "filename", sorted(spec.filename for spec in AGENT_SPECS), ids=lambda n: n
 )
@@ -366,8 +380,17 @@ def test_installed_file_byte_matches_frozen_agent_golden(tmp_path: Path, filenam
     upstream-installed body bytes. Any silent fidelity rot — substitution
     mechanics, scaffold-bullet quirks, header placement, frontmatter shape —
     fails here.
+
+    P5 delta: hyperresearch-repo-analyst.md has no upstream counterpart —
+    it renders with ``repo_lane=True`` and byte-equals its own P5-frozen
+    golden (captured with the install-resolved hpr_path, the same contract
+    as every other golden). The other 15 files are checked through the
+    default lane-off render, which must never emit the 16th file.
     """
-    agents_dir = _render(tmp_path)
+    if filename == "hyperresearch-repo-analyst.md":
+        agents_dir = _render_repo_lane(tmp_path)
+    else:
+        agents_dir = _render(tmp_path)
     rendered = (agents_dir / filename).read_bytes()
     golden = (AGENT_GOLDENS_DIR / filename).read_bytes()
     assert rendered == golden, f"{filename} drifted from the frozen upstream-derived golden"
@@ -394,6 +417,11 @@ def test_polish_auditor_keeps_upstream_doubled_scaffold_bullets(tmp_path: Path) 
 
 def test_spec_table_covers_roster_without_browser_fetcher() -> None:
     names = [spec.filename for spec in AGENT_SPECS]
-    assert len(names) == len(set(names)) == 15
+    # P5: the static spec table holds 16 (15 default + the conditional
+    # repo-analyst); the DEFAULT RENDER pins 15 — see EXPECTED_STEMS above
+    # and tests/test_cli/test_install_repo_lane.py for the 16th's both
+    # lane states.
+    assert len(names) == len(set(names)) == 16
     assert "hyperresearch-browser-fetcher.md" not in names
+    assert "hyperresearch-repo-analyst.md" in names
     assert all(name.startswith("hyperresearch-") and name.endswith(".md") for name in names)

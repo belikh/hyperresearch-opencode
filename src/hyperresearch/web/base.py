@@ -217,6 +217,7 @@ class WebProvider(Protocol):
 KNOWN_PROVIDER_NAMES: tuple[str, ...] = (
     "builtin",
     "crawl4ai",
+    "deepwiki",
     "exa",
     "parallel",
     "tavily",
@@ -280,6 +281,14 @@ def get_provider(
 
         return ParallelProvider()
 
+    if name == "deepwiki":
+        # P5-A: Cognition's official DeepWiki MCP server — no optional
+        # install (httpx is core), no auth (public endpoint). sessionless
+        # Streamable-HTTP JSON-RPC; see deepwiki_provider.py.
+        from hyperresearch.web.deepwiki_provider import DeepwikiProvider
+
+        return DeepwikiProvider()
+
     if name == "tavily":
         try:
             from hyperresearch.web.tavily_provider import TavilyProvider
@@ -340,6 +349,15 @@ def _is_fall_through_error(exc: BaseException) -> bool:
     from hyperresearch.web.parallel_provider import ParallelApiError
 
     if isinstance(exc, ParallelApiError):
+        status = exc.status_code
+        return status is not None and (status == 429 or status >= 500)
+
+    # P5-A: DeepWiki server-side failures (HTTP 429/5xx) fall through to
+    # the next chain candidate, exactly like ParallelApiError above. 4xx
+    # and tool-level (isError) failures surface — they are caller bugs.
+    from hyperresearch.web.deepwiki_provider import DeepwikiApiError
+
+    if isinstance(exc, DeepwikiApiError):
         status = exc.status_code
         return status is not None and (status == 429 or status >= 500)
 

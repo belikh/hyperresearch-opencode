@@ -298,6 +298,29 @@ Sub-app groups (verbs enumerated from each file's typer decorators):
 |---|---|---|---|---|
 | Package entry | `src/hyperresearch/__init__.py:1-3`, `__main__.py:1-5`, `pyproject.toml:7,:11,:58-60` | `__version__`, `python -m hyperresearch`, console scripts `hyperresearch`/`hpr`, requires-python >=3.11,<3.14. | PORT-VERBATIM | mirror (name collision with PyPI package irrelevant while deferred) |
 
+## 19. P5 — repository-understanding source lane (port-original feature)
+
+NOT an upstream port: no upstream piece provides repository understanding
+as a research source. Recorded here because PARITY is the port's change
+inventory. The lane turns repositories into first-class vault sources
+(citable, claim-extractable, rankable) via three integrations studied from
+the ecosystem during design: Cognition's official DeepWiki MCP server
+(mcp.deepwiki.com, free/no-auth — the sanctioned programmatic lane after
+DeepWiki cut off scraping), LangChain's OpenWiki page-set method
+(architecture → modules → data model → API surface → operations), and
+Aider's tree-sitter repo-map ranking (tags.scm defs/refs graph →
+personalised PageRank). Ranking reuses the port's own
+`core/graphrank.pagerank`.
+
+| Piece | What it does | Files |
+|---|---|---|
+| P5-A `deepwiki` provider | `WebProvider` speaking MCP Streamable-HTTP directly (httpx, core dep): sessionless init → initialized → tools/call; SSE-framed JSON-RPC parsed; `read_wiki_structure`/`read_wiki_contents`/`ask_question` wrapped; `fetch()` accepts `https://deepwiki.com/<owner>/<repo>` (page-deep URLs rejected with guidance); `search()` raises NotImplementedError (no public repo-search tool); SSRF-guarded via `_netguard`; `DeepwikiApiError` 429/5xx falls through the provider chain, 4xx/tool-isError surfaces. Live-verified contract (serverInfo DeepWiki 2.14.3, 530KB wiki → 50 pages on langchain-ai/openwiki). | `src/hyperresearch/web/deepwiki_provider.py`, registry in `web/base.py`, tests `tests/test_web/test_deepwiki_provider.py` |
+| P5-B config + profiles | `[web] repo_source_lane` bool (default false, TOML round-trips) + `[profile.<name>] repo_source_lane` overlay + `ModelMap.repo_analyst` role. Effective lane = web flag OR resolved profile — identical semantics to P4-C's `parallel_search_lane`. | `core/config.py`, `core/profiles.py` |
+| P5-C repo map | Aider-style structural map of a local checkout: tree-sitter AST lane (optional extra `hyperresearch[repomap]` — tree-sitter-language-pack; crawl4ai's optional-extra pattern) or zero-dependency regex lane (builtin-provider pattern); defs+refs → file-reference graph → `graphrank.pagerank` (vault's own power iteration) → ranked markdown with lane provenance header and documented textual-match limits. `node_modules`/`venv`/generated trees skipped; byte-stable on unchanged trees. | `core/repo_map.py`, pyproject `[repomap]` extra |
+| P5-D `hpr repo` group | `repo wiki <owner/repo>` (DeepWiki → 1 monolithic source note + per-page child notes, sources-table provenance, `tier: practitioner`, `content_type: code`), `repo map [path]` (structural map note), `repo ask` (grounded Q&A, zero persistence — search-web's contract). All gated by the effective lane flag; LANE_DISABLED carries the exact enablement incantation. | `cli/repo.py`, registration in `cli/__init__.py`, tests `tests/test_cli/test_repo_cmd.py`, `tests/test_cli/test_install_repo_lane.py` |
+| P5-E conditional renders | Width-sweep skill gains one Lens-E paragraph (anchor after Lens D) when the lane is on; agent roster gains its 16th member `hyperresearch-repo-analyst` (leaf, `[Bash, Read, Write]`, untrusted-content policy, OpenWiki-method digest template) — rendered ONLY when the lane is on, pruned when it turns off (keep-set derives from the render manifest). Default-state renders stay byte-identical to pre-P5 goldens; lane-on goldens frozen. `_inject_lane_sentence_after` generalised to take its payload (each lane passes its own text). | `core/opencode_skills.py`, `core/opencode_install.py`, `cli/install.py`, goldens `tests/fixtures/{skill_goldens_repo_lane_on,agent_goldens_opencode}` |
+| P5-F model fields | `NoteMeta.repo` / `wiki_page` / `repo_map_lane` — optional additive provenance fields, absent on every pre-P5 note. | `models/note.py` |
+
 ## Survey notes (deviations from the planning checklist)
 
 1. `src/hyperresearch/cli/` holds **38** `.py` files, not 39.

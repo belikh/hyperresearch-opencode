@@ -41,6 +41,9 @@ dependencies = [
 
 [project.optional-dependencies]
 crawl4ai = ["Crawl4AI>=0.7.3"]
+# P5-C: tree-sitter AST lane for `hpr repo map`. The regex fallback lane
+# works without it (coarser definitions — kind/line only, no signatures).
+repomap = ["tree-sitter>=0.21", "tree-sitter-language-pack>=1.10"]
 # Upper-bounded on purpose: mcp 2.0 removed `mcp.server.fastmcp`, which
 # the MCP server module builds every tool on. Without the bound a fresh
 # `pip install hyperresearch[mcp]` resolves 2.x and `hyperresearch mcp`

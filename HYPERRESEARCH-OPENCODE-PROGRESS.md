@@ -57,6 +57,32 @@ evidence pointers fill in at first commit touching the piece.
 | P4-A | `parallel` named provider (api.parallel.ai search+extract) | critic-won | BLIND R1 WIN — ACCEPT, no blockers; 5 open low dispositions fixed same session (spec-literal `x-api-key`, malformed-200 guard -> ParallelApiError(200), fetch_many dedupe, ref_id in envelope message, negative authorization-header assert); judge verified securitySchemes header, additionalProperties:false nesting (max_results under advanced_settings), partial ExtractError tolerance, SSRF-before-request, call-time PARALLEL_API_KEY error with pytest.fail transport guard; tavily/exa/crawl4ai untouched; gates on final state: full suite exit 0 (25 pre-existing skips), ruff clean, mypy --strict clean (97 files); live smoke BLOCKED: no PARALLEL_API_KEY in env (recorded) | src/hyperresearch/web/parallel_provider.py, tests/test_web/test_parallel_provider.py, evidence/gauntlet/P4-A-verdict-r1.md |
 | P4-B | Provider fallback chain (str-or-list `provider`, shared `resolve_web_provider`) | critic-won | BLIND R1 WIN — ACCEPT, zero blockers, 8 dispositions all closed/owned: (med) construction-time breadth REQUIRED by style-corpus convention (tavily/exa signal missing keys as plain RuntimeError at construct) and all-fail path re-raises identical last error (identity-pinned); (med) linchpin ParallelAuthError⊂ProviderAuthError verified out-of-band post-verdict at parallel_provider.py:55 + pin test test_provider_chain.py:373; (low x6 owned/documented) SDK-wrapped 5xx surfaces not falls (documented limitation, fail-visible), present-but-invalid-key 401 surfaces per 4xx rule vs missing-key falls (rules ambiguity recorded), _in_top_level unsynced state unreachable (per-call construction), lazy single-candidate parity error-identical, one near-tautological guard test noted, JSON-object provider name defers rejection to resolution time (informational). Completion wave: F841+SIM102 lint nits fixed call-preserving, fetch_batch monkeypatch seam retargeted get_provider->resolve_web_provider (assertions byte-identical); gates: pytest exit 0 (1411 tests, 107 pre-existing skips), ruff clean, mypy --strict clean (97 files) | src/hyperresearch/web/base.py (resolve_web_provider/_ChainedProvider), src/hyperresearch/core/config.py (coerce_web_provider), tests/test_web/test_provider_chain.py, tests/test_core/test_config_chain.py |
 
+## Phase 5 — Repository-understanding source lane
+
+Port-original feature (no upstream counterpart): repositories as first-class
+research sources. Design inputs studied live during the build: the official
+DeepWiki MCP server (mcp.deepwiki.com — sessionless Streamable HTTP, SSE-framed
+JSON-RPC, verified against serverInfo 2.14.3; contract captured in
+deepwiki_provider.py docstring), OpenWiki's page-set method (LangChain, MIT —
+the repo-analyst agent's digest template), and Aider's repo-map method
+(tree-sitter defs/refs → PageRank — reusing this port's own graphrank.pagerank).
+
+| Piece | Scope | State |
+|---|---|---|
+| P5-A | `deepwiki` named WebProvider: official MCP endpoint over httpx (core dep), read_wiki_structure/read_wiki_contents/ask_question, fetch() maps `https://deepwiki.com/<owner>/<repo>`, search() = NotImplementedError, SSRF-guarded, DeepwikiApiError 429/5xx chain fall-through / 4xx surface; live-verified (530KB wiki → 50 pages) | built |
+| P5-B | `[web] repo_source_lane` flag + `[profile.*] repo_source_lane` overlay + ModelMap.repo_analyst role (P4-C effective-lane semantics) | built |
+| P5-C | `core/repo_map.py`: tree-sitter lane (optional `hyperresearch[repomap]` extra) + regex fallback lane; defs/refs graph → graphrank.pagerank → ranked markdown w/ lane provenance + documented limits | built |
+| P5-D | `hpr repo` group (wiki/map/ask), effective-lane gated, LANE_DISABLED guidance; wiki → source note + per-page notes + sources-table provenance; ask = zero persistence | built |
+| P5-E | Conditional renders: width-sweep Lens-E paragraph (anchor-guarded injection, own-payload generalisation of the P4-C injector); 16th agent `hyperresearch-repo-analyst` rendered only when lane on, pruned on lane-off (manifest-derived keep-set); default renders byte-identical to pre-P5 goldens; lane-on goldens frozen | built |
+| P5-F | NoteMeta.repo/wiki_page/repo_map_lane additive provenance fields; PARITY §19 + this row | built |
+
+Gates at P5 close (with the 15 pdf/ssrf tests deselected — pre-existing host
+pymupdf/libstdc++ breakage, proven failing on the pristine tree via stash
+round): **1420 passed / 107 skipped / 0 failed; ruff check clean;
+mypy --strict clean (101 files)**. Known env issue: host pymupdf wheel
+cannot load libstdc++.so.6 under NixOS (affects test_web PDF-lane tests only;
+unrelated to P5 — no P5 code path touches pymupdf).
+
 ## Phase 4 — Parallel integration
 
 Extra web source via api.parallel.ai. Nothing existing replaced or demoted:
