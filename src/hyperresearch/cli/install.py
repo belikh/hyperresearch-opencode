@@ -232,6 +232,27 @@ def install(
             "the locked roster."
         ),
     ),
+    parallel_lane_flag: bool = typer.Option(
+        False,
+        "--parallel-lane",
+        help=(
+            "Force-bake the Parallel search lane sentence into the width-sweep "
+            "skill + fetcher agent, regardless of vault config. The ONLY way "
+            "to enable the lane on --global installs (no vault config exists "
+            "there); on project installs it ORs with the config flag."
+        ),
+    ),
+    repo_lane_flag: bool = typer.Option(
+        False,
+        "--repo-lane",
+        help=(
+            "Force-bake the repository-understanding lane (Lens-E paragraph + "
+            "hyperresearch-repo-analyst agent) into the render, regardless of "
+            "vault config. The ONLY way to enable the lane on --global "
+            "installs (no vault config exists there); on project installs it "
+            "ORs with the config flag."
+        ),
+    ),
     profile: str | None = typer.Option(
         None,
         "--profile",
@@ -316,6 +337,8 @@ def install(
     # above). Both default False, so an unconfigured install renders
     # byte-identical to the pre-P4-C goldens. Global installs carry no vault
     # config: neither input can be set there, so the lane stays off.
+    # P5 follow-up: an explicit --parallel-lane flag ORs in, which makes the
+    # lane reachable on global installs (the flag is the only input there).
     parallel_lane = prof.parallel_search_lane
     if config_path is not None and config_path.exists():
         from hyperresearch.core.config import VaultConfig
@@ -323,17 +346,20 @@ def install(
         parallel_lane = (
             VaultConfig.load(config_path).web_parallel_search_lane or parallel_lane
         )
+    parallel_lane = parallel_lane or parallel_lane_flag
 
-    # P5: the repository source lane rides the same OR of two default-false
+    # P5: the repository source lane rides the same OR of default-false
     # inputs — the vault's `[web] repo_source_lane` flag and the resolved
     # profile's own `repo_source_lane` overlay. Independent of the P4-C
     # flag: a vault can enable either lane alone, both, or neither. An
     # unconfigured install renders byte-identical to the pre-P5 goldens.
+    # --repo-lane ORs in, same global-install reasoning as above.
     repo_lane = prof.repo_source_lane
     if config_path is not None and config_path.exists():
         from hyperresearch.core.config import VaultConfig
 
         repo_lane = VaultConfig.load(config_path).web_repo_source_lane or repo_lane
+    repo_lane = repo_lane or repo_lane_flag
 
     agents_dir = oc_dir / AGENTS_SUBDIR
     skills_dir = oc_dir / SKILLS_SUBDIR
