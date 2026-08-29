@@ -28,6 +28,7 @@ def config_show(
         "web_profile": config.web_profile or "(none)",
         "web_magic": config.web_magic,
         "web_parallel_search_lane": config.web_parallel_search_lane,
+        "web_repo_source_lane": config.web_repo_source_lane,
         "auto_sync": config.auto_sync,
         "auto_build_index": config.auto_build_index,
         "search_boost_evergreen": config.search_boost_evergreen,
@@ -62,6 +63,7 @@ def config_set(
         "web.profile": "web_profile",
         "web.magic": "web_magic",
         "web.parallel_search_lane": "web_parallel_search_lane",
+        "web.repo_source_lane": "web_repo_source_lane",
         "search.boost_evergreen": "search_boost_evergreen",
         "search.penalize_deprecated": "search_penalize_deprecated",
         "sync.auto_sync": "auto_sync",
@@ -92,10 +94,11 @@ def config_set(
     coerced: str | bool | list[str] = value
     if attr in ("auto_sync", "auto_build_index", "web_magic"):
         coerced = value.lower() in ("true", "1", "yes")
-    elif attr == "web_parallel_search_lane":
-        # P4-C: strict here (unlike the legacy bool keys above, which map any
-        # unrecognized spelling to False) — a typo'd flag must fail loudly,
-        # because a silently-disabled lane looks identical to no lane at all.
+    elif attr in ("web_parallel_search_lane", "web_repo_source_lane"):
+        # P4-C / P5: strict here (unlike the legacy bool keys above, which
+        # map any unrecognized spelling to False) — a typo'd flag must fail
+        # loudly, because a silently-disabled lane looks identical to no
+        # lane at all.
         lowered = value.strip().lower()
         if lowered in ("true", "1", "yes"):
             coerced = True
@@ -103,7 +106,8 @@ def config_set(
             coerced = False
         else:
             msg = (
-                f"web.parallel_search_lane expects true or false; got {value!r}"
+                f"web.{'parallel_search_lane' if attr == 'web_parallel_search_lane' else 'repo_source_lane'} "
+                f"expects true or false; got {value!r}"
             )
             # FIX-F8: JSON consumers get the same error envelope shape as
             # every other verb's failure path — rich console only when not
@@ -156,6 +160,7 @@ def config_get(
         "web.profile": "web_profile",
         "web.magic": "web_magic",
         "web.parallel_search_lane": "web_parallel_search_lane",
+        "web.repo_source_lane": "web_repo_source_lane",
         "search.boost_evergreen": "search_boost_evergreen",
         "search.penalize_deprecated": "search_penalize_deprecated",
         "sync.auto_sync": "auto_sync",
