@@ -41,7 +41,6 @@ def _init_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def _set_config(root: Path, key: str, value: str) -> None:
-    from hyperresearch.core.config import VaultConfig
     from hyperresearch.core.vault import Vault
 
     vault = Vault.discover()
@@ -190,7 +189,7 @@ def test_bot_wall_lane_off_escalates(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Default config: byte-identical pre-P6 behaviour — junk + escalation."""
-    root = _init_vault(tmp_path, monkeypatch)
+    _init_vault(tmp_path, monkeypatch)
     _patch_primary(
         monkeypatch, _fake_chain([_FakeResult("https://site.com/article", BOT_WALL_BODY)])
     )
@@ -315,3 +314,76 @@ def test_browser_lane_config_round_trip(tmp_path: Path, monkeypatch: pytest.Monk
     cfg = VaultConfig.load(Vault.discover().config_path)
     assert cfg.web_browser_lane is True
     assert cfg.web_browser_lane_engine == "kitesurf"
+
+
+# ---------------------------------------------------------------------------
+# P6 closure: transport-failure walls (403/HTTP errors) take the lane too
+# ---------------------------------------------------------------------------
+
+
+def test_http_403_retries_via_lane_and_saves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A plain-HTTP 403 (Medium-style protected surface) raises before the
+    junk gates — the transport-error path must also retry once through the
+    lane before failing (found live: medium.com 403s stdlib fetches).
+    """
+    root = _init_vault(tmp_path, monkeypatch)
+    _set_config(root, "web_browser_lane", True)
+
+    class _Raising:
+        name = "fake-primary"
+
+        def fetch(self, url: str) -> Any:
+            raise RuntimeError("Client error '403 Forbidden' for url")
+
+    _patch_primary(monkeypatch, _Raising())
+    _patch_lane(monkeypatch, GOOD_BODY)
+
+    result = runner.invoke(app, ["fetch", "https://medium.com/@x", "--json"])
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.stdout)["data"]
+    assert data["provider"] == "browser-run"
+
+
+def test_http_403_lane_junk_still_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If the lane's render of the failed URL is ALSO junk, nothing saves —
+    the original error surfaces exactly as if no lane existed."""
+    root = _init_vault(tmp_path, monkeypatch)
+    _set_config(root, "web_browser_lane", True)
+
+    class _Raising:
+        name = "fake-primary"
+
+        def fetch(self, url: str) -> Any:
+            raise RuntimeError("Client error '403 Forbidden' for url")
+
+    _patch_primary(monkeypatch, _Raising())
+    _patch_lane(monkeypatch, BOT_WALL_BODY)  # lane ALSO walled
+
+    result = runner.invoke(app, ["fetch", "https://medium.com/@x", "--json"])
+    assert result.exit_code == 1
+    envelope = json.loads(result.stdout)
+    assert envelope["error_code"] == "FETCH_ERROR"
+
+
+def test_http_403_lane_off_un_changed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane off (default): a transport failure fails exactly as before."""
+    _init_vault(tmp_path, monkeypatch)
+
+    class _Raising:
+        name = "fake-primary"
+
+        def fetch(self, url: str) -> Any:
+            raise RuntimeError("boom")
+
+    _patch_primary(monkeypatch, _Raising())
+    _patch_lane(monkeypatch, GOOD_BODY)  # available but disabled
+
+    result = runner.invoke(app, ["fetch", "https://medium.com/@x", "--json"])
+    assert result.exit_code == 1
+    assert json.loads(result.stdout)["error_code"] == "FETCH_ERROR"

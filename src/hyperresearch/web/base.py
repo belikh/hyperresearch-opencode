@@ -144,9 +144,15 @@ class WebResult:
         if len(content.strip()) < gates.min_content_chars:
             return "Empty or near-empty content"
 
-        # Cloudflare / bot detection pages
+        # Cloudflare / bot detection pages. NOTE (P6 hardening, found live
+        # via the Kitesurf lane): the bare company name "cloudflare" is
+        # DELIBERATELY ABSENT — it matched any page merely *about*
+        # Cloudflare (their docs, blog, community threads) and junk-gated
+        # legitimate content. Real challenge pages are caught by the strong
+        # interstitial phrases ("just a moment", "checking your browser",
+        # "ray id", ...) which every actual CF wall emits.
         cf_signals = (
-            "just a moment", "checking your browser", "ray id", "cloudflare",
+            "just a moment", "checking your browser", "ray id",
             "please wait while we verify", "unusual activity", "captcha",
             "recaptcha", "verify you are human", "verify you are not a robot",
             "please complete the security check", "access denied",

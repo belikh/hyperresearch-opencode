@@ -406,7 +406,28 @@ def fetch(
         # rejects the rebinding. The None check + exit below are unchanged;
         # on success we rebind to a fresh non-Optional name. Zero behavior
         # change.
+        #
+        # P6: transport/HTTP failures (403s on protected surfaces, IP
+        # throttles) are wall-shaped too — after the OA rescue, one browser-
+        # lane retry fires before giving up. Auth-shaped failures (SSRF,
+        # bad URL) surface through the lane's own guards as before.
         rescued_result = _rescue(f"fetch failed: {e}", None)
+        if rescued_result is None and vault.config.web_browser_lane:
+            rescued_result = _browser_lane_retry(f"fetch failed: {e}")
+            if rescued_result is not None:
+                serving_provider = (
+                    rescued_result.metadata.get("provider")
+                    if isinstance(rescued_result.metadata, dict)
+                    else None
+                ) or "browser-run"
+                if rescued_result.looks_like_junk(vault.config.junk):
+                    # The lane ALSO hit the wall — do not save its junk.
+                    rescued_result = None
+                elif not json_output:
+                    console.print(
+                        "[green]Browser lane recovered the failed fetch — "
+                        "saving with browser-run provenance.[/]"
+                    )
         if rescued_result is None:
             if json_output:
                 output(error(str(e), "FETCH_ERROR"), json_mode=True)

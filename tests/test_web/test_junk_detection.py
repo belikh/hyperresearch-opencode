@@ -168,3 +168,38 @@ class TestInvisiblePadding:
         assert strip_invisible("a\u200bb\u200cc\u200dd\u2060e\ufefff\u00adg") == "abcdefg"
         assert strip_invisible("a\tb\nc 锂") == "a\tb\nc 锂"
         assert strip_invisible("plain") == "plain"
+
+
+# ---------------------------------------------------------------------------
+# P6 hardening: the bare company name is not a bot-wall signal
+# ---------------------------------------------------------------------------
+
+
+class TestCloudflareMentionIsNotJunk:
+    """Found live via the Kitesurf lane: the bare word "cloudflare" in the
+    bot-wall signal list junk-gated every page ABOUT Cloudflare (their docs,
+    blog, community threads) as a "Bot detection page". Real challenge
+    pages emit the strong interstitial phrases; the company name alone must
+    never be a wall verdict."""
+
+    def test_pages_about_cloudflare_are_not_junk(self):
+        from hyperresearch.web.base import WebResult
+
+        result = WebResult(
+            url="https://developers.cloudflare.com/browser-run/",
+            title="Browser Run · Cloudflare Browser Run docs",
+            content="Control headless browsers with Cloudflare's Workers "
+            "Browser Run API. " * 30,
+        )
+        assert result.looks_like_junk() is None
+
+    def test_real_interstitial_still_detected(self):
+        from hyperresearch.web.base import WebResult
+
+        result = WebResult(
+            url="https://site.com/x",
+            title="Just a moment...",
+            content="Checking your browser before accessing. " * 30,
+        )
+        assert result.looks_like_junk() is not None
+        assert "Bot detection" in (result.looks_like_junk() or "")
