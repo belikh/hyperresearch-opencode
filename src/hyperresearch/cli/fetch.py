@@ -329,9 +329,53 @@ def fetch(
     )
     from hyperresearch.core.scholar import extract_doi
 
+    # P6: browser-lane retry for wall-blocked fetches (issue #2). When
+    # `[web] browser_lane` is on and a fetch hits a BOT-WALL signature, retry
+    # ONCE through Cloudflare Browser Run (Kitesurf) before queueing an
+    # escalation. Login walls / CAPTCHAs / 2FA NEVER take the lane — a
+    # rendered page cannot authenticate, so those stay needs_human. The lane
+    # is tried AFTER the OA rescue (a legal open-access copy outranks a
+    # re-fetch) and BEFORE the escalation enqueue. Failures of the lane
+    # itself surface as if the lane were absent — the original block runs.
+    def _browser_lane_retry(reason: str) -> WebResult | None:
+        """One Kitesurf retry for bot-wall-shaped blocks; None = keep the
+        original failure path. NEVER called for login/captcha walls."""
+        if not vault.config.web_browser_lane:
+            return None
+        try:
+            from hyperresearch.web.browser_run_provider import (
+                BrowserRunApiError,
+                BrowserRunAuthError,
+                BrowserRunProvider,
+            )
+
+            lane = BrowserRunProvider(engine=vault.config.web_browser_lane_engine)
+            if not json_output:
+                console.print(
+                    f"[cyan]Browser lane retry ({lane._engine}) after: {reason}[/]"
+                )
+            return lane.fetch(url)
+        except (BrowserRunAuthError, BrowserRunApiError) as e:
+            # Auth/config errors and API failures degrade to the pre-lane
+            # behaviour — the escalation enqueue below still fires.
+            if not json_output:
+                console.print(f"[yellow]Browser lane unavailable:[/] {e}")
+            return None
+    def _wall_retry(reason: str, raw_html: str | None) -> WebResult | None:
+        """OA rescue first, then the browser lane — shared wall handling."""
+        rescued = _rescue(reason, raw_html)
+        if rescued is not None:
+            return rescued
+        return _browser_lane_retry(reason)
+
     rescue_reason: str | None = None
     rescue_doi: str | None = None
     oa_location = None
+    # P6: the name of the provider that ACTUALLY served `result` — starts as
+    # the primary chain's name and is restamped when the browser lane
+    # rescues a wall, so provenance (frontmatter, sources row, JSON) names
+    # the server, not the chain head.
+    serving_provider: str | None = None
 
     def _rescue(reason: str, raw_html: str | None) -> WebResult | None:  # Delta vs upstream: return annotation added for mypy --strict
         """Attempt an OA rescue. Returns a WebResult or None."""
@@ -372,7 +416,9 @@ def fetch(
         result = rescued_result
 
     # Detect login redirects — abort, but ESCALATE to the browser lane
-    # instead of silently losing the source.
+    # instead of silently losing the source. P6: login walls are ALWAYS
+    # the human's — the browser lane never fires here (a rendered page
+    # cannot authenticate); only the OA rescue is attempted first.
     if oa_location is None and result.looks_like_login_wall(url, vault.config.junk):
         rescued = _rescue(f"login wall: {result.title}", result.raw_html)
         if rescued is not None:
@@ -398,13 +444,55 @@ def fetch(
     # 404 in Chrome is still a 404.
     junk_reason = result.looks_like_junk(vault.config.junk) if oa_location is None else None
     if junk_reason:
-        rescued = _rescue(junk_reason, result.raw_html)
-        if rescued is not None:
-            result = rescued
+        # P6 ordering: OA rescue first (a legal copy outranks a re-fetch);
+        # then, for BOT-WALL-shaped junk only — never an INTERACTIVE
+        # challenge (captcha family), never content-quality junk like
+        # 404s — one Kitesurf retry through the browser lane. A successful
+        # retry replaces the result and continues down the normal save path.
+        wall_rescued = _rescue(junk_reason, result.raw_html)
+        if wall_rescued is not None:
+            result = wall_rescued
+        else:
+            lane_result: WebResult | None = None
+            if (
+                junk_reason.startswith("Bot detection")
+                and not _is_interactive_challenge(junk_reason, result.content)
+                and vault.config.web_browser_lane
+            ):
+                lane_result = _browser_lane_retry(junk_reason)
+            if lane_result is not None and not lane_result.looks_like_junk(
+                vault.config.junk
+            ):
+                if not json_output:
+                    console.print(
+                        "[green]Browser lane recovered the page — "
+                        "saving with browser-run provenance.[/]"
+                    )
+                result = lane_result
+                # P6 provenance: the lane served this result — every
+                # downstream stamp (frontmatter, sources row, JSON) uses the
+                # serving provider, not the chain head.
+                serving_provider = (
+                    lane_result.metadata.get("provider")
+                    if isinstance(lane_result.metadata, dict)
+                    else None
+                ) or "browser-run"
+                junk_reason = None
+        if junk_reason is None and oa_location is None:
+            # A wall recovery (OA or lane) replaced the junk result — fall
+            # through to the normal save path below with the new result.
+            pass
         else:
             item_id = None
-            if junk_reason.startswith("Bot detection"):
-                reason = "captcha" if "captcha" in junk_reason.lower() else "bot_block"
+            if junk_reason is not None and junk_reason.startswith("Bot detection"):
+                # P6: interactive challenges (captcha family) escalate as
+                # `captcha` — the shared discriminator, title OR body, not
+                # the title alone.
+                reason = (
+                    "captcha"
+                    if _is_interactive_challenge(junk_reason, result.content)
+                    else "bot_block"
+                )
                 item_id = _escalate_blocked(vault, url, reason, tags, suggested_by, utility_score,
                                             detail=junk_reason)
             escalated = f" Queued for browser-lane escalation (#{item_id})." if item_id else ""
@@ -450,7 +538,7 @@ def fetch(
         "source": url,
         "source_domain": domain,
         "fetched_at": result.fetched_at.isoformat(),
-        "fetch_provider": prov.name,
+        "fetch_provider": serving_provider or prov.name,
     }
     if result.metadata.get("author"):
         extra_meta["author"] = result.metadata["author"]
@@ -557,7 +645,7 @@ def fetch(
     conn.execute(
         """INSERT OR IGNORE INTO sources (url, note_id, domain, fetched_at, provider, content_hash)
            VALUES (?, ?, ?, ?, ?, ?)""",
-        (url, note_id, domain, result.fetched_at.isoformat(), prov.name, content_hash),
+        (url, note_id, domain, result.fetched_at.isoformat(), serving_provider or prov.name, content_hash),
     )
     conn.commit()
 
@@ -613,7 +701,7 @@ def fetch(
         "title": note_title,
         "url": url,
         "domain": domain,
-        "provider": prov.name,
+        "provider": serving_provider or prov.name,
         "path": str(note_path.relative_to(vault.root)),
         "word_count": len(result.content.split()),
         "assets": saved_assets,
@@ -655,6 +743,30 @@ def fetch(
         console.print(f"  Words: {data['word_count']}")
         if saved_assets:
             console.print(f"  Assets: {len(saved_assets)} saved to research/assets/{note_id}/")
+
+
+def _is_interactive_challenge(junk_reason: str, content: str) -> bool:
+    """True when the block demands HUMAN ACTION (captcha family) — the
+    browser lane must never fire for these (standing policy: challenges
+    are always the human's). A passive interstitial ("just a moment",
+    "checking your browser") is NOT interactive — a real browser passes it,
+    which is precisely what the Kitesurf retry is for. Discriminator: an
+    interactive challenge names an ACT to perform (complete/solve/enter/
+    click) on a challenge widget; passive walls only describe waiting.
+
+    The junk reason carries only the title, so the body is consulted too.
+    """
+    haystack = f"{junk_reason} {content[:2000]}".lower()
+    if not any(
+        widget in haystack
+        for widget in ("captcha", "recaptcha", "hcaptcha", "turnstile", "2fa", "two-factor")
+    ):
+        return False
+    # A challenge widget alone is enough — the act vocabulary confirms it.
+    return any(
+        act in haystack
+        for act in ("complete the", "solve", "enter the", "click", "puzzle", "widget", "verification")
+    )
 
 
 def _escalate_blocked(  # Delta vs upstream: signature annotated for mypy --strict

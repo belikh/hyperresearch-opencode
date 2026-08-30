@@ -326,6 +326,15 @@ class VaultConfig:
     # LANE_DISABLED and rendered templates stay byte-identical to the
     # pre-P5 goldens.
     web_repo_source_lane: bool = False
+    # P6: Cloudflare Browser Run (Kitesurf) lane for wall-blocked fetches.
+    # When enabled, a fetch that hits a bot-wall signature retries ONCE
+    # through the browser lane before queueing an escalation. Login walls,
+    # CAPTCHAs, and 2FA NEVER take the lane — they stay needs_human (the
+    # standing policy). The API token is read from the ENVIRONMENT only
+    # (CLOUDFLARE_BROWSER_RUN_TOKEN / CF_ACCOUNT_ID — sops-exported on
+    # jupiterOS), never stored in this file; the keys here are shape-only.
+    web_browser_lane: bool = False
+    web_browser_lane_engine: str = "kitesurf"  # kitesurf | chromium
 
     # Pipeline scale gear ([pipeline] section) — the profile whose numbers are
     # rendered into installed skills/agents. Set via `hpr profile use <name>`.
@@ -393,6 +402,10 @@ class VaultConfig:
             ),
             web_repo_source_lane=web.get(
                 "repo_source_lane", cls.web_repo_source_lane
+            ),
+            web_browser_lane=web.get("browser_lane", cls.web_browser_lane),
+            web_browser_lane_engine=web.get(
+                "browser_lane_engine", cls.web_browser_lane_engine
             ),
             pipeline_profile=pipeline.get("profile", cls.pipeline_profile),
             profile_overlays=data.get("profile", {}),
@@ -484,6 +497,11 @@ class VaultConfig:
             # + conditional Lens-E width-sweep paragraph + repo-analyst
             # agent). Same bool round-trip contract as the P4-C flag.
             f"repo_source_lane = {self._toml_value(self.web_repo_source_lane)}",
+            # P6: opt-in Browser Run (Kitesurf) lane for wall-blocked fetches.
+            # Credentials live in the ENV only (sops on jupiterOS) — these
+            # two keys carry shape, not secrets.
+            f"browser_lane = {self._toml_value(self.web_browser_lane)}",
+            f"browser_lane_engine = {self._toml_value(self.web_browser_lane_engine)}",
             "",
             "[pipeline]",
             f"profile = {self._toml_value(self.pipeline_profile)}",

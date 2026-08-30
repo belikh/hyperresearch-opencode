@@ -216,6 +216,7 @@ class WebProvider(Protocol):
 # spec validation so the advertised set cannot drift between the two.
 KNOWN_PROVIDER_NAMES: tuple[str, ...] = (
     "builtin",
+    "browser-run",
     "crawl4ai",
     "deepwiki",
     "exa",
@@ -289,6 +290,15 @@ def get_provider(
 
         return DeepwikiProvider()
 
+    if name == "browser-run":
+        # P6-A: Cloudflare Browser Run Quick Actions (Kitesurf engine by
+        # default) — no optional install (httpx is core); auth is read from
+        # the environment at CALL time (sops-exported on jupiterOS), so no
+        # key is needed merely to construct the provider.
+        from hyperresearch.web.browser_run_provider import BrowserRunProvider
+
+        return BrowserRunProvider()
+
     if name == "tavily":
         try:
             from hyperresearch.web.tavily_provider import TavilyProvider
@@ -358,6 +368,15 @@ def _is_fall_through_error(exc: BaseException) -> bool:
     from hyperresearch.web.deepwiki_provider import DeepwikiApiError
 
     if isinstance(exc, DeepwikiApiError):
+        status = exc.status_code
+        return status is not None and (status == 429 or status >= 500)
+
+    # P6-A: Browser Run server-side failures (HTTP 429/5xx) fall through;
+    # 4xx (auth scope, bad request) surface. BrowserRunAuthError arrives via
+    # the ProviderAuthError branch above.
+    from hyperresearch.web.browser_run_provider import BrowserRunApiError
+
+    if isinstance(exc, BrowserRunApiError):
         status = exc.status_code
         return status is not None and (status == 429 or status >= 500)
 

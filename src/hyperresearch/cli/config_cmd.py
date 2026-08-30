@@ -29,6 +29,8 @@ def config_show(
         "web_magic": config.web_magic,
         "web_parallel_search_lane": config.web_parallel_search_lane,
         "web_repo_source_lane": config.web_repo_source_lane,
+        "web_browser_lane": config.web_browser_lane,
+        "web_browser_lane_engine": config.web_browser_lane_engine,
         "auto_sync": config.auto_sync,
         "auto_build_index": config.auto_build_index,
         "search_boost_evergreen": config.search_boost_evergreen,
@@ -64,6 +66,8 @@ def config_set(
         "web.magic": "web_magic",
         "web.parallel_search_lane": "web_parallel_search_lane",
         "web.repo_source_lane": "web_repo_source_lane",
+        "web.browser_lane": "web_browser_lane",
+        "web.browser_lane_engine": "web_browser_lane_engine",
         "search.boost_evergreen": "search_boost_evergreen",
         "search.penalize_deprecated": "search_penalize_deprecated",
         "sync.auto_sync": "auto_sync",
@@ -94,20 +98,28 @@ def config_set(
     coerced: str | bool | list[str] = value
     if attr in ("auto_sync", "auto_build_index", "web_magic"):
         coerced = value.lower() in ("true", "1", "yes")
-    elif attr in ("web_parallel_search_lane", "web_repo_source_lane"):
-        # P4-C / P5: strict here (unlike the legacy bool keys above, which
-        # map any unrecognized spelling to False) — a typo'd flag must fail
-        # loudly, because a silently-disabled lane looks identical to no
-        # lane at all.
+    elif attr in (
+        "web_parallel_search_lane",
+        "web_repo_source_lane",
+        "web_browser_lane",
+    ):
+        # P4-C / P5 / P6: strict here (unlike the legacy bool keys above,
+        # which map any unrecognized spelling to False) — a typo'd flag must
+        # fail loudly, because a silently-disabled lane looks identical to
+        # no lane at all.
         lowered = value.strip().lower()
         if lowered in ("true", "1", "yes"):
             coerced = True
         elif lowered in ("false", "0", "no"):
             coerced = False
         else:
+            key_display = {
+                "web_parallel_search_lane": "web.parallel_search_lane",
+                "web_repo_source_lane": "web.repo_source_lane",
+                "web_browser_lane": "web.browser_lane",
+            }[attr]
             msg = (
-                f"web.{'parallel_search_lane' if attr == 'web_parallel_search_lane' else 'repo_source_lane'} "
-                f"expects true or false; got {value!r}"
+                f"{key_display} expects true or false; got {value!r}"
             )
             # FIX-F8: JSON consumers get the same error envelope shape as
             # every other verb's failure path — rich console only when not
@@ -161,6 +173,8 @@ def config_get(
         "web.magic": "web_magic",
         "web.parallel_search_lane": "web_parallel_search_lane",
         "web.repo_source_lane": "web_repo_source_lane",
+        "web.browser_lane": "web_browser_lane",
+        "web.browser_lane_engine": "web_browser_lane_engine",
         "search.boost_evergreen": "search_boost_evergreen",
         "search.penalize_deprecated": "search_penalize_deprecated",
         "sync.auto_sync": "auto_sync",

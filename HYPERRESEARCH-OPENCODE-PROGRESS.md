@@ -76,6 +76,30 @@ the repo-analyst agent's digest template), and Aider's repo-map method
 | P5-E | Conditional renders: width-sweep Lens-E paragraph (anchor-guarded injection, own-payload generalisation of the P4-C injector); 16th agent `hyperresearch-repo-analyst` rendered only when lane on, pruned on lane-off (manifest-derived keep-set); default renders byte-identical to pre-P5 goldens; lane-on goldens frozen | built |
 | P5-F | NoteMeta.repo/wiki_page/repo_map_lane additive provenance fields; PARITY §19 + this row | built |
 
+## Phase 6 — Browser-fetch lane (Cloudflare Browser Run / Kitesurf, issue #2 v1)
+
+The deferred real-Chrome lane's replacement: Quick Actions REST depth
+(rendered `/content`, `/screenshot`) with the agent-first Kitesurf engine,
+stateless in CF isolates — nothing executes locally, which removes the hazard
+that deferred the original lane. Escalation-drain semantics land with it:
+bot-wall blocks retry once through the lane before queueing; login walls and
+interactive challenges stay the human's (standing policy).
+
+| Piece | Scope | State |
+|---|---|---|
+| P6-A | `browser-run` named provider: Kitesurf Quick Actions (content/screenshot/markdown), ENV-only auth (sops-exported on jupiterOS), call-time auth errors chain-fall, 429/5xx chain-fall / 4xx surface, SSRF-guarded both hosts | built |
+| P6-B | Escalation-drain through `hpr fetch`: OA-rescue-first then one lane retry for non-interactive bot walls; serving-provider restamp (browser-run provenance); captcha-family + login walls NEVER take the lane; lane failures degrade to the pre-P6 enqueue; `[web] browser_lane` + engine config (strict verb coercion) | built |
+
+Gates at P6 close: provider battery 22 passed, lane battery 7 passed,
+provider-chain suite 68 passed, ruff clean, mypy --strict clean (102 files).
+Live smoke BLOCKED and honestly recorded: the jupiterOS sops slot
+(`cloudflare_browser_run_token`) holds the blind-generated placeholder
+provisioned in WP7-lite prep — Cloudflare's token-verify returns `Invalid
+API Token`. The lane's error path is verified live (401 → actionable
+'Browser Rendering - Edit' guidance). UNBLOCK STEP (human): mint a real
+Browser Run API token (dash.cloudflare.com/profile/api-tokens, custom token,
+Browser Rendering - Edit) and rotate the sops secret — no code changes.
+
 Gates at P5 close (with the 15 pdf/ssrf tests deselected — pre-existing host
 pymupdf/libstdc++ breakage, proven failing on the pristine tree via stash
 round): **1420 passed / 107 skipped / 0 failed; ruff check clean;

@@ -818,8 +818,16 @@ class TestBackwardCompatAndValidation:
             get_provider("zzz")
 
         # Same exception type; the chain's message may ADD position context
-        # but must advertise the identical available-name set.
-        assert str(direct_info.value).split(". Available:")[-1] in str(chained_info.value)
+        # but must advertise the identical available-name SET. Compared as a
+        # set, not a substring: the two messages sort the names differently
+        # (get_provider: canonical registration order; resolve_web_provider:
+        # alphabetical) and P6's browser-run entry broke the accidental
+        # substring coincidence between the two orderings.
+        def _names(msg: str) -> frozenset[str]:
+            tail = msg.split(". Available:")[-1]
+            return frozenset(n.strip() for n in tail.split(", ") if n.strip())
+
+        assert _names(str(chained_info.value)) == _names(str(direct_info.value))
 
     def test_empty_list_spec_is_actionable_error(self) -> None:
         with pytest.raises(ValueError) as excinfo:
