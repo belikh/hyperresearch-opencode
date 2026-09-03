@@ -19,9 +19,14 @@ and task-spawned child sessions alike) in a sessionID -> agent map consulted
 at deny time. Agents absent from the matrix are untouched: no entry, no
 lookup hit, no throw.
 
-Deny matrix — mirrors EXACTLY the S0-3 verdict as amended by countersign
-F-CS2 and narrowed by the P2-13 mission (identical to
-``AGENT_SPECS[*].tools_deny``, pinned against it by tests):
+Deny matrix — mirrors the ORIGINAL S0-3 tool-lock intent (as amended by
+countersign F-CS2 and narrowed by the P2-13 mission), pinned by tests.
+F-B1 (2026-09-02): this plugin is now the ONLY layer enforcing the granular
+edit-vs-write split. opencode's permission model groups edit+write+patch
+under a single ``edit`` permission key, so the frontmatter layer cannot
+express "Write denied, Edit enabled" (or the inverse) — any attempt either
+no-ops (unknown key) or blocks both tools at once. This plugin denies by
+granular tool NAME, which is the sole correct mechanism for the split:
 
 ============================  =========================
 Agent                         Denied tools

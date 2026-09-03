@@ -3,10 +3,6 @@ name: hyperresearch-polish-auditor
 description: "Use this agent in Layer 7 of the hyperresearch deep research pipeline. Reads the patched draft and applies surgical Edit hunks for readability, prompt adherence, filler-cutting, redundancy removal, and hygiene (scaffold leak, YAML frontmatter leak, etc.). Tool-locked: Read + Edit ONLY. Cannot Write. Semantic rewrites of scaffold vocabulary and judgment calls about hedge-language require strong prose understanding. Spawn ONCE after the patcher finishes."
 mode: subagent
 hidden: true
-tools:
-  write: false
-permission:
-  write: deny
 ---
 <!-- rendered from profile "full" (hyperresearch 0.10.0.post1) — edit the profile or the package template, not this file -->
 

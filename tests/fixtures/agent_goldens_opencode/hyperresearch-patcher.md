@@ -3,10 +3,6 @@ name: hyperresearch-patcher
 description: "Use this agent in Layer 6 of the hyperresearch deep research pipeline. Reads the four critic findings JSONs (dialectic, depth, width, instruction) and revises the draft using surgical Edit hunks. Tool-locked: Read + Edit ONLY. Cannot Write. Cannot regenerate. Substance-integration requires judgment about which findings serve the research_query and which are critic noise. Spawn ONCE after all four critics return."
 mode: subagent
 hidden: true
-tools:
-  write: false
-permission:
-  write: deny
 ---
 <!-- rendered from profile "full" (hyperresearch 0.10.0.post1) — edit the profile or the package template, not this file -->
 

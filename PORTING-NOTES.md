@@ -3627,3 +3627,56 @@ the waves: `--json` error envelopes extended to config set bad-value /
 unknown-key and config get unknown-key paths. Zero network in
 new tests (provider seam monkeypatched at
 `hyperresearch.web.base.resolve_web_provider`, the test_fetch_batch.py seam).
+
+## F-B1 — opencode permission-model correction (2026-09-02)
+
+**Failure that exposed it, live mid-run:** the step-11 synthesizer spawn
+could not Write its pass-1/pass-2 files — the subagent had NO local Write
+tool and fell through to the Home Assistant MCP write tool. Root cause
+chain, verified against opencode 1.18.26's published docs, its config JSON
+schema, and the installed binary's own permission-mapping code
+(`["edit","write","apply_patch"]` grouped under one permission key):
+
+1. opencode's `edit` permission covers **edit + write + patch as ONE unit**.
+   There is no separate `write` permission key. The synthesizer's ported
+   Claude Code frontmatter (`permission: {edit: deny}`, intended as "Read +
+   Write only") therefore blocked Write too — exactly the observed failure.
+2. The patcher/polish-auditor frontmatter (`permission: {write: deny}` +
+   legacy `tools: {write: false}`) was worse in silence: `write` is an
+   **unknown permission key** (a no-op), and the legacy `tools:` block is
+   deprecated and merged into the same coarse edit-permission group — a
+   `write: false` entry would deny the entire edit+write+patch group,
+   blocking the Edit tool the patcher's whole role depends on.
+3. The S0-3 spike had "proven" `tools.X: false` structurally removes a tool
+   — but on an opencode version whose legacy-tools handling differed (and
+   with the layer-2 lockdown plugin absent from the failing install, since
+   `install --steps-only` skips plugins).
+
+**Fix (upstream source, not just installed files):**
+
+- `opencode_install.py`: `AgentSpec.tools_deny` emptied for patcher,
+  polish-auditor, and synthesizer; `permission_denies` now carry only REAL
+  opencode permission keys — synthesizer denies `bash` only; patcher and
+  polish-auditor carry no frontmatter lock at all. Module docstring
+  rewritten to document the model.
+- `opencode_plugin.py`: docstring corrected — the lockdown plugin is now
+  the ONLY layer enforcing the granular edit-vs-write split (it denies by
+  granular tool NAME, which opencode's coarse permission keys cannot
+  express). The deny matrix itself is unchanged: patcher/polish `write`;
+  synthesizer `edit + bash` (Write open).
+- Tests: `test_opencode_install.py` EXPECTED_TOOLS_DENY now empty,
+  EXPECTED_PERMISSION carries only synthesizer `bash: deny` + the
+  investigator task allowlist; `test_opencode_plugin.py` now pins the
+  granular intent as a frozen literal AND asserts the specs stay clean of
+  frontmatter edit/write locks (a belt-and-braces anti-regression pin).
+- Goldens regenerated for the three affected files.
+
+Gates: pytest — the four affected test files all pass; the only failures in
+the full suite are pre-existing network-dependent SSRF tests that also
+fail on a clean tree (verified via git stash).
+
+**Operational note:** opencode loads config at startup and does not
+hot-reload agent files — a running session keeps the old (broken)
+definitions until restart. The ha-linux-agent vault now carries the fixed
+roster in `.opencode/agents/` plus the lockdown plugin in
+`.opencode/plugins/` (a full `hpr install`, not `--steps-only`).

@@ -12,17 +12,25 @@ Per file:
 - **Frontmatter** is rebuilt in opencode shape (spike-proven forms):
   ``mode: subagent`` everywhere; ``hidden: true`` everywhere (every upstream
   description addresses an orchestrating pipeline step, never the user, and
-  opencode subagent-mode files are not user-invokable anyway — S0-1
-  F-METHOD); ``model:`` emitted ONLY when the role's ModelMap alias is set,
-  omitted entirely otherwise so the session model inherits (P1-7 empty-inherit
-  delta); ``tools:`` boolean deny-maps exactly where S0-3 (as amended by
-  countersign F-CS2 and the P2-13 mission) locks tools — patcher and
-  polish-auditor deny EXACTLY ``write`` (Edit stays ENABLED), synthesizer
-  denies ``edit`` + ``bash``; ``permission:`` mirrors those same deny-sets in
-  the YAML block form proven by the S0-3 transcripts / opencode's own agent
-  docs (``permission:\\n  edit: deny``), plus a ``task`` allowlist for the one
-  upstream-delegating role: depth-investigator -> hyperresearch-fetcher
-  (S0-1; leaf agents like source-analyst get none).
+  opencode subagent-mode files are not user-invokable anyway — S0-1);
+  ``model:`` emitted ONLY when the role's ModelMap alias is set, omitted
+  entirely otherwise so the session model inherits (P1-7 empty-inherit
+  delta); ``permission:`` carries ONLY keys opencode actually defines.
+  F-B1 correction (2026-09-02): opencode's permission model groups
+  edit+write+patch under a single ``edit`` permission key — there is NO
+  ``write`` permission key, and the legacy ``tools:`` boolean block is
+  deprecated, merged into the same coarse group (a ``write: false`` entry
+  normalises to edit-deny, blocking Edit itself; a ``permission: {write:
+  deny}`` is an unknown key, a silent no-op). The granular tool-lock intent
+  — synthesizer: Read+Write only; patcher/polish-auditor: Read+Edit only —
+  is therefore enforced SOLELY by the layer-2 lockdown plugin
+  (:mod:`hyperresearch.core.opencode_plugin`), which denies by granular
+  tool NAME (``edit`` and ``write`` are distinct plugin-level tools). The
+  frontmatter carries only what opencode natively supports: synthesizer
+  denies ``bash``; patcher/polish-auditor carry no frontmatter lock at all
+  (their write-denial lives in the plugin). Plus a ``task`` allowlist for
+  the one upstream-delegating role: depth-investigator ->
+  hyperresearch-fetcher (S0-1; leaf agents like source-analyst get none).
 - **Body** is the upstream prompt constant, rendered through the shared
   engine (`hyperresearch.core.render`) byte-faithfully against the frozen P1-7
   golden fixtures, then stamped with the same provenance header upstream
@@ -3718,16 +3726,26 @@ AGENT_SPECS: tuple[AgentSpec, ...] = (
         template=PATCHER_AGENT,
         prep=_prep_identity,
         model_role="patcher",
-        tools_deny=(("write", False),),
-        permission_denies=("write",),
+        # F-B1 fix: opencode's `edit` permission covers edit+write+patch as
+        # ONE unit — there is no `write` permission key. The old
+        # ``tools: {write: false}`` + ``permission: {write: deny}`` pair was a
+        # silent no-op (unknown permission key; legacy tools booleans merge
+        # into the same coarse edit-permission group, which would have
+        # blocked Edit itself). The write-denial (Edit stays enabled) is
+        # enforced SOLELY by the layer-2 lockdown plugin, which denies by
+        # granular tool NAME — the only layer that can express the split.
+        tools_deny=(),
+        permission_denies=(),
     ),
     AgentSpec(
         filename="hyperresearch-polish-auditor.md",
         template=POLISH_AUDITOR_AGENT,
         prep=_prep_polish_auditor,
         model_role="polish_auditor",
-        tools_deny=(("write", False),),
-        permission_denies=("write",),
+        # F-B1 fix: same as patcher — write-denial via the lockdown plugin
+        # only; no frontmatter lock (Edit must stay enabled).
+        tools_deny=(),
+        permission_denies=(),
     ),
     AgentSpec(
         filename="hyperresearch-readability-recommender.md",
@@ -3752,8 +3770,15 @@ AGENT_SPECS: tuple[AgentSpec, ...] = (
         template=SYNTHESIZER_AGENT,
         prep=_prep_identity,
         model_role="synthesizer",
-        tools_deny=(("edit", False), ("bash", False)),
-        permission_denies=("edit", "bash"),
+        # F-B1 fix: opencode's `edit` permission covers edit+write+patch as
+        # ONE unit, so ``permission: {edit: deny}`` blocked Write too — the
+        # exact failure that killed step 11 mid-run (synthesizer could not
+        # write its pass-1/pass-2 files). Frontmatter now denies only
+        # ``bash`` (a real permission key). The Edit-denial (Write stays
+        # enabled) is enforced SOLELY by the layer-2 lockdown plugin, which
+        # denies by granular tool NAME.
+        tools_deny=(),
+        permission_denies=("bash",),
     ),
     AgentSpec(
         filename="hyperresearch-cite-checker.md",

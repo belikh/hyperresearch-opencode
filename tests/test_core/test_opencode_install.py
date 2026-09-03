@@ -60,22 +60,21 @@ EXPECTED_STEMS: frozenset[str] = frozenset(
     if spec.filename.removesuffix(".md") != _REPO_ANALYST_STEM
 )
 
-# S0-3 (as amended by countersign F-CS2): patcher/polish-auditor keep Edit
-# (write denied); synthesizer denies {edit, bash}. Mission amendment P2-13:
-# the tools deny-set for patcher/polish-auditor is EXACTLY {write: false}.
-EXPECTED_TOOLS_DENY: dict[str, dict[str, bool]] = {
-    "hyperresearch-patcher": {"write": False},
-    "hyperresearch-polish-auditor": {"write": False},
-    "hyperresearch-synthesizer": {"edit": False, "bash": False},
-}
+# S0-3 (as amended by countersign F-CS2): the granular tool-lock intent is
+# patcher/polish-auditor = {write} denied, synthesizer = {edit, bash} denied.
+# F-B1 correction (2026-09-02): opencode's permission model groups
+# edit+write+patch under a single `edit` permission key — there is no `write`
+# key, and legacy `tools:` booleans merge into the same coarse group. The
+# granular split is therefore enforced ONLY by the layer-2 lockdown plugin
+# (test_opencode_plugin.py); the frontmatrix carries only real permission
+# keys: synthesizer denies bash; patcher/polish-auditor carry NO lock.
+EXPECTED_TOOLS_DENY: dict[str, dict[str, bool]] = {}
 
-# Permission denies mirror the same sets; depth-investigator additionally
-# carries the only upstream task delegation edge (investigator -> fetcher,
-# S0-1). opencode evaluates the LAST matching rule, so "*" is emitted first.
+# Permission denies: only real opencode permission keys. The depth-investigator
+# task allowlist (investigator -> fetcher, S0-1) stays frontmatter-native.
+# opencode evaluates the LAST matching rule, so "*" is emitted first.
 EXPECTED_PERMISSION: dict[str, dict[str, Any]] = {
-    "hyperresearch-patcher": {"write": "deny"},
-    "hyperresearch-polish-auditor": {"write": "deny"},
-    "hyperresearch-synthesizer": {"edit": "deny", "bash": "deny"},
+    "hyperresearch-synthesizer": {"bash": "deny"},
     "hyperresearch-depth-investigator": {
         "task": {"*": "deny", "hyperresearch-fetcher": "allow"}
     },

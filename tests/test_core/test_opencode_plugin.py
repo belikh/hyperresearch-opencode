@@ -43,31 +43,42 @@ from hyperresearch.core.opencode_plugin import (
 )
 
 # ---------------------------------------------------------------------------
-# (b) expectations derived LIVE from the shipped roster specs — not restated
+# (b) expectations — the ORIGINAL S0-3 tool-lock intent, now enforced ONLY by
+#     this plugin (F-B1: opencode's permission model groups edit+write+patch
+#     under one `edit` key, so AGENT_SPECS frontmatter locks can no longer
+#     express the granular split; the specs' tools_deny is empty by design).
+#     The intent is pinned here as a literal, not derived from the specs.
 # ---------------------------------------------------------------------------
 
-
-def _expected_matrix_from_specs() -> dict[str, frozenset[str]]:
-    """Derive the deny matrix straight from AGENT_SPECS ``tools_deny``."""
-    derived: dict[str, frozenset[str]] = {}
-    for spec in AGENT_SPECS:
-        if spec.tools_deny:
-            derived[spec.filename.removesuffix(".md")] = frozenset(
-                tool for tool, _flag in spec.tools_deny
-            )
-    return derived
+#: The frozen granular tool-lock intent (S0-3 as amended by F-CS2).
+EXPECTED_DENY_INTENT: dict[str, frozenset[str]] = {
+    "hyperresearch-patcher": frozenset({"write"}),
+    "hyperresearch-polish-auditor": frozenset({"write"}),
+    "hyperresearch-synthesizer": frozenset({"edit", "bash"}),
+}
 
 
-def test_python_mirror_matches_roster_specs_exactly() -> None:
-    expected = _expected_matrix_from_specs()
-    assert expected == {
-        "hyperresearch-patcher": frozenset({"write"}),
-        "hyperresearch-polish-auditor": frozenset({"write"}),
-        "hyperresearch-synthesizer": frozenset({"edit", "bash"}),
-    }, "roster deny-sets drifted; update this pin alongside AGENT_SPECS"
+def test_python_mirror_matches_locked_intent_exactly() -> None:
     assert {
         agent: frozenset(tools) for agent, tools in PLUGIN_DENY_MATRIX.items()
-    } == expected, "PLUGIN_DENY_MATRIX must mirror AGENT_SPECS tools_deny exactly"
+    } == EXPECTED_DENY_INTENT, (
+        "PLUGIN_DENY_MATRIX must carry the S0-3 granular tool-lock intent; "
+        "it is the only layer that can express the edit-vs-write split"
+    )
+    # F-B1 belt-and-braces invariant: the frontmatter specs must NOT also
+    # lock these tools (a frontmatter `edit`/`write` deny would block BOTH
+    # edit and write under opencode's coarse permission grouping).
+    for spec in AGENT_SPECS:
+        assert not spec.tools_deny, (
+            f"{spec.filename}: frontmatter tools_deny must be empty (F-B1); "
+            "the granular lock lives in the lockdown plugin only"
+        )
+        for tool in spec.permission_denies:
+            assert tool not in ("edit", "write"), (
+                f"{spec.filename}: permission_deny {tool!r} would block the "
+                "whole edit+write+patch group under opencode's permission "
+                "model; use the lockdown plugin for granular locks"
+            )
 
 
 def test_matrix_covers_exactly_the_three_locked_agents() -> None:

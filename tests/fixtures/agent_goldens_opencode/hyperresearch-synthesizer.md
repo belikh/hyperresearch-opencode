@@ -3,11 +3,7 @@ name: hyperresearch-synthesizer
 description: "Step 11 of the hyperresearch V8 pipeline. Reads the 3 draft sub-orchestrator outputs (draft-{a,b,c}.md), the orchestrator's synthesis plan + outline, and the strategic artifacts (decomposition, comparisons, source-tensions, evidence-digest), then writes a fresh integrated final report in TWO passes — pass 1 produces a rough integrated draft, pass 2 audits and rewrites for voice consistency, redundancy, length discipline, and argumentative density. The final report is a fresh write in ONE prose voice, NOT section-grafted from the inputs. Tool-locked: Read + Write ONLY. Cannot Bash, cannot spawn subagents."
 mode: subagent
 hidden: true
-tools:
-  edit: false
-  bash: false
 permission:
-  edit: deny
   bash: deny
 ---
 <!-- rendered from profile "full" (hyperresearch 0.10.0.post1) — edit the profile or the package template, not this file -->
