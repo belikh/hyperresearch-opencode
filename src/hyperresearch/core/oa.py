@@ -194,6 +194,15 @@ def needs_oa_recovery(result: WebResult, settings: ScholarSettings) -> bool:
         return False
     if getattr(result, "raw_content_type", None) == "application/pdf":
         return False  # already full text
+    # An encyclopedia article that CITES a paper is not a thin paper landing
+    # page — a DOI in its prose belongs to the cited work, not to the source
+    # being saved. Wiki pages used to dodge this by rendering 50k+ chars of
+    # site chrome; the mediawiki lane's clean extracts are short enough to
+    # fall under the thinness gate, so scope it off by domain.
+    from hyperresearch.web.mediawiki import is_mediawiki_url
+
+    if is_mediawiki_url(result.url):
+        return False
     content = result.content or ""
     if len(content) < settings.oa_min_full_text_chars:
         return True

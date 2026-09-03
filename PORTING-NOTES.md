@@ -3680,3 +3680,59 @@ hot-reload agent files — a running session keeps the old (broken)
 definitions until restart. The ha-linux-agent vault now carries the fixed
 roster in `.opencode/agents/` plus the lockdown plugin in
 `.opencode/plugins/` (a full `hpr install`, not `--steps-only`).
+
+## F-B2 — MediaWiki clean-text lane: native action-API fetching for wiki URLs (2026-09-03)
+
+**Failure that exposed it:** wikipedia notes carried ~2/3 navigation
+garbage. Live probe (`Immunotherapy`, en.wikipedia.org): builtin rendered
+page = 55,077 chars of "Jump to content / Donate / Log in" chrome, 40-language
+interwiki lists, navboxes and category boxes, vs 19,428 chars of actual
+article prose. Wikipedia ships a native machine interface; we were parsing
+its human chrome.
+
+**Fix — `hyperresearch/web/mediawiki.py`:** a URL-routed lane that serves
+every Wikimedia article URL (`*.wikipedia.org` and sister wikis, exact
+host-suffix match so `en.wikipedia.org.evil.com` can never enter) through
+`action=query&prop=extracts|info&explaintext` — the same TextExtract code
+behind Wikipedia's own apps strips references, navboxes, sidebars, and
+chrome SERVER-SIDE. Headings convert `== H ==` → `## H`; tail sections the
+extractor emptied (`== References ==`) are dropped; redirects resolved via
+`redirects=1` and recorded in metadata. The request rides `guarded_get`
+(SSRF-validated, redirects re-validated per hop).
+
+**Lane contract** (wired into `_ChainedProvider.fetch` AND the
+`fetch_many` pre-pass, so single fetches, batch waves, and the MCP fetcher
+all get it regardless of provider config):
+
+* not a wiki URL / not a content-page shape / revision-specific view
+  (`?oldid=`, `?diff=`, `?action=`) / no extractable prose (Category:,
+  Wikidata, File:) / transient API failure → `None`, chain serves as before;
+* page verifiably missing (`missing` / `missingtitle`) → raises
+  `MediawikiPageError` — a clean FETCH_ERROR instead of saving Wikipedia's
+  "article doesn't exist" interstitial as a note;
+* lane results are deliberately NOT junk-gate fall-through candidates: the
+  clean extract is authoritative, and falling through would re-import the
+  55k nav soup that clears the junk gates.
+
+**Guard rail in `core/oa.py`:** `needs_oa_recovery` now returns False for
+wiki URLs. Clean extracts are short enough to fall under
+`oa_min_full_text_chars` (6000), and a bare DOI inside a *cited* reference
+would otherwise trigger an OA full-text substitution of that paper into an
+encyclopedia note — a swap the chrome-heavy render could never trigger.
+
+**Source-hub workflow preserved:** the lane strips the reference list, so
+the fetcher skill's Wikipedia SOURCE HUB rule now points at the raw
+wikitext lane (`w/index.php?title=<Title>&action=raw`, 91 DOIs on the
+Immunotherapy probe) for citation mining; agent prompt + skill + five
+golden fixtures updated in lockstep. `agent_docs.py` documents the lane
+for subagents.
+
+**Tests:** `tests/test_web/test_mediawiki.py` — 36 offline cases
+(`httpx.MockTransport` + pinned DNS, house pattern): host-suffix spoof
+rejection, title extraction (encoded, namespaces, fragments, index.php,
+revision params), heading conversion, tail-section trimming, missing-page
+raise, all fall-through modes, and chain integration (provenance naming,
+batch pre-pass split, all-wiki waves never reaching the batch lane).
+`fetch_provider: mediawiki-api` provenance lands in frontmatter and the
+sources table. Live-verified end to end: single fetch, fetch-batch wave,
+redirect (USA → United States), ja/simple wikis.

@@ -77,6 +77,10 @@ After the academic sweep, run web searches for context, news, non-academic angle
 
 `{hpr} fetch` auto-detects PDF URLs (arXiv, NBER, SSRN, direct `.pdf` links) and extracts full text via pymupdf. Fetch them aggressively. Raw PDFs land in `research/raw/<note-id>.pdf` and the note's frontmatter links back via `raw_file:`.
 
+### Wikipedia/Wikimedia URLs fetch clean (native API lane)
+
+`{hpr} fetch` routes every `*.wikipedia.org` / `*.wikimedia.org` / sister-wiki article URL through MediaWiki's native JSON API (`action=query&prop=extracts&explaintext`), so the note is clean article prose with markdown headings — no sidebar, language lists, navboxes, or reference soup. This applies automatically in single fetches AND batch waves (`fetch-batch`), regardless of provider config (`fetch_provider: mediawiki-api` records it). Revision-specific URLs (`?oldid=`) and non-prose pages (`File:`, `Special:`) still fetch the rendered page. Fetch wiki URLs freely — they are cheap and clean; cite them as reference works (tier: institutional).
+
 ### Open-access substitution — check this before quoting a paper
 
 When a fetch lands a thin page carrying a DOI (a publisher abstract or paywall

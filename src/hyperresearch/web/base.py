@@ -20,7 +20,9 @@ _TEXT_WHITESPACE = "\t\n\r\f\v"
 # BOM/ZWNBSP, soft hyphen, Mongolian vowel separator, Arabic letter mark.
 # Deliberately an explicit set: a blanket unicodedata category-Cf filter has
 # no evidence behind it and these are the characters observed in scraped spam.
-_INVISIBLE_CHARS = frozenset("\u200b\u200c\u200d\u2060\u2061\u2062\u2063\u2064\ufeff\u00ad\u180e\u061c")
+_INVISIBLE_CHARS = frozenset(
+    "\u200b\u200c\u200d\u2060\u2061\u2062\u2063\u2064\ufeff\u00ad\u180e\u061c"
+)
 
 
 def strip_invisible(text: str) -> str:
@@ -100,8 +102,15 @@ class WebResult:
         """Check if the result appears to be a login/signup redirect rather than real content."""
         gates = gates or DEFAULT_GATES
         login_signals = (
-            "sign in", "sign up", "log in", "login", "create account",
-            "auth", "register", "sso", "verify your identity",
+            "sign in",
+            "sign up",
+            "log in",
+            "login",
+            "create account",
+            "auth",
+            "register",
+            "sso",
+            "verify your identity",
             *gates.extra_login_signals,
         )
         # Same invisible-padding normalization as looks_like_junk: padding
@@ -115,9 +124,8 @@ class WebResult:
         title_match = any(s in title_lower for s in login_signals)
 
         # Content is mostly login form (very short with login keywords)
-        content_match = (
-            len(content) < gates.login_wall_max_chars
-            and any(s in content_lower for s in login_signals)
+        content_match = len(content) < gates.login_wall_max_chars and any(
+            s in content_lower for s in login_signals
         )
 
         # URL changed to a login/auth path
@@ -152,22 +160,39 @@ class WebResult:
         # interstitial phrases ("just a moment", "checking your browser",
         # "ray id", ...) which every actual CF wall emits.
         cf_signals = (
-            "just a moment", "checking your browser", "ray id",
-            "please wait while we verify", "unusual activity", "captcha",
-            "recaptcha", "verify you are human", "verify you are not a robot",
-            "please complete the security check", "access denied",
-            "enable javascript and cookies", "browser check",
-            "ddos protection", "attention required",
+            "just a moment",
+            "checking your browser",
+            "ray id",
+            "please wait while we verify",
+            "unusual activity",
+            "captcha",
+            "recaptcha",
+            "verify you are human",
+            "verify you are not a robot",
+            "please complete the security check",
+            "access denied",
+            "enable javascript and cookies",
+            "browser check",
+            "ddos protection",
+            "attention required",
         )
-        if any(s in title_lower or s in content_lower for s in cf_signals + tuple(gates.extra_junk_signals)):
+        if any(
+            s in title_lower or s in content_lower
+            for s in cf_signals + tuple(gates.extra_junk_signals)
+        ):
             return f"Bot detection page: {self.title}"
 
         # Error pages
         error_signals = (
-            "404 not found", "page not found", "403 forbidden",
-            "500 internal server error", "502 bad gateway",
-            "an error occurred", "this page isn't available",
-            "the page you requested", "sorry, we couldn't find",
+            "404 not found",
+            "page not found",
+            "403 forbidden",
+            "500 internal server error",
+            "502 bad gateway",
+            "an error occurred",
+            "this page isn't available",
+            "the page you requested",
+            "sorry, we couldn't find",
         )
         if any(s in title_lower or s in content_lower for s in error_signals):
             return f"Error page: {self.title}"
@@ -189,8 +214,12 @@ class WebResult:
         # Cookie consent / boilerplate pages (short with mostly nav/cookie text)
         if len(content.strip()) < gates.cookie_wall_max_chars:
             cookie_signals = (
-                "we use cookies", "cookie policy", "accept cookies", "cookie consent",
-                "there appears to be a technical issue", "please enable javascript",
+                "we use cookies",
+                "cookie policy",
+                "accept cookies",
+                "cookie consent",
+                "there appears to be a technical issue",
+                "please enable javascript",
             )
             if any(s in content_lower for s in cookie_signals):
                 return "Cookie/boilerplate page"
@@ -311,7 +340,7 @@ def get_provider(
 
             return TavilyProvider()
         except ImportError:
-            raise ImportError("tavily provider requires: pip install \"hyperresearch[tavily]\"")
+            raise ImportError('tavily provider requires: pip install "hyperresearch[tavily]"')
 
     raise ValueError(
         f"Unknown web provider: {name!r}. Available: {', '.join(KNOWN_PROVIDER_NAMES)}"
@@ -423,8 +452,7 @@ class _BatchCapableProvider(Protocol):
     isinstance guard so chain delegation needs neither getattr nor casts.
     """
 
-    def fetch_many(self, urls: list[str]) -> list[WebResult]:
-        ...
+    def fetch_many(self, urls: list[str]) -> list[WebResult]: ...
 
 
 class _ChainedProvider:
@@ -559,10 +587,32 @@ class _ChainedProvider:
         raise last_error
 
     def fetch(self, url: str) -> WebResult:
-        return self._top_level(
-            lambda p: p.fetch(url),
-            lambda r: _result_is_junk(r, self._gates),
-        )
+        # MediaWiki lane FIRST: wiki URLs are served their clean native-API
+        # text before any generic candidate renders the chrome-heavy page
+        # (55k of nav soup vs 19k of prose on the Immunotherapy probe — see
+        # hyperresearch/web/mediawiki.py). None = lane not applicable, and
+        # the normal candidate chain serves exactly as before.
+        from hyperresearch.web.mediawiki import fetch_mediawiki
+
+        # Manual top-level window (mirrors _top_level): the lane is not a
+        # chain candidate, so only the frame that OWNS the window records
+        # the serving name (F3 re-entrancy discipline).
+        owns_frame = not self._in_top_level
+        outer = self._in_top_level
+        self._in_top_level = True
+        try:
+            mw = fetch_mediawiki(url)
+            if mw is not None:
+                if owns_frame:
+                    self.name = mw.metadata.get("provider", "mediawiki-api")
+                return mw
+            return self._serve(
+                lambda p: p.fetch(url),
+                lambda r: _result_is_junk(r, self._gates),
+                record=owns_frame,
+            )
+        finally:
+            self._in_top_level = outer
 
     def search(self, query: str, max_results: int = 5) -> list[WebResult]:
         return self._top_level(
@@ -575,7 +625,36 @@ class _ChainedProvider:
 
         Attached to instances by __init__ ONLY when a declared candidate
         name is in _FETCH_MANY_PROVIDERS — see the F2 note there.
+
+        MediaWiki pre-pass: wiki URLs are pulled out of the batch and
+        served their clean native-API text by the lane; only the rest
+        reach the generic batch lane (cli/fetch_batch.py fetches whole
+        waves through here, so without the pre-pass most wikipedia
+        fetches would miss the lane entirely). A MediawikiPageError from
+        the pre-pass aborts the batch call — fetch_batch's fallback
+        retries per-URL, where the raise lands on the one bad URL.
         """
+
+        from hyperresearch.web.mediawiki import fetch_mediawiki
+
+        served: dict[str, WebResult] = {}
+        rest: list[str] = []
+        for u in urls:
+            mw = fetch_mediawiki(u)
+            if mw is not None:
+                served[u] = mw
+            else:
+                rest.append(u)
+
+        if not rest:
+            # Every URL went through the lane — no candidate serves, so
+            # record the lane as the serving provider (same re-entrancy
+            # suppression as fetch(): a nested call must not clobber the
+            # in-flight outer call's provenance).
+            if served and not self._in_top_level:
+                first = next(iter(served.values()))
+                self.name = first.metadata.get("provider", "mediawiki-api")
+            return [served[u] for u in urls]
 
         def call(provider: WebProvider) -> list[WebResult]:
             # supports= below guarantees the isinstance holds; this guard is
@@ -584,13 +663,31 @@ class _ChainedProvider:
                 raise NotImplementedError(
                     f"provider {provider.name!r} does not implement fetch_many"
                 )
-            return provider.fetch_many(urls)
+            return provider.fetch_many(rest)
 
-        return self._top_level(
+        batched = self._top_level(
             call,
             lambda rs: _results_are_junk(rs, self._gates),
             supports=lambda p: isinstance(p, _BatchCapableProvider),
         )
+
+        if not served:
+            return batched
+
+        # Mixed wave: merge by original input order; batched results that
+        # changed URL mid-fetch (redirects) keep their slot by appending.
+        by_url = {r.url: r for r in batched}
+        out: list[WebResult] = []
+        seen: set[str] = set()
+        for u in urls:
+            if u in served:
+                out.append(served[u])
+                seen.add(u)
+            elif u in by_url:
+                out.append(by_url[u])
+                seen.add(u)
+        out.extend(r for r in batched if r.url not in seen)
+        return out
 
 
 def _default_provider_factory(
@@ -668,8 +765,7 @@ def resolve_web_provider(
     for pos, entry in enumerate(names):
         if not isinstance(entry, str) or not entry.strip():
             raise ValueError(
-                f"[web] provider entry at position {pos} must be a non-empty "
-                f"string; got {entry!r}"
+                f"[web] provider entry at position {pos} must be a non-empty string; got {entry!r}"
             )
         if entry not in known:
             raise ValueError(

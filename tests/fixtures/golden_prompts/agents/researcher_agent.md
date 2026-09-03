@@ -141,8 +141,12 @@ For each URL the parent agent gave you:
    - Is this a duplicate? If so, deprecate the worse copy.
 
    **Wikipedia SOURCE HUB rule:** Wikipedia articles are source hubs, never
-   citable sources. Extract references/citations, tag with `source-hub`,
-   and fetch the primary sources in Phase 2.
+   citable sources. Article notes carry clean prose only (the native-API
+   lane strips the reference list along with the chrome). To mine their
+   citations for primary sources, separately fetch the raw wikitext —
+   `https://en.wikipedia.org/w/index.php?title=<Title>&action=raw` — whose
+   inline `<ref>` citations carry titles and DOIs. Tag hubs with
+   `source-hub` and fetch the primary sources in Phase 2.
 
 5. If the content is good, write a real summary and add tags:
    `PYTHONIOENCODING=utf-8 {hpr_path} note update <note-id> --summary "<specific summary>" -j`
