@@ -829,6 +829,21 @@ def note_rm(
                 removed_assets.append(asset_file.name)
         shutil.rmtree(assets_dir, ignore_errors=True)
 
+    # Sources row (transcript-audit follow-up): `note rm` used to leave the
+    # fetch-provenance row behind with a dangling note_id, after which any
+    # re-fetch of the URL claimed duplicate:true pointing at a deleted note.
+    # Delete the row when it references the note being removed.
+    stale_urls = [
+        r["url"]
+        for r in vault.db.execute(
+            "SELECT url FROM sources WHERE note_id = ?", (note_id,)
+        ).fetchall()
+    ]
+    if stale_urls:
+        vault.db.execute("DELETE FROM sources WHERE note_id = ?", (note_id,))
+        vault.db.commit()
+    removed_source_urls = stale_urls
+
     # Finally, unlink the .md file
     if file_path.exists():
         file_path.unlink()
@@ -845,6 +860,8 @@ def note_rm(
         payload["removed_raw"] = removed_raw
     if removed_assets:
         payload["removed_assets"] = removed_assets
+    if removed_source_urls:
+        payload["removed_source_urls"] = removed_source_urls
 
     if json_output:
         output(success(payload, vault=str(vault.root)), json_mode=True)

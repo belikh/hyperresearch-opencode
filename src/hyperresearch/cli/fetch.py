@@ -255,6 +255,18 @@ def fetch(
     existing = conn.execute("SELECT note_id FROM sources WHERE url = ?", (url,)).fetchone()
     if existing and not force:
         note_id = existing["note_id"]
+        # Dangling-row guard: a sources row whose note was deleted (possible
+        # via pre-cleanup `note rm` or a hand-synced vault) must not claim a
+        # duplicate hit pointing at nothing. Treat it as unfetched.
+        note_exists = conn.execute(
+            "SELECT 1 FROM notes WHERE id = ?", (note_id,)
+        ).fetchone()
+        if not note_exists:
+            conn.execute("DELETE FROM sources WHERE url = ?", (url,))
+            conn.commit()
+            existing = None
+    if existing and not force:
+        note_id = existing["note_id"]
         # Graceful duplicate handling for the guided reading loop:
         # if the caller passed --suggested-by, append the breadcrumb to the
         # existing note instead of erroring out. This lets the main agent

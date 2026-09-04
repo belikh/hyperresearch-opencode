@@ -3805,3 +3805,14 @@ parsing `note show ID -j` single-note output as the bare note dict must
 read `data.notes[0]` — every such caller in this repo is updated, and
 the MCP server (which reads the DB directly, not this path) is
 unaffected.
+
+**F-C1 follow-up (found live during smoke):** `note rm` now also removes
+the `sources` row referencing the note (reported as
+`removed_source_urls`), and `fetch`'s duplicate guard verifies the
+referenced note still exists — a dangling row (possible from pre-fix
+deletes or hand-synced vaults) is treated as unfetched and cleared rather
+than claiming `duplicate:true` pointing at nothing. Two tests added
+(`TestStaleSourceRows`). Also: `DELETE ... RETURNING` inside the CLI
+held a transaction open against the sync engine's transaction
+(`cannot start a transaction within a transaction`) — the fix selects
+URLs first, then deletes and commits once.

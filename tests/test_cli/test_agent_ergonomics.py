@@ -353,3 +353,68 @@ class TestDuplicateFetch:
         assert result.exit_code == 0, result.output
         assert captured["url"] == "https://example.com/dup-force"
         assert json.loads(result.output)["data"].get("duplicate") is not True
+
+
+class TestStaleSourceRows:
+    """note rm must clean the sources row; fetch must not claim a duplicate
+    hit on a row whose note no longer exists (found live during the smoke
+    test: a deleted note's row made re-fetch return a dangling note_id)."""
+
+    def test_note_rm_removes_sources_row(self, vault):
+        self_url = "https://example.com/rm-dup"
+        from hyperresearch.core.vault import Vault
+
+        runner.invoke(app, ["note", "new", "Rm Source", "--body", "x", "--source", self_url])
+        runner.invoke(app, ["sync"])
+        v = Vault.discover()
+        row = v.db.execute("SELECT note_id FROM sources WHERE url = ?", (self_url,)).fetchone()
+        if row is None:
+            # Sync does not seed sources for hand-created notes; seed directly.
+            v.db.execute(
+                "INSERT INTO sources (url, note_id, domain, fetched_at, provider, content_hash)"
+                " VALUES (?, 'rm-source', 'example.com', '2026-01-01T00:00:00', 'test', 'x')",
+                (self_url,),
+            )
+            v.db.commit()
+
+        result = runner.invoke(app, ["note", "rm", "rm-source", "--force", "-j"])
+        assert result.exit_code == 0
+        payload = json.loads(result.output)["data"]
+        assert payload["removed_source_urls"] == [self_url]
+        row = v.db.execute("SELECT 1 FROM sources WHERE url = ?", (self_url,)).fetchone()
+        assert row is None
+
+    def test_fetch_ignores_dangling_source_row(self, vault, monkeypatch):
+        import hyperresearch.web.base as web_base
+
+        captured: dict[str, object] = {}
+
+        class FakeProv:
+            name = "fake"
+
+            def fetch(self, url, **kw):
+                captured["url"] = url
+                return web_base.WebResult(
+                    url=url,
+                    title="Fresh Page",
+                    content="A substantial body of genuine article text. " * 40,
+                )
+
+        monkeypatch.setattr(web_base, "resolve_web_provider", lambda *a, **kw: FakeProv())
+        result = runner.invoke(app, ["fetch", "https://example.com/gone", "-j"])
+        assert result.exit_code == 0, result.output
+        assert captured["url"] == "https://example.com/gone"
+
+        # Now delete the note (leaving the sources row via a second vault-less
+        # path is covered by rm cleanup; here simulate the dangling state).
+        from hyperresearch.core.vault import Vault
+
+        v = Vault.discover()
+        note_id = json.loads(result.output)["data"]["note_id"]
+        v.db.execute("DELETE FROM notes WHERE id = ?", (note_id,))
+        v.db.commit()
+
+        result2 = runner.invoke(app, ["fetch", "https://example.com/gone", "-j"])
+        assert result2.exit_code == 0, result2.output
+        doc = json.loads(result2.output)
+        assert doc["data"].get("duplicate") is not True
