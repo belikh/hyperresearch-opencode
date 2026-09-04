@@ -125,9 +125,15 @@ For each URL the parent agent gave you:
 
 2. If not already fetched, fetch it:
    `PYTHONIOENCODING=utf-8 hyperresearch fetch "<url>" --tag <topic> -j`
+   A duplicate is a HIT, not an error: the fetch returns `ok:true` with
+   `duplicate: true` + the existing `note_id`. Cite that note and move on
+   (`--force` only when the page genuinely changed).
 
 3. After fetching, read the note content:
-   `PYTHONIOENCODING=utf-8 hyperresearch note show <note-id> -j`
+   `PYTHONIOENCODING=utf-8 hyperresearch note read <note-id> --plain`
+   (windowed reads via `--chars N:M` when the body is long — the output
+   prints the exact continue-window marker. NEVER write inline Python to
+   slice `note show -j` output.)
 
 4. **Quality check** — read the content and decide:
    - Is this actually relevant to the research topic? If completely off-topic, deprecate it:

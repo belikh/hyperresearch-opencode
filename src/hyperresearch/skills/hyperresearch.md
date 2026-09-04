@@ -155,6 +155,46 @@ After step 1 returns, read `research/runs/<vault_tag>/prompt-decomposition.json`
 
 ---
 
+## Reading the vault without Python (canonical recipes)
+
+Agents burned thousands of `python3 -c` one-liners parsing CLI JSON — 43% of all bash calls in audited runs, with hundreds of KeyError retries. NEVER write inline Python to read hyperresearch output. Use these instead:
+
+**JSON envelope contract (every `-j` command):** `{ok, data, error?, error_code?, count?, vault?, timestamp}` — `data` is ALWAYS present (`null` on errors). `note show <ids> -j` ALWAYS returns `data.notes[]` + `data.not_found[]`, for one id or ten.
+
+**`--jq` — server-side projection (goes BEFORE the subcommand, like `git --no-pager`):**
+
+```bash
+$HPR --jq '.vault_tag' vault-tag <slug> --json                 # mint a tag, read one field
+$HPR --jq '.data[].id' note list --tag <tag> --all -j           # just the ids
+$HPR --jq '.data.results[].title' search "<query>" -j           # search titles
+$HPR --jq '.data.count' escalation count --status queued -j     # queue depth as a number
+$HPR --jq '.data | length' note list --limit 50 -j              # how many
+```
+
+Supports dot paths, `[index]`, `[]` iteration, `|` pipes, and `length`. Scalars print bare, one per line. For anything fancier, pipe to the real `jq` binary — still no Python.
+
+**`note read` — read BODIES as plain text (never `note show -j` for reading):**
+
+```bash
+$HPR note read <id>                        # first 8000 chars + a "continue with --chars N:M" marker
+$HPR note read <id> --chars 8000:16000     # windowed read (open ends OK: 8000: or :3000)
+$HPR note read <id> --lines 40:120         # line windows
+$HPR note read <id1> <id2> --plain         # batch, fence stripped, per-note capped
+```
+
+**Column harvests — `--fields` + `--format tsv` (note list / search / claims list / escalation list):**
+
+```bash
+$HPR note list --tag <tag> --all --fields id,word_count,tier --format tsv
+$HPR search "<query>" --fields id,title --format tsv
+```
+
+**Run artefacts — `run artefact <name> --summary` prints the shape (keys, types, list lengths) before you parse it.** Known names: decomposition, loci, loci-a/b, contradiction-graph, consensus, tensions, comparisons, evidence-digest, draft-a/b/c, cite-check-pairs, critic-findings-{dialectic,depth,width,instruction}, patch-log, polish-log, readability, audit, query, scaffold. Without `--summary` the file is dumped verbatim.
+
+**Duplicate fetches are HITS, not errors.** `fetch` on an already-fetched URL returns `ok:true` with `duplicate: true` + the existing `note_id` — cite the existing note and move on. `--force` refetches.
+
+---
+
 ## Browser-lane escalations (all tiers)
 
 Blocked fetches (login walls, bot walls, captchas) are queued, not lost: `$HPR escalation list --status queued --tag <vault_tag> -j`. Step 2.8 drains the queue via ONE `hyperresearch-browser-fetcher` subagent driving the user's real Chrome browser. Two standing rules:

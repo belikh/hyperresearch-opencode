@@ -214,7 +214,7 @@ class TestNoteUpdateVerb:
                 "tier=institutional", "content_type=paper"} <= changed
 
         result = runner.invoke(app, ["note", "show", "upd-me", "--meta", "--json"])
-        meta = json.loads(result.output)["data"]
+        meta = json.loads(result.output)["data"]["notes"][0]
         assert meta["status"] == "evergreen"
         assert meta["tier"] == "institutional"
 
@@ -223,7 +223,7 @@ class TestNoteUpdateVerb:
         assert result.exit_code == 0
         assert "deprecated" in json.loads(result.output)["data"]["changed"]
         result = runner.invoke(app, ["note", "show", "upd-me", "--meta", "--json"])
-        assert json.loads(result.output)["data"]["status"] == "deprecated"
+        assert json.loads(result.output)["data"]["notes"][0]["status"] == "deprecated"
 
     def test_invalid_tier_rejected(self, ops_vault: Path, updated):
         result = runner.invoke(app, ["note", "update", "upd-me", "--tier", "bogus", "--json"])

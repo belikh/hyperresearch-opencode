@@ -160,7 +160,7 @@ def test_note_show_surfaces_the_substitution(vault_dir: Path):
 
     shown = runner.invoke(app, ["note", "show", fetched["note_id"], "--json"])
     assert shown.exit_code == 0
-    data = json.loads(shown.output)["data"]
+    data = json.loads(shown.output)["data"]["notes"][0]
 
     assert data["source"] == PAPER_URL
     assert data["oa"]["url"] == "https://repo.example.org/widgets.pdf"
@@ -181,7 +181,7 @@ def test_plain_note_has_no_oa_block(vault_dir: Path, monkeypatch):
 
     shown = json.loads(
         runner.invoke(app, ["note", "show", fetched["note_id"], "--json"]).output
-    )["data"]
+    )["data"]["notes"][0]
     assert "oa" not in shown
 
 
@@ -210,7 +210,7 @@ def test_blocked_fetch_is_rescued(vault_dir: Path, monkeypatch):
 
     shown = json.loads(
         runner.invoke(app, ["note", "show", data["note_id"], "--json"]).output
-    )["data"]
+    )["data"]["notes"][0]
     assert shown["oa"]["kind"] == "rescued"
     assert shown["oa"]["nothing_from_source"] is True
 

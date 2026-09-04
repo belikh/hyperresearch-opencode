@@ -85,7 +85,15 @@ If the escalation names a structural issue (e.g., "user asked for a ranked list;
 
 ## Step 15.4 — Final integrity gate
 
-Before declaring the run complete, verify every expected pipeline artifact exists. **The required set depends on the tier:**
+Run the structural battery FIRST — it is the CLI's check, never hand-rolled:
+
+```bash
+$HPR run verify <vault_tag> -j
+```
+
+It checks report existence, required headings, length vs the profile's word target (±20%), citation density, scaffold-leak, quote-integrity, retractions, and tier artefacts — the same battery `run finish` gates on. Fix what it names before touching artefact presence.
+
+Then verify every expected pipeline artifact exists. **The required set depends on the tier:**
 
 - **light tier:** only `research/runs/<vault_tag>/polish-log.json` is required (steps 12–14 are skipped, so no critic findings or patch log).
 - **full tier:** require all four critic findings + patch-log + polish-log:

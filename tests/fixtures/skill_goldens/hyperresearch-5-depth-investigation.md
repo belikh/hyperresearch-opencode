@@ -61,10 +61,12 @@ Read these inputs:
      RUN DIRECTIVES: append the FULL contents of research/runs/<vault_tag>/shims/research.md here, verbatim.
 
      CRITICAL: Read the full source text of relevant vault notes (via
-     `hyperresearch note show <id1> <id2> ... -j`) BEFORE writing your
-     interim note. Drafting from summaries alone produces paraphrase;
-     drafting from full text produces synthesis. Use your source_budget
-     to fetch additional sources beyond the width corpus if needed.
+     `hyperresearch note read <id1> <id2> --plain` — windowed with
+     `--chars N:M` when bodies are long; the output tells you the exact
+     next window) BEFORE writing your interim note. Drafting from
+     summaries alone produces paraphrase; drafting from full text
+     produces synthesis. Use your source_budget to fetch additional
+     sources beyond the width corpus if needed.
 
      OUTPUT: Write a single interim note via the hyperresearch CLI with
      type=interim, tags = <vault_tag> + locus-<locus-name>. The note MUST
@@ -86,8 +88,10 @@ Read these inputs:
    ```
    Then batch-read them:
    ```bash
-   $HPR note show <id1> <id2> ... -j
+   $HPR note read <id1> <id2> --plain
    ```
+   (Windowed reads via `--chars N:M` when notes are long — the output
+   prints the exact continue-window marker.)
    Hold the Committed Position sections in your context — they are the load-bearing input to step 6 (cross-locus reconciliation).
 
 **INVARIANT:** Every interim note ends with a `## Committed position` section. An interim note ending with descriptive summary only is defective — flag it and re-spawn that investigator with the committed-position requirement emphasized.

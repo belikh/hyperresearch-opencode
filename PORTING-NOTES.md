@@ -3736,3 +3736,72 @@ batch pre-pass split, all-wiki waves never reaching the batch lane).
 `fetch_provider: mediawiki-api` provenance lands in frontmatter and the
 sources table. Live-verified end to end: single fetch, fetch-batch wave,
 redirect (USA → United States), ja/simple wikis.
+
+## F-C1 — Agent-ergonomics output contract (transcript-audit fixes R1-R7)
+
+Evidence-driven piece: the 2026-09-04 audit of 445 opencode transcripts
+(`evidence/transcript-audit-2026-09-04/findings.md`) found 43% of all
+bash calls in hyperresearch sessions were hand-written `python3 -c`
+adapters around `-j` output — 5,367 scripts, 398 hard errors (KeyError
+'notes' alone hit 74 times), 181 immediate retries, 1,827 `/tmp/opencode`
+staging calls working around tool-output truncation. Seven fixes, all
+validated by `tests/test_cli/test_agent_ergonomics.py` (36 cases):
+
+**R1 — stable envelope + `--jq`.** Error responses now always carry
+`data: null` (the historical `exclude_none=True` dump omitted the key
+entirely, which is where the KeyError retries came from). Global
+`--jq EXPR` flag (placed before the subcommand, `git --no-pager` style)
+projects any `-j` output server-side via a dependency-free jq subset
+(`cli/_jq.py`: dot paths, `[index]`, `[]` iteration, `|` pipes,
+`length`; unsupported syntax exits 2 with a pointer to the real jq).
+`note show` returns ONE shape for any id count: `data.notes[]` +
+`data.not_found[]` — the single/multi split was the single largest
+error source. All-missed reads still exit 1 NOT_FOUND (id-typo signal).
+
+**R2 — `note read`.** The agent-first body reader: plain text, per-note
+`--max-chars` cap (default 8000) with a printed `continue with
+--chars N:M` marker, `--chars`/`--lines` windows, `--meta-line` header,
+`--plain` to strip the untrusted fence for windowed reading (the fence
+opening in one window and closing 40k later is pure noise there), `-j`
+mode reporting windows + continue offsets. Kills the 818 body-slice
+python reads and the /tmp staging dance.
+
+**R3 — `--fields` + `--format tsv`** on note list / search / claims
+list / escalation list: column harvests become grep/cut pipelines.
+`search --fields` also skips body fetching entirely. Unknown fields
+error with the available-field list.
+
+**R4 — `escalation count`** (bare integer; the most-polled number) and
+**`run artefact <name> [--summary]`**: canonical name → path map for
+the 22 pipeline artefacts (decomposition, loci, contradiction-graph,
+critic-findings-*, patch-log, polish-log, ...), traversal-guarded;
+`--summary` prints the JSON shape (keys, types, list lengths, first
+item's keys) so a parser can be written correctly on the first attempt —
+the 92 schema-probe calls existed because nothing documented the shapes.
+
+**R5 — duplicate `fetch` is a success.** `ok:true` + `duplicate: true`
++ existing `note_id`, exit 0 (64 error-shaped round trips in the audit).
+`--force` bypasses the dedup guard.
+
+**R6 — skill/doc patches.** Entry skill gains a "Reading the vault
+without Python" recipe block (envelope contract, --jq placement,
+note read, tsv, artefact summary, duplicate semantics); step 5
+prescribes `note read` over `note show -j` for corpus reading; step
+15.4 mandates `run verify` before the artefact loop; fetcher agent
+phase 1 now documents duplicate-as-hit. AGENTS.md blurb (agent_docs.py)
+gains the compact output-contract section — note the blurb goes through
+`.format()`, so literal braces in it are doubled.
+
+**R7 — PATH shim.** `install --global` symlinks the venv CLI into
+`~/.local/bin` (idempotent, best-effort, reported as `path_shim` in the
+install JSON) — 23 audited `command not found` calls were agents typing
+the bare name outside the owning project.
+
+Golden fixtures regenerated through the renderers (skill_goldens ×3,
+agent_goldens ×2, golden_prompts skills+researcher_agent); three
+test_commands/test_vault_ops/test_oa_fetch assertions updated to the
+uniform note-show envelope. Behavioural change flagged loudly: callers
+parsing `note show ID -j` single-note output as the bare note dict must
+read `data.notes[0]` — every such caller in this repo is updated, and
+the MCP server (which reads the DB directly, not this path) is
+unaffected.

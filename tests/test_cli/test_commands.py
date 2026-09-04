@@ -88,7 +88,10 @@ def test_note_show(vault_dir: Path):
     result = runner.invoke(app, ["note", "show", "show-me", "--json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
-    assert data["data"]["title"] == "Show Me"
+    # Uniform envelope (transcript audit F1a): single and batch reads both
+    # return data.notes[] + data.not_found[] — one shape, always.
+    assert data["data"]["notes"][0]["title"] == "Show Me"
+    assert data["data"]["not_found"] == []
 
 
 def test_note_tags(vault_dir: Path):
@@ -172,7 +175,7 @@ def test_note_show_json_wraps_fetched_body_as_untrusted(vault_dir: Path):
 
     result = runner.invoke(app, ["note", "show", "fetched-page", "--json"])
     assert result.exit_code == 0
-    fetched = json.loads(result.output)["data"]
+    fetched = json.loads(result.output)["data"]["notes"][0]
     assert fetched.get("untrusted") is True
     assert fetched["body"].startswith('<untrusted-source url="https://example.com/fetched">')
     assert fetched["body"].endswith("</untrusted-source>")
@@ -181,7 +184,7 @@ def test_note_show_json_wraps_fetched_body_as_untrusted(vault_dir: Path):
     # source-absence, is what must keep it unfenced.
     result = runner.invoke(app, ["note", "show", "own-analysis", "--json"])
     assert result.exit_code == 0
-    trusted = json.loads(result.output)["data"]
+    trusted = json.loads(result.output)["data"]["notes"][0]
     assert trusted.get("untrusted") is None
     assert "<untrusted-source" not in trusted["body"]
 

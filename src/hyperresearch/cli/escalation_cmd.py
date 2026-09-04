@@ -46,6 +46,8 @@ def escalation_list(
     status: str | None = typer.Option(None, "--status", "-s", help="queued|in_progress|fetched|needs_human|abandoned"),
     tag: str | None = typer.Option(None, "--tag", "-t", help="Only items for this vault_tag"),
     limit: int = typer.Option(100, "--limit", "-n", help="Max items"),
+    fields: str | None = typer.Option(None, "--fields", help="Comma-separated projection, e.g. id,url,reason"),
+    fmt: str = typer.Option("text", "--format", help="text|tsv — tsv prints a header + tab-separated rows"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON output"),
 ) -> None:
     """List escalation queue items (highest utility first)."""
@@ -55,6 +57,27 @@ def escalation_list(
     items = list_items(vault.db, status=status, vault_tag=tag, limit=limit)
     stats = queue_stats(vault.db, vault_tag=tag)
 
+    field_list: list[str] | None = None
+    if fields:
+        from hyperresearch.cli._output import project_fields
+
+        field_list = [f.strip() for f in fields.split(",") if f.strip()]
+        try:
+            items = project_fields(items, field_list)
+        except ValueError as e:
+            if json_output:
+                output(error(str(e), "INVALID_FIELDS"), json_mode=True)
+            else:
+                console.print(f"[red]Error:[/] {e}")
+            raise typer.Exit(1)
+
+    if fmt == "tsv":
+        import sys as _sys
+
+        from hyperresearch.cli._output import render_tsv
+        _sys.stdout.write(render_tsv(items, field_list or ["id", "status", "reason", "url"]) + "\n")
+        return
+
     if json_output:
         output(success({"items": items, "stats": stats}, count=len(items), vault=str(vault.root)), json_mode=True)
     else:
@@ -62,6 +85,27 @@ def escalation_list(
             score = f"u{it['utility_score']:g}" if it["utility_score"] is not None else "u?"
             console.print(f"  #{it['id']} [{it['status']}] ({it['reason']}, {score}) {it['url']}")
         console.print(f"[dim]{stats}[/]")
+
+
+@app.command("count")
+def escalation_count(
+    status: str | None = typer.Option(None, "--status", "-s", help="queued|in_progress|fetched|needs_human|abandoned"),
+    tag: str | None = typer.Option(None, "--tag", "-t", help="Only items for this vault_tag"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON output"),
+) -> None:
+    """Queue depth as a bare integer — the number orchestrators poll.
+
+    Transcript audit R4: 39 python one-liners existed solely to extract
+    this count from `escalation list -j` output.
+    """
+    from hyperresearch.core.escalation import list_items
+
+    vault = _vault_or_exit(json_output)
+    items = list_items(vault.db, status=status, vault_tag=tag, limit=1000000)
+    if json_output:
+        output(success({"count": len(items), "status": status}, vault=str(vault.root)), json_mode=True)
+    else:
+        console.print(str(len(items)))
 
 
 @app.command("add")

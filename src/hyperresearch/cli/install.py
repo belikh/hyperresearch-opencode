@@ -161,6 +161,44 @@ def _counts(written: int, unchanged: int, pruned: int) -> dict[str, int]:
     return {"written": written, "unchanged": unchanged, "pruned": pruned}
 
 
+def _install_path_shim() -> str | None:
+    """Symlink the running CLI into ~/.local/bin (best effort, idempotent).
+
+    Returns a human-readable status string for the install report, or None
+    when nothing could be done (in which case the full venv path in
+    AGENTS.md remains the documented convention). Never raises: a PATH
+    shim is a convenience, not a correctness requirement.
+    """
+    import os
+    import shutil
+    import sys
+
+    try:
+        exe = Path(sys.executable)
+        cli = exe.parent / "hyperresearch"
+        if not cli.is_file():
+            which = shutil.which("hyperresearch")
+            if which is None:
+                return None
+            cli = Path(which)
+
+        bin_dir = Path.home() / ".local" / "bin"
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        link = bin_dir / "hyperresearch"
+
+        if link.is_symlink() and link.resolve() == cli.resolve():
+            return f"{link} → {cli} (already current)"
+        if link.exists() and not link.is_symlink():
+            return f"skipped: {link} exists and is not our symlink"
+        if link.is_symlink() or link.exists():
+            link.unlink()
+        link.symlink_to(cli)
+        on_path = str(bin_dir) in (os.environ.get("PATH") or "")
+        return f"{link} → {cli}" + ("" if on_path else " (add ~/.local/bin to PATH)")
+    except OSError:
+        return None
+
+
 def _prune_retired_agents(agents_dir: Path, keep_filenames: set[str]) -> list[Path]:
     """Remove managed-namespace agent files our spec no longer emits."""
     if not agents_dir.is_dir():
@@ -418,6 +456,16 @@ def install(
 
     pruned_paths = [*agents_pruned, *skills_pruned, *plugins_pruned]
 
+    # --- PATH shim (transcript audit R7) ------------------------------------
+    # 23 audited bash calls died on `hyperresearch: command not found` —
+    # agents forget the full venv path the moment they leave the project
+    # that owns it. A ~/.local/bin symlink makes the bare name work
+    # everywhere. Only attempted on --global: project installs already get
+    # the absolute path baked into their AGENTS.md.
+    path_shim: str | None = None
+    if global_install:
+        path_shim = _install_path_shim()
+
     # --- Report -------------------------------------------------------------
     data: dict[str, Any] = {
         "target": str(project_root),
@@ -443,6 +491,7 @@ def install(
             1 if agents_md_changed else 0, 0 if agents_md_changed else 1, 0
         ),
         "pruned_paths": [str(p) for p in pruned_paths],
+        "path_shim": path_shim,
     }
 
     if json_output:
@@ -468,6 +517,8 @@ def install(
             f"  {label}: +{counts['written']} ={counts['unchanged']} -{counts['pruned']} pruned"
         )
     console.print(f"  AGENTS.md: {'section injected' if agents_md_changed else 'section current'}")
+    if path_shim:
+        console.print(f"  [green]PATH shim:[/] {path_shim}")
     for pruned in pruned_paths:
         console.print(f"  [yellow]Pruned:[/] {pruned}")
     total_writes = sum(ns["written"] for ns in (data["agents"], data["skills"], data["plugin"], data["command"]))

@@ -130,6 +130,25 @@ body came from `source:` as usual.
 {hpr} tags --json                          # Existing tag vocabulary
 ```
 
+### Reading output without Python
+
+NEVER write inline `python3 -c` scripts to parse `{hpr}` JSON output — that
+pattern caused 43% of all bash calls (and hundreds of KeyErrors) in audited
+runs. The supported tools:
+
+```bash
+{hpr} --jq '.data[].id' note list --tag ml --all --json   # server-side projection (--jq BEFORE the subcommand)
+{hpr} note read <id> --plain                               # read bodies as text; --chars N:M windows long ones
+{hpr} note list --fields id,word_count --format tsv        # grep/cut-friendly columns
+{hpr} run artefact loci --summary                          # artefact shape (keys/types) before parsing
+{hpr} escalation count --status queued                     # queue depth as a bare integer
+```
+
+Every `-j` envelope is `{{ok, data, ...}}` with `data` always present (`null`
+on errors); `note show` always returns `data.notes[]` + `data.not_found[]`
+for any number of ids. `fetch` on an already-fetched URL is `ok:true` with
+`duplicate: true` — cite the existing note, don't retry.
+
 ### Untrusted content policy
 
 Note bodies fetched from the internet arrive wrapped in

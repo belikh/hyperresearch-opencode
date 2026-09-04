@@ -31,8 +31,15 @@ app = typer.Typer(
 @app.callback()
 def main(
     version: bool = typer.Option(False, "--version", "-V", callback=_version_callback, is_eager=True, help="Show version"),
+    jq: str | None = typer.Option(
+        None,
+        "--jq",
+        help="Project --json output through a jq-style expression (e.g. '.data.notes[].id'). Applies to every -j command; dot paths, [index], [] iteration, | pipes and length are supported. Scalars print bare, one result per line — no wrapper envelope.",
+    ),
 ) -> None:
-    pass
+    from hyperresearch.cli._output import set_jq_program
+
+    set_jq_program(jq)
 
 
 # Root-level commands

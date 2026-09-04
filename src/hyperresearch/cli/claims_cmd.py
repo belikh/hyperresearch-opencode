@@ -70,6 +70,8 @@ def claims_list(
     note: str | None = typer.Option(None, "--note", help="Only claims from this source note"),
     vault_tag: str | None = typer.Option(None, "--tag", "-t", help="Only claims with this vault_tag"),
     limit: int = typer.Option(100, "--limit", "-n", help="Max claims"),
+    fields: str | None = typer.Option(None, "--fields", help="Comma-separated projection, e.g. note_id,claim"),
+    fmt: str = typer.Option("text", "--format", help="text|tsv — tsv prints a header + tab-separated rows"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON output"),
 ) -> None:
     """List stored claims, optionally filtered by source note or vault_tag."""
@@ -77,6 +79,27 @@ def claims_list(
 
     vault = _vault_or_exit(json_output)
     rows = list_claims(vault.db, note_id=note, vault_tag=vault_tag, limit=limit)
+
+    field_list: list[str] | None = None
+    if fields:
+        from hyperresearch.cli._output import project_fields
+
+        field_list = [f.strip() for f in fields.split(",") if f.strip()]
+        try:
+            rows = project_fields(rows, field_list)
+        except ValueError as e:
+            if json_output:
+                output(error(str(e), "INVALID_FIELDS"), json_mode=True)
+            else:
+                console.print(f"[red]Error:[/] {e}")
+            raise typer.Exit(1)
+
+    if fmt == "tsv":
+        import sys as _sys
+
+        from hyperresearch.cli._output import render_tsv
+        _sys.stdout.write(render_tsv(rows, field_list or ["note_id", "claim"]) + "\n")
+        return
 
     if json_output:
         output(success({"claims": rows}, count=len(rows), vault=str(vault.root)), json_mode=True)

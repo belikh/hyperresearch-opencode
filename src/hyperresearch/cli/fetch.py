@@ -231,6 +231,7 @@ def fetch(
         help="Step-2 fetch-selection utility score (0-18). Persisted to note frontmatter so the quality composite can use it after fetching.",
     ),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON output"),
+    force: bool = typer.Option(False, "--force", help="Fetch even if the URL already exists as a note (writes a fresh note; the sources row keeps pointing at the first fetch)"),
 ) -> None:
     """Fetch a URL and save its content as a research note."""
     from hyperresearch.core.note import write_note
@@ -252,7 +253,7 @@ def fetch(
 
     # Check if URL already fetched
     existing = conn.execute("SELECT note_id FROM sources WHERE url = ?", (url,)).fetchone()
-    if existing:
+    if existing and not force:
         note_id = existing["note_id"]
         # Graceful duplicate handling for the guided reading loop:
         # if the caller passed --suggested-by, append the breadcrumb to the
@@ -286,14 +287,21 @@ def fetch(
                 console.print(f"  added {added} backlink(s) to existing note")
             return
 
+        # Transcript audit R5: a duplicate is a HIT, not an error. The old
+        # ok:false + exit-1 shape made fetchers re-decide the same URL 64
+        # times across audited runs. Dedup already worked; now the exit
+        # code and envelope say so. --force is the explicit escape hatch.
+        data = {
+            "note_id": note_id,
+            "url": url,
+            "duplicate": True,
+            "message": f"URL already fetched as note '{note_id}' (dedup guard; use --force to refetch)",
+        }
         if json_output:
-            output(
-                error(f"URL already fetched as note '{note_id}'", "DUPLICATE_URL"),
-                json_mode=True,
-            )
+            output(success(data, vault=str(vault.root)), json_mode=True)
         else:
             console.print(f"[yellow]Already fetched:[/] {url} → note '{note_id}'")
-        raise typer.Exit(1)
+        return
 
     # Auto-visible for sites that kill headless sessions on first contact
     if not visible and vault.config.web_profile:

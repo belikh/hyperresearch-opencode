@@ -32,6 +32,8 @@ def search(
     semantic: bool = typer.Option(False, "--semantic", help="Blend in embedding similarity (requires [embeddings] provider)"),
     offset: int = typer.Option(0, "--offset", help="Offset for pagination"),
     max_tokens: int | None = typer.Option(None, "--max-tokens", help="Truncate results to fit token budget (1 token ~ 4 chars)"),
+    fields: str | None = typer.Option(None, "--fields", help="Comma-separated projection of each result, e.g. id,title,word_count (implies no body)"),
+    fmt: str = typer.Option("text", "--format", help="text|tsv — tsv prints a header + tab-separated rows"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON output"),
 ) -> None:
     """Full-text search across all notes."""
@@ -154,8 +156,9 @@ def search(
             merged.append(r)
         results = merged
 
-    # Auto-include body in JSON mode (agents almost always need it)
-    want_body = include_body or (json_output and not no_body)
+    # Auto-include body in JSON mode (agents almost always need it) — but
+    # never when --fields projects the body away.
+    want_body = (include_body or (json_output and not no_body)) and not fields
     if want_body and results:
         for r in results:
             row = vault.db.execute(
@@ -196,6 +199,31 @@ def search(
             if r.get("body") and is_untrusted(r.get("source"), r.get("type")):
                 r["body"] = wrap_body(r["body"], r["source"])
                 r["untrusted"] = True
+
+    # Field projection (transcript audit R3): --fields selects columns and
+    # drops the body entirely — the id/title/word_count harvest that agents
+    # previously piped through python one-liners.
+    field_list: list[str] | None = None
+    if fields:
+        from hyperresearch.cli._output import project_fields
+
+        field_list = [f.strip() for f in fields.split(",") if f.strip()]
+        try:
+            results = project_fields(results, field_list)
+        except ValueError as e:
+            if json_output:
+                output(error(str(e), "INVALID_FIELDS"), json_mode=True)
+            else:
+                console.print(f"[red]Error:[/] {e}")
+            raise typer.Exit(1)
+
+    if fmt == "tsv":
+        from hyperresearch.cli._output import render_tsv
+
+        tsv_fields = field_list or ["id", "title", "status", "word_count"]
+        import sys as _sys
+        _sys.stdout.write(render_tsv(results, tsv_fields) + "\n")
+        return
 
     if json_output:
         output(

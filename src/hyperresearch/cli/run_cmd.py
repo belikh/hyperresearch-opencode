@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import typer
@@ -493,3 +494,159 @@ def run_finish(
             )
     if not verify["passed"]:
         raise typer.Exit(1)
+
+
+# Canonical artefact names → path fragments inside research/runs/<tag>/.
+# (transcript audit R4) 92 schema-discovery probes (`print(type(d))`,
+# `list(d.keys())`) per run existed because agents had no documented way to
+# learn an artefact's shape before parsing it. Known names resolve exactly;
+# anything else falls back to a guarded path lookup inside the run dir.
+_ARTEFACT_NAMES: dict[str, str] = {
+    "query": "query.md",
+    "scaffold": "scaffold.md",
+    "decomposition": "prompt-decomposition.json",
+    "loci": "loci.json",
+    "loci-a": "loci-a.json",
+    "loci-b": "loci-b.json",
+    "contradiction-graph": "temp/contradiction-graph.json",
+    "consensus": "temp/consensus-claims.json",
+    "tensions": "temp/source-tensions.json",
+    "comparisons": "comparisons.md",
+    "evidence-digest": "temp/evidence-digest.md",
+    "draft-a": "temp/draft-a.md",
+    "draft-b": "temp/draft-b.md",
+    "draft-c": "temp/draft-c.md",
+    "cite-check-pairs": "cite-check-pairs.json",
+    "critic-findings-dialectic": "critic-findings-dialectic.json",
+    "critic-findings-depth": "critic-findings-depth.json",
+    "critic-findings-width": "critic-findings-width.json",
+    "critic-findings-instruction": "critic-findings-instruction.json",
+    "patch-log": "patch-log.json",
+    "polish-log": "polish-log.json",
+    "readability": "temp/readability-recommendations.json",
+    "audit": "audit_findings.json",
+}
+
+
+def _resolve_artefact(run_dir: Path, name: str) -> Path | None:
+    frag = _ARTEFACT_NAMES.get(name, name)
+    candidates = [
+        run_dir / frag,
+        run_dir / f"{frag}.json",
+        run_dir / f"{frag}.md",
+        run_dir / "temp" / frag,
+        run_dir / "temp" / f"{frag}.json",
+        run_dir / "temp" / f"{frag}.md",
+    ]
+    for c in candidates:
+        resolved = c.resolve()
+        # Traversal guard — same discipline as note mv: artefact paths
+        # must stay inside the run workspace.
+        if not resolved.is_relative_to(run_dir.resolve()):
+            continue
+        if resolved.is_file():
+            return resolved
+    return None
+
+
+def _summarise_artefact(path: Path) -> dict[str, object]:
+    """Shape-first summary: enough to write a correct parser in one try."""
+    import json as _json
+
+    text = path.read_text(encoding="utf-8", errors="replace")
+    summary: dict[str, object] = {
+        "name": path.name,
+        "bytes": len(text.encode("utf-8")),
+    }
+    stripped = text.lstrip()
+    if stripped.startswith("{") or stripped.startswith("["):
+        try:
+            doc = _json.loads(text)
+        except _json.JSONDecodeError as e:
+            summary["json"] = f"PARSE_ERROR: {e}"
+            return summary
+        if isinstance(doc, dict):
+            keys: dict[str, object] = {}
+            for k, v in doc.items():
+                if isinstance(v, list):
+                    keys[k] = f"list[{len(v)}]" + (f" of {sorted(v[0].keys())}" if v and isinstance(v[0], dict) else "")
+                elif isinstance(v, dict):
+                    keys[k] = f"dict[{sorted(v.keys())[:8]}]"
+                else:
+                    keys[k] = type(v).__name__
+            summary["top_level"] = keys
+        elif isinstance(doc, list):
+            summary["top_level"] = f"list[{len(doc)}]" + (
+                f" of {sorted(doc[0].keys())}" if doc and isinstance(doc[0], dict) else ""
+            )
+    else:
+        words = len(text.split())
+        headings = [ln.rstrip() for ln in text.split("\n") if ln.startswith("#")][:20]
+        summary["markdown"] = {"words": words, "headings": headings}
+    return summary
+
+
+@app.command("artefact")
+def run_artefact(
+    name: str = typer.Argument(..., help=f"Artefact name or run-relative path. Known names: {', '.join(sorted(_ARTEFACT_NAMES))}"),
+    vault_tag: str | None = typer.Option(None, "--tag", "-t", help="Run tag (default: newest run)"),
+    summary: bool = typer.Option(False, "--summary", help="Describe the artefact's shape (JSON keys/types, markdown headings) instead of dumping it"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON output"),
+) -> None:
+    """Read a run artefact — or learn its shape with --summary.
+
+    Kills the schema-discovery dance: `run artefact contradiction-graph
+    --summary` prints the top-level keys with types and list lengths so a
+    parser can be written correctly on the first attempt. Without
+    --summary the file is dumped verbatim (JSON pretty-printed, markdown
+    as-is).
+    """
+    import json as _json
+    import sys
+
+    vault = _vault_or_exit(json_output)
+    tag = _resolve_tag(vault, vault_tag, json_output)
+    run_dir = vault.run_dir(tag)
+    path = _resolve_artefact(run_dir, name)
+    if path is None:
+        known = ", ".join(sorted(_ARTEFACT_NAMES))
+        if json_output:
+            output(error(f"artefact '{name}' not found under {run_dir}. Known names: {known}", "NOT_FOUND"), json_mode=True)
+        else:
+            console.print(f"[red]Not found:[/] {name} under {run_dir}")
+            console.print(f"[dim]Known names: {known}[/]")
+        raise typer.Exit(1)
+
+    rel = path.relative_to(vault.root)
+    if summary:
+        s = _summarise_artefact(path)
+        if json_output:
+            output(success(s, vault=str(vault.root)), json_mode=True)
+        else:
+            console.print(f"[bold]{name}[/] [dim]→ {rel.as_posix()}[/]")
+            if "top_level" in s:
+                tl = s["top_level"]
+                if isinstance(tl, dict):
+                    for k, v in tl.items():
+                        console.print(f"  [cyan]{k}[/]: {v}")
+                else:
+                    console.print(f"  {tl}")
+            md = s.get("markdown")
+            if isinstance(md, dict):
+                console.print(f"  markdown: {md['words']} words, {len(md['headings'])} headings")
+        return
+
+    text = path.read_text(encoding="utf-8", errors="replace")
+    if json_output:
+        output(success({"name": name, "path": rel.as_posix(), "content": text}, vault=str(vault.root)), json_mode=True)
+        return
+    stripped = text.lstrip()
+    if stripped.startswith("{") or stripped.startswith("["):
+        try:
+            sys.stdout.write(_json.dumps(_json.loads(text), indent=2, default=str) + "\n")
+            return
+        except _json.JSONDecodeError:
+            pass
+    sys.stdout.write(text)
+    if not text.endswith("\n"):
+        sys.stdout.write("\n")
