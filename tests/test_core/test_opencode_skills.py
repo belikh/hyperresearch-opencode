@@ -383,26 +383,27 @@ def test_injection_creates_missing_agents_md(tmp_path: Path) -> None:
     assert text.startswith("# AGENTS.md\n")
     assert text.count(MARKER_START) == 1 and text.count(MARKER_END) == 1
     assert MARKER_START in text and MARKER_END in text
-    # opencode-specific blurb deltas are present...
-    assert ".opencode/skills/hyperresearch/SKILL.md" in text
-    assert "opencode's native `skill` tool" in text
-    assert "every task tool call passes" in text
-    assert "not installed in this opencode port" in text
-    # ...and the Claude-harness originals they replaced are gone.
-    assert ".claude/skills/" not in text
-    assert "`Skill` tool" not in text and "Skill tool" not in text
-    assert "every Task call passes" not in text
-    assert "browser-fetcher agent drains them" not in text
-    # untrusted-content policy, OA-substitution disclosure, academic-first,
-    # curation doctrine all survive the port (mission-required sections).
-    for required in (
+    # Pointer-only blurb: skill-first doctrine + standing rules, no bloat.
+    assert "## Research Base (hyperresearch)" in text
+    assert "load the `hyperresearch` skill" in text
+    assert "Never use WebFetch" in text
+    assert "<untrusted-source>" in text
+    assert "{hpr}" not in text, "CLI placeholder must be substituted"
+    # Full-blurb regression guard — these sections must NOT be in AGENTS.md
+    # (they live in the skill, loaded on demand).
+    for banned in (
         "### Untrusted content policy",
-        "### Open-access substitution — check this before quoting a paper",
+        "### Open-access substitution",
         "### Academic APIs before web search",
         "### Curate after every session",
+        "### Run management",
+        "### What the skill files own",
+        "### Canonical research query",
+        "### PDFs fetch directly",
+        "### Searching the vault",
+        "### Reading output without Python",
     ):
-        assert required in text, f"blurb lost required section: {required}"
-    assert "{hpr}" not in text, "CLI placeholder must be substituted"
+        assert banned not in text, f"full blurb regressed into AGENTS.md: {banned}"
 
 
 def test_injection_is_idempotent(tmp_path: Path) -> None:
@@ -482,7 +483,8 @@ def test_injection_substitutes_custom_hpr_path(tmp_path: Path) -> None:
     path = tmp_path / "AGENTS.md"
     inject_agents_md(path, hpr_path="/opt/tools/bin/hpr")
     text = path.read_text(encoding="utf-8")
-    assert "/opt/tools/bin/hpr escalation list --status queued -j" in text
+    assert "/opt/tools/bin/hpr" in text
+    assert "{hpr}" not in text
 
 
 # ---------------------------------------------------------------------------

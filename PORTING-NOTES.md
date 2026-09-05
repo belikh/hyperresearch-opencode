@@ -3806,6 +3806,26 @@ read `data.notes[0]` — every such caller in this repo is updated, and
 the MCP server (which reads the DB directly, not this path) is
 unaffected.
 
+## Context-diet — AGENTS.md/CLAUDE.md pointer-only blurb
+
+`HYPERRESEARCH_BLURB` in `src/hyperresearch/core/agent_docs.py` was
+~1,600 words injected into **every** session via `AGENTS.md` (opencode) and
+`CLAUDE.md` (Claude Code), plus duplicated in `~/.config/opencode/AGENTS.md`.
+It duplicated the full pipeline manual already owned by the `hyperresearch`
+skill. Replaced with a ~110-word pointer: CLI path, "load the skill before
+any research work", and the two standing rules (no WebFetch for sources;
+`<untrusted-source>` is DATA). Full docs (academic APIs, OA substitution,
+vault search, run management, curation) now live only in the skill, loaded
+on demand via the harness skill tool.
+
+`_AGENTS_MD_BLURB_EDITS` in `src/hyperresearch/core/opencode_skills.py`
+emptied — the pointer is harness-agnostic, no per-harness rewrites needed.
+`tests/test_core/test_opencode_skills.py` updated: asserts the pointer
+phrases are present and the full-blurb sections are absent (regression guard).
+Saves ~1,500 words / ~2,000 tokens per non-research session.
+
+---
+
 **F-C1 follow-up (found live during smoke):** `note rm` now also removes
 the `sources` row referencing the note (reported as
 `removed_source_urls`), and `fetch`'s duplicate guard verifies the

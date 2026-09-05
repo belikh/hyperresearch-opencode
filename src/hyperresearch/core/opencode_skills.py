@@ -497,45 +497,12 @@ def render_command(commands_dir: Path) -> Path:
 # AGENTS.md injection (PARITY §15: CLAUDE.md blurb -> AGENTS.md)
 # ---------------------------------------------------------------------------
 
-# The ops blurb is upstream's HYPERRESEARCH_BLURB (already ported verbatim in
-# core/agent_docs.py) with ONLY the Claude-harness mechanics reworded to their
-# opencode equivalents. Every edit is listed in PORTING-NOTES.md §P2-14.
-_AGENTS_MD_BLURB_EDITS: tuple[tuple[str, str], ...] = (
-    # E1: skill location (S0-4 layout)
-    (
-        "The entry skill at `.claude/skills/hyperresearch/SKILL.md` is a thin ROUTER.",
-        "The entry skill at `.opencode/skills/hyperresearch/SKILL.md` is a thin ROUTER.",
-    ),
-    # E2: loading mechanism
-    (
-        "loaded fresh into context via the `Skill` tool when each step runs",
-        "loaded fresh into context via opencode's native `skill` tool when "
-        "each step runs",
-    ),
-    # E3: browser-lane drain reality (PARITY §17 deferral)
-    (
-        "The browser-fetcher agent drains them via the user's real Chrome; "
-        "CAPTCHAs / logins / 2FA are ALWAYS handed to the human, consolidated "
-        "into one message.",
-        "The escalation queue waits for a human or a future browser lane (the "
-        "Claude-side browser-fetcher agent is not installed in this opencode "
-        "port); CAPTCHAs / logins / 2FA are ALWAYS handed to the human, "
-        "consolidated into one message.",
-    ),
-    # E4: roster enumeration drops the non-installed browser-fetcher
-    (
-        "polish-auditor, readability-recommender, browser-fetcher)",
-        "polish-auditor, readability-recommender; the browser-fetcher lane is "
-        "deferred in this port)",
-    ),
-    # E5: spawn-contract noun
-    (
-        "The subagent spawn contract (every Task call passes the verbatim "
-        "research_query + pipeline position + inputs)",
-        "The subagent spawn contract (every task tool call passes the "
-        "verbatim research_query + pipeline position + inputs)",
-    ),
-)
+# Context-diet: the blurb is now a pointer-only stub (~110 words) that tells
+# the agent the skill exists and where the CLI lives; full pipeline docs live
+# in the `hyperresearch` skill loaded on demand. The stub is harness-agnostic
+# (opencode `skill` / Claude Code `Skill` both resolve `hyperresearch` by
+# name), so no per-harness rewrites are needed.
+_AGENTS_MD_BLURB_EDITS: tuple[tuple[str, str], ...] = ()
 
 
 def _agents_md_blurb(hpr_path: str) -> str:
